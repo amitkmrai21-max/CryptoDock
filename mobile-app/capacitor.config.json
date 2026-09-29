@@ -1,0 +1,14 @@
+{
+  "appId": "com.cryptodock.app",
+  "appName": "CryptoDock",
+  "webDir": "www",
+  "server": {
+    "url": "https://crypto.marketdock.in",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0b0e14"
+  },
+  "backgroundColor": "#0b0e14"
+}
