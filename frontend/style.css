@@ -177,9 +177,9 @@ body > header.topbar {
 }
 
 .brand-logo {
-  width: 54px;
-  height: 54px;
-  flex: 0 0 54px;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
   object-fit: contain;
   position: relative;
   top: 0;
@@ -192,7 +192,8 @@ body > header.topbar {
 }
 
 .brand-accent {
-  color: #0078f8;
+  color: #00e5ff;
+  text-shadow: 0 0 16px rgba(0, 229, 255, 0.45);
 }
 
 .brand p {
@@ -1947,9 +1948,9 @@ canvas {
 
 @media (max-width: 420px) {
   .brand-logo {
-    width: 48px;
-    height: 48px;
-    flex-basis: 48px;
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
   }
 
   .brand h1 {
