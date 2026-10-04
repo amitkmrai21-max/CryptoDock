@@ -82,6 +82,26 @@
     el("cdStatsStar").classList.toggle("is-active", starred);
   }
 
+  // Keep the whole card on screen: when it is taller than the window
+  // (short phone, large system font) scale it down — never below 72%.
+  function fit() {
+    const card = el("cdStats").querySelector(".cd-ticket");
+    if (!card || el("cdStats").hidden) return;
+    card.style.zoom = "";
+    card.style.maxHeight = "";
+    card.style.overflowY = "";
+    const room = window.innerHeight - 24;
+    const height = card.getBoundingClientRect().height;
+    if (height <= room) return;
+    const zoom = Math.max(0.72, room / height);
+    card.style.zoom = zoom.toFixed(3);
+    // Still too tall at the smallest size: let the card scroll.
+    if (height * zoom > room) {
+      card.style.maxHeight = Math.floor(room / zoom) + "px";
+      card.style.overflowY = "auto";
+    }
+  }
+
   async function load() {
     if (!base) return;
     const mine = ++seq;
@@ -90,8 +110,10 @@
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       if (mine !== seq || !base) return;
+      const first = !stats;
       stats = data;
       render();
+      if (first) fit();
     } catch (e) {
       // Keep what's shown; the market feed still updates price and range.
     }
@@ -112,6 +134,7 @@
     stats = null;
     render();
     el("cdStats").hidden = false;
+    fit();
     load();
     poll();
   }
@@ -137,5 +160,6 @@
   el("cdStatsStar").addEventListener("click", () => { if (window.cdToggleWatch && base) { window.cdToggleWatch(base); render(); } });
 
   window.addEventListener("cd-markets-updated", render);
+  window.addEventListener("resize", fit);
   window.cdOpenStats = open;
 })();
