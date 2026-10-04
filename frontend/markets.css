@@ -566,9 +566,13 @@
 }
 
 /* ---------- CryptoDock Pro (pro.js) ---------- */
+/* Pinned to the far right of the header. */
 .cd-upgrade-btn {
-  margin-left: auto;
-  margin-right: 48px;
+  position: absolute;
+  top: 50%;
+  right: 22px;
+  transform: translateY(-50%);
+  z-index: 61;
   padding: 6px 14px;
   border: 0;
   border-radius: 999px;
@@ -730,4 +734,14 @@
   /* Room for the bottom bar so it never covers the last row. */
   #btcModeRoot .content { padding-bottom: 92px; }
   .cd-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
+
+@media (max-width: 720px) {
+  .cd-upgrade-btn { right: 14px; padding: 6px 12px; font-size: 12px; }
+}
+
+/* In the app the ☰ settings button sits at the bottom-right, over the
+   bottom bar (as in the Indian market app) — leave room for it. */
+@media (max-width: 760px) {
+  html.capacitor-app #btcModeRoot .sidebar .nav { padding-right: 52px; }
 }
