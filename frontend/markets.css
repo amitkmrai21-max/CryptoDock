@@ -971,3 +971,20 @@
   line-height: 1.7;
 }
 .cd-page-notes li::marker { color: var(--purple, #a78bfa); }
+
+/* Phones: coin tables use the full width — ☆ sits at the left edge, the
+   coin right after it, and the 24h column gets room (it was clipped with
+   larger system font sizes). */
+@media (max-width: 520px) {
+  .cd-table-card { margin-left: -6px; margin-right: -6px; padding: 10px 4px; }
+  .cd-table-card .cd-table-head,
+  .cd-table-card .cd-scan-bar,
+  .cd-table-card > .cd-empty { padding-left: 8px; padding-right: 8px; }
+  .cd-table th, .cd-table td { padding-left: 3px; padding-right: 3px; }
+  .cd-table th.cd-col-star, .cd-table td:first-child { width: 22px; padding-left: 2px; padding-right: 0; }
+  .cd-star { padding: 0; font-size: 16px; }
+  .cd-table .cd-coin-cell { gap: 7px; }
+  .cd-table .cd-avatar { width: 26px; height: 26px; }
+  .cd-table .cd-num { font-size: 12.5px; }
+  .cd-table th:last-child, .cd-table td:last-child { padding-right: 6px; }
+}
