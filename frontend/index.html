@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-welcome-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-pro-ui-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1835,43 +1835,81 @@
   </div>
   <!-- Pro: gate, trial card and plans (pro.js) -->
   <div id="cdProGate" class="cd-ticket-overlay" hidden>
-    <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdProGateTitle">
-      <span class="cd-pro-badge">👑 CRYPTODOCK PRO</span>
-      <h3 id="cdProGateTitle">Pro feature</h3>
-      <p id="cdProGateText" class="cd-meta"></p>
-      <button id="cdProGatePrimary" class="cd-submit is-buy" type="button">Continue</button>
-      <button id="cdProGateClose" class="cd-ghost-btn" type="button">Not now</button>
+    <div class="cd-ticket cdp-card" role="dialog" aria-modal="true" aria-labelledby="cdProGateTitle">
+      <div class="cd-sheet-handle"></div>
+      <div class="cdp-crown" aria-hidden="true">👑</div>
+      <span class="cdp-badge">CRYPTODOCK PRO</span>
+      <h3 id="cdProGateTitle" class="cdp-title">Pro feature</h3>
+      <p id="cdProGateText" class="cdp-text"></p>
+      <div id="cdProGateExtra" class="cdp-extra">
+        <div class="cdp-feats">
+          <span><i>💹</i>Paper trading</span>
+          <span><i>🟩</i>Live Heatmap</span>
+          <span><i>🔔</i>Price Alerts</span>
+          <span><i>📊</i>Pro Charts</span>
+        </div>
+        <div class="cdp-prices">
+          <div><b>₹99</b><small>1 month</small></div>
+          <div><b>₹299</b><small>6 months</small></div>
+          <div class="is-best"><em>BEST VALUE</em><b>₹499</b><small>1 year</small></div>
+        </div>
+      </div>
+      <button id="cdProGatePrimary" class="cdp-primary" type="button">Continue</button>
+      <button id="cdProGateClose" class="cdp-ghost" type="button">Not now</button>
+      <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
 
   <div id="cdTrialCard" class="cd-ticket-overlay" hidden>
-    <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
-      <span class="cd-pro-badge cd-pro-badge--green">PRO TRIAL ACTIVATED · 7 DAYS</span>
-      <h3 id="cdTrialTitle">CryptoDock Pro unlocked</h3>
-      <p id="cdTrialText" class="cd-meta">Paper trading, Heatmap, Price Alerts and Pro Charts are free for 7 days.</p>
-      <div class="cd-plan-mini">
-        <div><strong>₹99</strong><span>1 month</span></div>
-        <div><strong>₹299</strong><span>6 months</span></div>
-        <div class="is-best"><strong>₹499</strong><span>1 year</span></div>
+    <div class="cd-ticket cdp-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
+      <div class="cd-sheet-handle"></div>
+      <span class="cdp-badge cdp-badge--green"><i class="cdp-dot"></i>PRO TRIAL ACTIVATED · 7 DAYS</span>
+      <h3 id="cdTrialTitle" class="cdp-title">CryptoDock Pro activated</h3>
+      <p id="cdTrialText" class="cdp-text">Paper trading, Heatmap, Price Alerts and Pro Charts are free for 7 days.</p>
+      <div class="cdp-matrix">
+        <div class="cdp-matrix-head"><span>PLANS AFTER THE TRIAL</span><em>Post-trial</em></div>
+        <div class="cdp-prices">
+          <div><small class="cdp-up">MONTHLY</small><b>₹99</b><small>1 month</small></div>
+          <div><small class="cdp-up">HALF-YEARLY</small><b>₹299</b><small>6 months</small></div>
+          <div class="is-best"><em>BEST VALUE</em><small class="cdp-up">ANNUAL</small><b>₹499</b><small>1 full year</small></div>
+        </div>
+        <p class="cdp-note"><span>✓</span>No automatic payment during the trial. Choose a plan any time from Upgrade.</p>
       </div>
-      <p class="cd-meta">No automatic payment during the trial. You can buy a plan any time from Upgrade.</p>
-      <button id="cdTrialAccept" class="cd-submit is-buy" type="button">Start my free trial →</button>
+      <button id="cdTrialAccept" class="cdp-primary cdp-primary--green" type="button">Start trading →</button>
     </div>
   </div>
 
   <div id="cdPlans" class="cd-ticket-overlay" hidden>
-    <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdPlansTitle">
+    <div class="cd-ticket cdp-card cdp-plans" role="dialog" aria-modal="true" aria-labelledby="cdPlansTitle">
       <div class="cd-sheet-handle"></div>
-      <div class="cd-ticket-head"><h3 id="cdPlansTitle">CryptoDock Pro plans</h3><button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
-      <p id="cdPlansStatus" class="cd-meta"></p>
-      <div class="cd-plan-list">
-        <label class="cd-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><span><strong>1 Month</strong><small>Paper trading, Heatmap, Alerts, Charts</small></span><b>₹99</b></label>
-        <label class="cd-plan"><input type="radio" name="cdPlan" value="Half-Yearly Plan" /><span><strong>6 Months</strong><small>₹50/month</small></span><b>₹299</b></label>
-        <label class="cd-plan is-best"><input type="radio" name="cdPlan" value="Annual Plan" checked /><span><strong>1 Year</strong><small>Best value · ₹42/month</small></span><b>₹499</b></label>
+      <div class="cdp-plans-head">
+        <div class="cdp-crown cdp-crown--sm" aria-hidden="true">👑</div>
+        <div>
+          <h3 id="cdPlansTitle" class="cdp-title">Choose your plan</h3>
+          <p class="cdp-sub">Unlock every CryptoDock Pro feature</p>
+        </div>
+        <button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+      </div>
+      <p id="cdPlansStatus" class="cdp-status"></p>
+      <div class="cdp-plan-list">
+        <label class="cdp-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><i class="cdp-radio"></i>
+          <span class="cdp-plan-name"><strong>Monthly</strong><small>1 month access</small></span>
+          <span class="cdp-plan-price"><b>₹99</b><small>/ month</small></span></label>
+        <label class="cdp-plan"><input type="radio" name="cdPlan" value="Half-Yearly Plan" /><i class="cdp-radio"></i>
+          <span class="cdp-plan-name"><strong>Half-Yearly <em>SAVE 50%</em></strong><small>6 months · ₹50/month</small></span>
+          <span class="cdp-plan-price"><b>₹299</b><small>/ 6 months</small></span></label>
+        <label class="cdp-plan is-best"><span class="cdp-ribbon">MOST POPULAR</span><input type="radio" name="cdPlan" value="Annual Plan" checked /><i class="cdp-radio"></i>
+          <span class="cdp-plan-name"><strong>Annual <em>SAVE 58%</em></strong><small>12 months · ₹42/month</small></span>
+          <span class="cdp-plan-price"><b>₹499</b><small>/ year</small></span></label>
+      </div>
+      <div class="cdp-included">
+        <p>INCLUDED IN EVERY PLAN</p>
+        <ul><li>Unlimited paper trading</li><li>Live Heatmap</li><li>Price Alerts</li><li>Pro TradingView charts</li></ul>
       </div>
       <p id="cdPlansError" class="cd-ticket-error" hidden></p>
-      <button id="cdPlansPay" class="cd-submit is-buy" type="button">Pay ₹499 securely</button>
-      <p class="cd-meta" style="text-align:center;margin:0">Secure payment by Razorpay · UPI, cards, net banking</p>
+      <button id="cdPlansPay" class="cdp-primary" type="button">Pay ₹499 securely</button>
+      <div class="cdp-pay-row"><span>🔒 Secured by Razorpay</span><span class="cdp-chips"><i>UPI</i><i>Cards</i><i>Net banking</i></span></div>
+      <p class="cdp-trust">One-time payment · No auto-renewal</p>
     </div>
   </div>
   <script src="/frontend/tabbar.js?v=20261004-tabs-2"></script>
@@ -1881,7 +1919,7 @@
   <script src="/frontend/news.js?v=20261004-news-1"></script>
   <script src="/frontend/welcome.js?v=20261004-welcome-1"></script>
   <script src="/frontend/fit-line.js?v=20261004-line-1"></script>
-  <script src="/frontend/pro.js?v=20261004-back-1"></script>
+  <script src="/frontend/pro.js?v=20261004-pro-ui-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

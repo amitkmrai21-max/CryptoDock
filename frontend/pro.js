@@ -87,6 +87,8 @@
   }
 
   function showGate(acc, feature) {
+    // Features and prices only where a plan is the next step.
+    el("cdProGateExtra").hidden = acc.reason === "checking";
     const title = el("cdProGateTitle");
     const text = el("cdProGateText");
     const primary = el("cdProGatePrimary");
@@ -279,6 +281,7 @@
   }
 
   function showDone(text) {
+    el("cdProGateExtra").hidden = true;
     el("cdProGateTitle").textContent = "Welcome to CryptoDock Pro";
     el("cdProGateText").textContent = text;
     el("cdProGatePrimary").textContent = "Start trading";
