@@ -468,11 +468,10 @@
     nav.scrollTo({ left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2, behavior: "smooth" });
   }
 
-  // The BTC Refresh / Run Gemini / Run Groq bar belongs to the old BTC
-  // chart tools, not to the all-coins Dashboard or Watchlist.
+  // The "Refresh Technical" bar belongs to the old BTC chart tools only.
   function syncTopbar() {
     const bar = document.querySelector(".btc-topbar");
-    if (bar) bar.hidden = onMarketsPage();
+    if (bar) bar.hidden = !["live-chart", "technical", "tools"].includes(activePanel());
   }
 
   // ---------- events ----------
