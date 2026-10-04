@@ -2495,8 +2495,10 @@ setInterval(loadRrg, 300000);
     // the system browser — and a plain redirectTo would then land the
     // finished login back in that browser tab, not the app. Route this case
     // through Capacitor's Browser plugin plus a custom-scheme deep link
-    // (registered in AndroidManifest.xml) so the app gets control back.
-    const APP_OAUTH_REDIRECT = "com.marketdock.app://auth-callback";
+    // (added to AndroidManifest.xml by the Android build workflow) so the
+    // app gets control back. CryptoDock's own scheme — MarketDock's would
+    // hand the login to the MarketDock app instead.
+    const APP_OAUTH_REDIRECT = "com.cryptodock.app://auth-callback";
     const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.();
 
     googleBtn?.addEventListener("click", async () => {
@@ -2514,7 +2516,10 @@ setInterval(loadRrg, 300000);
 
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: "google",
-          options: { redirectTo: window.location.href }
+          // Back to this CryptoDock page (must be listed in Supabase →
+          // Auth → URL Configuration, or Supabase sends people to its
+          // Site URL, which is MarketDock).
+          options: { redirectTo: window.location.origin + window.location.pathname }
         });
         if (error) throw error;
         // On success the browser navigates to Google now; there's nothing
@@ -2524,7 +2529,7 @@ setInterval(loadRrg, 300000);
       }
     });
 
-    // Catches the app reopening via the com.marketdock.app://auth-callback
+    // Catches the app reopening via the com.cryptodock.app://auth-callback
     // deep link once Google Sign-In finishes in the system browser tab.
     window.Capacitor?.Plugins?.App?.addListener("appUrlOpen", async (event) => {
       const url = event?.url || "";
@@ -2584,7 +2589,12 @@ setInterval(loadRrg, 300000);
       setStatus("Creating your account...", false);
       await setButtonsBusy(true);
       try {
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        const { data, error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          // The confirmation email links back to CryptoDock, not MarketDock.
+          options: { emailRedirectTo: window.location.origin + "/" },
+        });
         if (error) throw error;
         passwordInput.value = "";
         if (data?.session) {

@@ -36,6 +36,25 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Deep link for Google sign-in (com.cryptodock.app://auth-callback)
+        working-directory: mobile-app/android
+        run: |
+          python3 - <<'PY'
+          path = "app/src/main/AndroidManifest.xml"
+          text = open(path).read()
+          if 'android:host="auth-callback"' not in text:
+              link = """
+                      <intent-filter>
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="com.cryptodock.app" android:host="auth-callback" />
+                      </intent-filter>"""
+              text = text.replace("</intent-filter>", "</intent-filter>" + link, 1)
+              open(path, "w").write(text)
+          PY
+          grep -n "auth-callback\|launchMode" app/src/main/AndroidManifest.xml
+
       - name: App icon and splash from mobile-app/assets
         working-directory: mobile-app
         run: npx --yes @capacitor/assets@3 generate --android
