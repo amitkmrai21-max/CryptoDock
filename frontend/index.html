@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-home-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-motion-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1885,11 +1885,12 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20261004-paper-1"></script>
+  <script src="/frontend/app.js?v=20261004-motion-1"></script>
 
   <!-- Paper trading order ticket (paper.js) -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket" role="dialog" aria-modal="true" aria-labelledby="cdTicketTitle">
+      <div class="cd-sheet-handle"></div>
       <div class="cd-ticket-head">
         <div class="cd-coin-cell"><span id="cdTicketAvatar"></span><div><strong id="cdTicketTitle">--</strong><small>/USDT · Paper trade</small></div></div>
         <span class="cd-ticket-head-actions">
@@ -2030,6 +2031,7 @@
 
   <div id="cdPlans" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdPlansTitle">
+      <div class="cd-sheet-handle"></div>
       <div class="cd-ticket-head"><h3 id="cdPlansTitle">CryptoDock Pro plans</h3><button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
       <p id="cdPlansStatus" class="cd-meta"></p>
       <div class="cd-plan-list">
@@ -2044,6 +2046,7 @@
   </div>
   <script src="/frontend/tabbar.js?v=20261004-home-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261004-btn-1"></script>
+  <script src="/frontend/sheet-motion.js?v=20261004-motion-1"></script>
   <script src="/frontend/pro.js?v=20261004-scan-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
