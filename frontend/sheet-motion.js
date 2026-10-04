@@ -43,10 +43,10 @@
       const hidden = overlay.hidden;
       if (hidden === wasHidden) return;
       wasHidden = hidden;
-      if (ourHide.has(overlay)) { ourHide.delete(overlay); return; }
+      if (ourHide.has(overlay)) { ourHide.delete(overlay); backClosed(); return; }
       if (!hidden && closingNow.has(overlay)) return; // our own re-show while sliding out
-      if (hidden) { wasHidden = false; animateOut(overlay); }
-      else animateIn(overlay);
+      if (hidden) { wasHidden = false; animateOut(overlay); backClosed(); }
+      else { animateIn(overlay); backOpened(); }
     }).observe(overlay, { attributes: true, attributeFilter: ["hidden"] });
     enableSwipe(overlay);
   }
@@ -120,6 +120,61 @@
     ourHide.add(overlay);
     overlay.hidden = true;
   };
+
+  // ---------- phone / browser Back closes the top card ----------
+  // While a sheet, card or the Settings drawer is open there is one extra
+  // history entry, so Android's Back button (in the app and in Chrome)
+  // closes it instead of leaving CryptoDock. Closing it any other way (×,
+  // Not now, tapping outside, swiping down) drops that entry again.
+  const drawer = document.getElementById("settingsDrawer");
+  let guard = false;        // our history entry is on top
+  let ignorePops = 0;       // pops we caused ourselves
+  let dropTimer = null;
+
+  const openOverlays = () => [...document.querySelectorAll(OVERLAY)].filter((o) => !o.hidden && !closingNow.has(o));
+  const settingsOpen = () => !!(drawer && drawer.classList.contains("open"));
+  const anyOpen = () => openOverlays().length > 0 || settingsOpen();
+
+  function backOpened() {
+    clearTimeout(dropTimer);
+    if (guard) return;
+    try { history.pushState({ cdSheet: Date.now() }, ""); guard = true; } catch (e) { /* history blocked */ }
+  }
+
+  // A card handing over to another (coin sheet → ticket) closes and opens
+  // within a few ms, so wait a moment before giving the entry back.
+  function backClosed() {
+    clearTimeout(dropTimer);
+    dropTimer = setTimeout(() => {
+      if (guard && !anyOpen()) {
+        guard = false;
+        ignorePops += 1;
+        history.back();
+      }
+    }, 350);
+  }
+
+  window.addEventListener("popstate", () => {
+    if (ignorePops > 0) { ignorePops -= 1; return; }
+    if (!guard) return;
+    guard = false;
+    const open = openOverlays();
+    if (open.length) closeOverlay(open[open.length - 1]);
+    else if (settingsOpen()) document.getElementById("settingsCloseButton")?.click();
+    // Something still open underneath: keep Back working for it too.
+    setTimeout(() => { if (anyOpen()) backOpened(); }, 0);
+  });
+
+  if (drawer) {
+    let wasOpen = settingsOpen();
+    new MutationObserver(() => {
+      const open = settingsOpen();
+      if (open === wasOpen) return;
+      wasOpen = open;
+      if (open) backOpened();
+      else backClosed();
+    }).observe(drawer, { attributes: true, attributeFilter: ["class"] });
+  }
 
   document.querySelectorAll(OVERLAY).forEach(watch);
 })();
