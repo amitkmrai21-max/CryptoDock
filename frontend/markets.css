@@ -1,3 +1,9 @@
+/* Numbers (prices, %, volumes) use Manrope with tabular figures: digits
+   line up in columns like a monospace font, and 0 is a plain 0 (IBM Plex
+   Mono, used before, draws a dot inside it). */
+:root { --cd-num-font: "Manrope", system-ui, sans-serif; }
+body { font-variant-numeric: tabular-nums; }
+
 /* All-coins Dashboard and Watchlist (markets.js). Uses the app's theme
    variables, so dark/light/midnight themes all apply. */
 
@@ -53,7 +59,7 @@
 }
 
 .cd-key-price {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--cd-num-font);
   font-size: 17px;
   font-weight: 700;
   overflow: hidden;
@@ -63,7 +69,7 @@
 
 .cd-key-inr {
   color: var(--muted);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--cd-num-font);
   font-size: 12.5px;
 }
 
@@ -160,7 +166,7 @@
 
 .cd-mover-right {
   text-align: right;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--cd-num-font);
   font-size: 12.5px;
   line-height: 1.3;
 }
@@ -223,7 +229,7 @@
 
 .cd-table .cd-num {
   text-align: right;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--cd-num-font);
   white-space: nowrap;
 }
 
@@ -327,7 +333,7 @@
 }
 
 .cd-fund span { color: var(--muted); font-size: 12px; font-weight: 700; }
-.cd-fund strong { font-family: "IBM Plex Mono", monospace; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-fund strong { font-family: var(--cd-num-font); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-fund small { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-fund strong.cd-up { color: var(--green); }
 .cd-fund strong.cd-down { color: var(--red); }
@@ -353,8 +359,8 @@
 .cd-hold-row:first-child { border-top: 0; }
 .cd-hold-row small { display: block; color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-hold-row .cd-coin-cell > span { min-width: 0; }
-.cd-hold-mid { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; min-width: 0; }
-.cd-hold-pnl { font-family: "IBM Plex Mono", monospace; font-weight: 700; text-align: right; }
+.cd-hold-mid { font-family: var(--cd-num-font); font-size: 12.5px; min-width: 0; }
+.cd-hold-pnl { font-family: var(--cd-num-font); font-weight: 700; text-align: right; }
 .cd-hold-pnl small { text-align: right; }
 
 .cd-pills { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -427,7 +433,7 @@
 .cd-ticket-head strong { font-size: 17px; }
 .cd-ticket-close { border: 0; background: none; color: var(--muted); font-size: 26px; line-height: 1; cursor: pointer; }
 .cd-ticket-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
-.cd-ticket-price strong { font-family: "IBM Plex Mono", monospace; font-size: 22px; }
+.cd-ticket-price strong { font-family: var(--cd-num-font); font-size: 22px; }
 .cd-ticket-price .cd-meta { margin: 0; }
 
 .cd-side-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
@@ -444,7 +450,7 @@
   border: 1px solid var(--border);
   background: var(--surface-soft);
   color: var(--text);
-  font-family: "IBM Plex Mono", monospace;
+  font-family: var(--cd-num-font);
   font-size: 15px;
 }
 
@@ -453,7 +459,7 @@
 .cd-ticket-summary { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface-soft); font-size: 13px; }
 .cd-ticket-summary div { display: flex; justify-content: space-between; gap: 10px; }
 .cd-ticket-summary span { color: var(--muted); }
-.cd-ticket-summary strong { font-family: "IBM Plex Mono", monospace; text-align: right; }
+.cd-ticket-summary strong { font-family: var(--cd-num-font); text-align: right; }
 
 .cd-ticket-error { margin: 0; color: var(--red); font-size: 13px; font-weight: 600; }
 .cd-ticket-error[hidden] { display: none; }
@@ -497,7 +503,7 @@
 /* ---------- Coin Detail / Scanner / Heatmap (coin-tools.js) ---------- */
 .cd-ticket-head-actions { display: inline-flex; align-items: center; gap: 8px; }
 .cd-coin-price-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
-.cd-coin-price-row strong { font-family: "IBM Plex Mono", monospace; font-size: 26px; }
+.cd-coin-price-row strong { font-family: var(--cd-num-font); font-size: 26px; }
 .cd-coin-price-row .cd-meta { margin: 0; font-size: 14px; }
 .cd-coin-price-row span:last-child { font-weight: 700; }
 .cd-coin-chart { width: 100%; height: 380px; margin-top: 10px; }
@@ -529,7 +535,7 @@
 }
 
 .cd-heat-tile strong { font-size: 13.5px; letter-spacing: 0.2px; }
-.cd-heat-tile span { font-family: "IBM Plex Mono", monospace; font-size: 12px; opacity: 0.95; }
+.cd-heat-tile span { font-family: var(--cd-num-font); font-size: 12px; opacity: 0.95; }
 .cd-heat-tile.is-big { grid-column: span 2; min-height: 96px; }
 .cd-heat-tile.is-big strong { font-size: 16px; }
 
@@ -635,12 +641,12 @@
 .cd-sheet-badge { margin-left: 6px; padding: 2px 7px; border-radius: 6px; background: var(--surface-soft); color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.4px; vertical-align: middle; }
 .cd-sheet .cd-coin-cell small { display: block; }
 .cd-sheet-price-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
-.cd-sheet-price-row strong#cdSheetPrice { display: block; font-family: "IBM Plex Mono", monospace; font-size: 24px; }
+.cd-sheet-price-row strong#cdSheetPrice { display: block; font-family: var(--cd-num-font); font-size: 24px; }
 .cd-sheet-price-row #cdSheetChange { font-weight: 700; margin-right: 8px; }
 .cd-sheet-price-row .cd-meta { margin: 0; }
 .cd-sheet-vol { display: flex; flex-direction: column; align-items: flex-end; }
 .cd-sheet-vol span { color: var(--muted); font-size: 10.5px; font-weight: 800; letter-spacing: 0.4px; }
-.cd-sheet-vol strong { font-family: "IBM Plex Mono", monospace; }
+.cd-sheet-vol strong { font-family: var(--cd-num-font); }
 .cd-sheet-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .cd-sheet-actions .cd-pill { padding: 8px 6px; text-align: center; color: var(--text); }
 .cd-sheet-actions .cd-pill.is-active { color: var(--yellow); }
@@ -650,7 +656,7 @@
 
 .cd-depth { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cd-depth-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 700; padding: 0 4px 4px; }
-.cd-depth-row { position: relative; display: flex; justify-content: space-between; gap: 6px; padding: 4px; font-family: "IBM Plex Mono", monospace; font-size: 12px; overflow: hidden; }
+.cd-depth-row { position: relative; display: flex; justify-content: space-between; gap: 6px; padding: 4px; font-family: var(--cd-num-font); font-size: 12px; overflow: hidden; }
 .cd-depth-row i { position: absolute; top: 1px; bottom: 1px; right: 0; border-radius: 3px; opacity: 0.16; }
 .cd-depth-row span { position: relative; }
 .cd-depth-bid i { background: var(--green); }
@@ -658,14 +664,14 @@
 .cd-depth-bid span:first-of-type { color: var(--green); }
 .cd-depth-ask span:first-of-type { color: var(--red); }
 
-.cd-range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+.cd-range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-family: var(--cd-num-font); font-size: 12px; }
 .cd-range-bar { position: relative; height: 6px; border-radius: 999px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); opacity: 0.85; }
 .cd-range-bar i { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--text); border: 2px solid var(--surface); transform: translate(-50%, -50%); }
 
 .cd-sheet-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cd-sheet-stats div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--surface-soft); }
 .cd-sheet-stats span { color: var(--muted); font-size: 11.5px; font-weight: 700; }
-.cd-sheet-stats strong { font-family: "IBM Plex Mono", monospace; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-sheet-stats strong { font-family: var(--cd-num-font); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cd-sheet-footer { position: sticky; bottom: -18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 -18px -18px; padding: 12px 18px 18px; background: var(--surface); border-top: 1px solid var(--border); }
 
@@ -771,7 +777,7 @@
 .cd-tick .cd-avatar { width: 26px; height: 26px; }
 .cd-tick-text { display: flex; flex-direction: column; text-align: left; line-height: 1.25; }
 .cd-tick-text strong { font-size: 12.5px; }
-.cd-tick-text span { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.cd-tick-text span { font-family: var(--cd-num-font); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 .cd-tick-text em { font-style: normal; font-weight: 700; margin-left: 4px; }
 .cd-ticker-more { flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--surface-soft); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; }
 
@@ -806,9 +812,9 @@
 .cd-feature-top .cd-avatar { width: 30px; height: 30px; }
 .cd-feature-live { margin-left: auto; padding: 2px 8px; border-radius: 999px; background: rgba(52, 211, 153, 0.14); color: var(--green); font-size: 10.5px; font-weight: 800; }
 .cd-feature-price-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
-.cd-feature-price { font-family: "IBM Plex Mono", monospace; font-size: 20px; font-weight: 800; }
+.cd-feature-price { font-family: var(--cd-num-font); font-size: 20px; font-weight: 800; }
 .cd-feature-pct { font-weight: 800; font-size: 14px; }
-.cd-feature-sub { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+.cd-feature-sub { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-family: var(--cd-num-font); font-size: 12px; }
 .cd-spark { width: 100%; height: 44px; margin-top: 4px; }
 
 /* Movers */
@@ -836,8 +842,8 @@
 .cd-mini-coin { display: flex; flex-direction: column; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); cursor: pointer; min-width: 0; }
 .cd-mini-top { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .cd-mini-top .cd-avatar { width: 22px; height: 22px; font-size: 8px; }
-.cd-mini-price { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cd-mini-pct { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 700; }
+.cd-mini-price { font-family: var(--cd-num-font); font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-mini-pct { font-family: var(--cd-num-font); font-size: 12px; font-weight: 700; }
 .cd-home-meta { margin: 10px 0 0; font-size: 11.5px; }
 .cd-mood .cd-panel-head { margin-bottom: 10px; }
 .cd-mood-text { margin-left: auto; font-size: 12.5px; font-weight: 800; }
@@ -1140,7 +1146,7 @@
 .cd-wl-slide .cd-table-wrap { overflow-x: visible; }
 
 /* Coin stats sheet (coin-stats.js) — what a Scanner row opens. */
-.cd-stats-price { display: block; font-family: "IBM Plex Mono", monospace; font-size: 24px; }
+.cd-stats-price { display: block; font-family: var(--cd-num-font); font-size: 24px; }
 #cdStatsChange { font-weight: 700; margin-right: 8px; }
 .cd-stats-tags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .cd-stats-tags .cd-meta { margin: 0; font-size: 11px; font-weight: 700; }
@@ -1151,9 +1157,9 @@
 .cd-perf { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .cd-perf > div { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-soft); font-size: 11.5px; }
 .cd-perf b { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 12px; }
-.cd-perf b span { font-family: "IBM Plex Mono", monospace; }
+.cd-perf b span { font-family: var(--cd-num-font); }
 .cd-perf em { color: var(--muted); font-style: normal; font-weight: 700; }
-.cd-perf i { font-style: normal; font-family: "IBM Plex Mono", monospace; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-perf i { font-style: normal; font-family: var(--cd-num-font); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-stats-note { margin: -4px 0 0; text-align: center; font-size: 11px; }
 @media (max-width: 380px) {
   .cd-stats-sheet .cd-sheet-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
