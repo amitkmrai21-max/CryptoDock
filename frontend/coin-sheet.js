@@ -97,10 +97,13 @@
     clearTimeout(depthTimer);
   }
 
-  // Leave the sheet, then run the next step (ticket, chart, alert).
+  // Leave the sheet, then run the next step (ticket, chart, alert). The
+  // sheet goes at once rather than sliding down, so the next sheet's slide
+  // up is the only animation running (two at once stuttered on phones).
   function then(action) {
     const current = base;
     close();
+    if (window.cdHideSheetNow) window.cdHideSheetNow(el("cdSheet"));
     action(current);
   }
 
