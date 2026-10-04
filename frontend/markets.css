@@ -1017,3 +1017,14 @@
   .cd-table .cd-mom-pill { font-size: 10px; padding: 2px 6px; gap: 3px; }
   .cd-table-card .cd-mom-summary { padding: 0 8px; }
 }
+
+/* Watchlist tables: $ price only (no ₹ line). On phones the 24h % sits
+   under the price instead of under the momentum pill. */
+.cd-price-chg { display: none; }
+.cd-sub.cd-price-chg.cd-up { color: var(--green); }
+.cd-sub.cd-price-chg.cd-down { color: var(--red); }
+.cd-watch-table .cd-inr { display: none; }
+@media (max-width: 520px) {
+  .cd-watch-table .cd-price-chg { display: block; font-size: 12px; margin-top: 2px; }
+  .cd-watch-table .cd-mom-chg { display: none; }
+}

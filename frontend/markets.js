@@ -124,7 +124,7 @@
     return `<tr data-base="${escapeHtml(coin.base)}">
       <td><button class="cd-star${on ? " is-on" : ""}" type="button" data-star="${escapeHtml(coin.base)}" aria-label="${on ? "Remove from" : "Add to"} watchlist">${on ? "★" : "☆"}</button></td>
       <td><div class="cd-coin-cell">${avatar(coin.base)}<div><strong>${escapeHtml(coin.base)}</strong><small>/USDT</small></div></div></td>
-      <td class="cd-num">${fmtUsd(coin.price)}<span class="cd-sub">${fmtInr(coin.price)}</span></td>
+      <td class="cd-num">${fmtUsd(coin.price)}<span class="cd-sub cd-inr">${fmtInr(coin.price)}</span><span class="cd-sub cd-price-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></td>
       <td class="cd-num cd-col-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</td>
       <td class="cd-num cd-col-mom">${momPill(coin)}<span class="cd-mom-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></td>
       <td class="cd-num cd-col-wide">${fmtUsd(coin.high)}<span class="cd-sub">${fmtUsd(coin.low)}</span></td>

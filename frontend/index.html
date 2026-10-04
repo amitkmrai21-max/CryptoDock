@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-mom-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-mom-2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -535,7 +535,7 @@
           </div>
           <div class="cd-mom-summary" id="cdMomSummary" aria-label="Momentum summary"></div>
           <div class="cd-table-wrap">
-            <table class="cd-table">
+            <table class="cd-table cd-watch-table">
               <thead>
                 <tr>
                   <th class="cd-col-star" aria-label="Watchlist"></th>
@@ -558,7 +558,7 @@
             <input id="cdWatchSearch" class="cd-search" type="search" placeholder="Search to add a coin…" autocomplete="off" />
           </div>
           <div class="cd-table-wrap">
-            <table class="cd-table">
+            <table class="cd-table cd-watch-table">
               <thead>
                 <tr>
                   <th class="cd-col-star" aria-label="Watchlist"></th>
@@ -575,7 +575,7 @@
           </div>
           <p id="cdWatchEmpty" class="cd-empty" hidden>No starred coins yet — tap ☆ next to any coin in All Coins.</p>
         </section>
-        <ul class="cd-page-notes"><li>Live prices in $ and ₹</li><li>Tap a coin to Buy / Sell (virtual money)</li><li>Tap ☆ to save it in Starred</li><li>Momentum 0–100 = 24h move + range, not advice</li></ul>
+        <ul class="cd-page-notes"><li>Live prices, updated every few seconds</li><li>Tap a coin to Buy / Sell (virtual money)</li><li>Tap ☆ to save it in Starred</li><li>Momentum 0–100 = 24h move + range, not advice</li></ul>
       </div>
     </section>
 
@@ -1941,7 +1941,7 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-mom-1"></script>
+  <script src="/frontend/markets.js?v=20261004-mom-2"></script>
   <script src="/frontend/paper.js?v=20261004-btn-1"></script>
   <script src="/frontend/coin-tools.js?v=20261004-mom-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
