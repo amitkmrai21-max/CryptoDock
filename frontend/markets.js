@@ -248,7 +248,7 @@
       // The page-wide Live badge already shows the feed state; only say
       // something here when these prices have stopped updating.
       const stale = lastOkAt && Date.now() - lastOkAt > POLL_MS * 4 ? " · Reconnecting…" : "";
-      meta.textContent = `${coins.length} coins on Binance · 1 USDT = ${usdtInr ? "₹" + usdtInr.toFixed(2) : "₹--"}${stale}`;
+      meta.textContent = `${coins.length} coins live · 1 USDT = ${usdtInr ? "₹" + usdtInr.toFixed(2) : "₹--"}${stale}`;
     }
   }
 
