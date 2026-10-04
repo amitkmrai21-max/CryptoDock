@@ -4,16 +4,12 @@ import os
 import re
 import time
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 
 import requests
-from fastapi import Body, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
-from google import genai
-from google.genai import types
-from groq import Groq
 
 app = FastAPI(title="CryptoDock - BTC & Crypto Intelligence")
 
@@ -47,29 +43,13 @@ SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh"
 
 BINANCE_BASE_URL = "https://data-api.binance.vision"
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-AI_NEWS_LIMIT = 15
-RSS_NEWS_TIMEOUT_SECONDS = 12
 TECHNICAL_CACHE_SECONDS = 30
 TECHNICAL_DELAYED_SECONDS = 90
-GROQ_LIVE_COOLDOWN_SECONDS = 20
-GROQ_NEWS_COOLDOWN_SECONDS = 60
-
-RSS_NEWS_SOURCES = [
-    {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
-    {"name": "Cointelegraph", "url": "https://cointelegraph.com/rss"},
-    {"name": "Decrypt", "url": "https://decrypt.co/feed"},
-    {"name": "Bitcoin Magazine", "url": "https://bitcoinmagazine.com/.rss/full/"},
-]
 
 price_cache = {"data": None, "updated_at": 0}
 chart_cache = {"data": {}, "updated_at": 0}
-ai_signal_cache = {"data": None, "updated_at": 0}
 technical_cache = {"data": None, "updated_at": 0}
 rrg_cache = {"data": {}, "updated_at": 0}
-groq_live_cache = {"data": None, "updated_at": 0}
-groq_news_cache = {"data": None, "updated_at": 0}
 
 
 def get_ticker(symbol="BTCUSDT"):
@@ -1115,36 +1095,6 @@ def build_technical_response(market_data, cached=False, cache_age=0.0, refresh_e
     return result
 
 
-def build_ai_prompt(market_data, technical_result):
-    return f"""
-You are an advanced but cautious BTCUSDT market-analysis assistant for an educational dashboard.
-Analyze ONLY the supplied live Binance technical data and deterministic technical classification below. Do not use web search, external news, or information not present in this prompt.
-
-LIVE BINANCE TECHNICAL DATA:
-{json.dumps(market_data, indent=2)}
-
-DETERMINISTIC MULTI-TIMEFRAME TECHNICAL CLASSIFICATION:
-{json.dumps(technical_result, indent=2)}
-
-PRIMARY DECISION RULES:
-- The signal must be exactly BUY, SELL, or HOLD. No other label is allowed.
-- Treat the deterministic classification above as one input among several, not the final word. Form your own independent judgment on whether the combined data (trend, RSI, MACD, ADX, volume relative to average, and proximity to breakout/support/resistance levels) genuinely supports a BUY, SELL, or HOLD call. You are not required to match the deterministic classification's signal: if you independently see a clear, well-supported directional case, say BUY or SELL even if the deterministic classification says HOLD. Equally, say HOLD if you independently think the case is too weak or mixed, even if the deterministic classification leans BUY or SELL. Never call BUY or SELL on genuinely thin or contradictory evidence just to give an answer — HOLD is the right call when the data doesn't clearly support a direction.
-- Do not invent prices, volume readings, candle closes, news events or confirmations.
-- Use simple Hinglish for reason and confirmation_needed. No profit promises, certainty language, or order-placement wording.
-- Always return numeric entry_price, stop_loss_price, target_1_price and target_2_price.
-- For BUY: stop_loss_price must be below entry_price, target_1_price and target_2_price above entry_price (stop_loss_price < entry_price < target_1_price < target_2_price).
-- For SELL: stop_loss_price must be above entry_price, target_1_price and target_2_price below entry_price (target_2_price < target_1_price < entry_price < stop_loss_price).
-- For HOLD: set all four price fields to 0.
-- confidence must reflect how clearly the supplied data supports your signal classification, not "confidence to trade". Base it on the whole technical picture together: trend strength (ADX), momentum (RSI distance from 50), MACD state, volume relative to average, and how close price currently is to the relevant breakout/invalidation level — not any single indicator alone. A HOLD from genuinely mixed or conflicting data can still be a meaningful confidence (for example 40-60); only use a low number like 0-20 when the data is truly sparse or contradictory.
-- Write "reason" as your own independent analysis, in your own words — do not copy the "reason" or "final_conclusion" text from the deterministic technical classification verbatim or near-verbatim. You may agree with its conclusion, but explain WHY in your own phrasing, citing the specific numbers (RSI, volume ratio, ADX, price vs key levels) that led you there.
-"""
-
-
-def get_ai_response_schema():
-    timeframe_schema = {"type": "object", "properties": {"signal": {"type": "string", "enum": ["BULLISH", "BEARISH", "NEUTRAL"]}, "summary": {"type": "string"}, "key_level": {"type": "string"}}, "required": ["signal", "summary", "key_level"]}
-    return {"type": "object", "properties": {"signal": {"type": "string", "enum": ["BUY", "SELL", "HOLD"]}, "confidence": {"type": "integer", "minimum": 0, "maximum": 100}, "risk": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]}, "market_bias": {"type": "string"}, "setup_status": {"type": "string"}, "reason": {"type": "string"}, "confirmation_needed": {"type": "string"}, "entry_idea": {"type": "string"}, "stop_loss_idea": {"type": "string"}, "target_1": {"type": "string"}, "target_2": {"type": "string"}, "entry_price": {"type": "number"}, "stop_loss_price": {"type": "number"}, "target_1_price": {"type": "number"}, "target_2_price": {"type": "number"}, "timeframes": {"type": "object", "properties": {"15m": timeframe_schema, "1h": timeframe_schema, "4h": timeframe_schema}, "required": ["15m", "1h", "4h"]}}, "required": ["signal", "confidence", "risk", "market_bias", "setup_status", "reason", "confirmation_needed", "entry_idea", "stop_loss_idea", "target_1", "target_2", "entry_price", "stop_loss_price", "target_1_price", "target_2_price", "timeframes"]}
-
-
 def build_rrg_data(interval):
     settings = {"1h": {"limit": 220, "lookback": 60, "tail": 4}, "1d": {"limit": 220, "lookback": 30, "tail": 4}}
     if interval not in settings:
@@ -1183,162 +1133,270 @@ def strip_html(text):
     return " ".join(text.split())
 
 
-def parse_rss_time(value):
-    if not value:
+# ================= NEWS (publishers' RSS feeds, no AI) =================
+# Headlines, a short summary, the story's picture and a link to the
+# original article, straight from each publisher's own RSS feed. English
+# feeds are crypto sites; Hindi feeds are business sections filtered to
+# crypto stories. Cached for a few minutes; a feed that fails is skipped.
+import concurrent.futures
+import hashlib
+import html as html_lib
+import threading
+import xml.etree.ElementTree as element_tree
+from email.utils import parsedate_to_datetime
+
+NEWS_CACHE_SECONDS = 180
+NEWS_FEED_TIMEOUT_SECONDS = 10
+NEWS_IMAGE_TIMEOUT_SECONDS = 6
+NEWS_MAX_AGE_SECONDS = 7 * 24 * 3600
+NEWS_LIMIT = 80
+NEWS_SOURCES = {
+    "en": [
+        {"name": "CoinDesk", "site": "coindesk.com", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
+        {"name": "Cointelegraph", "site": "cointelegraph.com", "url": "https://cointelegraph.com/rss"},
+        {"name": "Decrypt", "site": "decrypt.co", "url": "https://decrypt.co/feed"},
+        {"name": "Bitcoin Magazine", "site": "bitcoinmagazine.com", "url": "https://bitcoinmagazine.com/.rss/full/"},
+        {"name": "CryptoSlate", "site": "cryptoslate.com", "url": "https://cryptoslate.com/feed/"},
+        {"name": "The Block", "site": "theblock.co", "url": "https://www.theblock.co/rss.xml"},
+        {"name": "U.Today", "site": "u.today", "url": "https://u.today/rss"},
+        {"name": "CryptoPotato", "site": "cryptopotato.com", "url": "https://cryptopotato.com/feed/"},
+    ],
+    "hi": [
+        {"name": "Economic Times Hindi", "site": "hindi.economictimes.com", "url": "https://hindi.economictimes.com/rssfeeds/1286551815.cms"},
+        {"name": "Moneycontrol Hindi", "site": "hindi.moneycontrol.com", "url": "https://hindi.moneycontrol.com/rss/latestnews.xml"},
+        {"name": "Live Hindustan", "site": "livehindustan.com", "url": "https://www.livehindustan.com/rss/business"},
+        {"name": "News18 Hindi", "site": "hindi.news18.com", "url": "https://hindi.news18.com/rss/khabar/business/business.xml"},
+        {"name": "Zee Business Hindi", "site": "zeebiz.com", "url": "https://www.zeebiz.com/hindi/rss"},
+        {"name": "Amar Ujala", "site": "amarujala.com", "url": "https://www.amarujala.com/rss/business.xml"},
+        {"name": "Dainik Bhaskar", "site": "bhaskar.com", "url": "https://www.bhaskar.com/rss-v1--category-1051.xml"},
+    ],
+}
+# A story counts as crypto news when it mentions one of these.
+NEWS_CRYPTO_WORDS = {
+    "en": ("bitcoin", "btc", "crypto", "ethereum", "ether", "solana", "xrp", "stablecoin", "blockchain", "defi", "token", "altcoin", "etf", "binance", "coinbase", "web3", "nft", "memecoin", "dogecoin", "tether", "usdt", "mining"),
+    "hi": ("क्रिप्टो", "बिटकॉइन", "बिटकॉईन", "बिटक्वाइन", "इथेरियम", "ईथर", "ब्लॉकचेन", "ब्लॉक चेन", "डिजिटल करेंसी", "डिजिटल मुद्रा", "डिजिटल रुपया", "वर्चुअल करेंसी", "वर्चुअल डिजिटल", "स्टेबलकॉइन", "टोकन", "वेब3", "crypto", "bitcoin", "ethereum", "blockchain", "cbdc", "web3", "vda"),
+}
+NEWS_COIN_TERMS = {
+    "BTC": ("bitcoin", "btc", "बिटकॉइन", "बिटकॉईन", "बिटक्वाइन"),
+    "ETH": ("ethereum", "ether", "eth", "इथेरियम", "ईथर"),
+    "SOL": ("solana", "sol"),
+    "XRP": ("xrp", "ripple"),
+    "BNB": ("bnb",),
+    "DOGE": ("dogecoin", "doge"),
+    "ADA": ("cardano", "ada"),
+    "TON": ("toncoin",),
+    "TRX": ("tron", "trx"),
+    "AVAX": ("avalanche", "avax"),
+    "LINK": ("chainlink",),
+    "DOT": ("polkadot",),
+    "SUI": ("sui",),
+    "LTC": ("litecoin", "ltc"),
+    "SHIB": ("shiba inu", "shib"),
+    "PEPE": ("pepe",),
+    "USDT": ("tether", "usdt"),
+}
+_NEWS_COIN_RES = {coin: re.compile(r"(?<![\w])(" + "|".join(re.escape(t) for t in terms) + r")(?![\w])", re.I) for coin, terms in NEWS_COIN_TERMS.items()}
+NEWS_NS = {
+    "media": "http://search.yahoo.com/mrss/",
+    "content": "http://purl.org/rss/1.0/modules/content/",
+    "atom": "http://www.w3.org/2005/Atom",
+}
+NEWS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; CryptoDockNews/1.0; +https://crypto.marketdock.in)",
+    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+}
+news_cache = {}
+news_image_cache = {}
+news_locks = {"en": threading.Lock(), "hi": threading.Lock()}
+_IMG_SRC_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.I)
+_OG_IMAGE_RE = re.compile(r"<meta[^>]+(?:property|name)=[\"'](?:og:image|twitter:image)(?::src)?[\"'][^>]*>", re.I)
+_CONTENT_ATTR_RE = re.compile(r"content=[\"']([^\"']+)[\"']", re.I)
+
+
+def _news_text(node, path):
+    found = node.find(path, NEWS_NS)
+    return (found.text or "").strip() if found is not None and found.text else ""
+
+
+def _news_clean_url(url):
+    url = html_lib.unescape(str(url or "").strip())
+    return url if url.startswith(("https://", "http://")) else ""
+
+
+def _news_time(raw):
+    raw = (raw or "").strip()
+    if not raw:
         return None
     try:
-        parsed = parsedate_to_datetime(value)
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(timezone.utc)
+        parsed = parsedate_to_datetime(raw)
     except (TypeError, ValueError, IndexError):
-        return None
-
-
-def format_rss_time(value):
-    parsed = parse_rss_time(value)
-    return parsed.strftime("%d %b %Y, %I:%M %p UTC") if parsed else "Published time unavailable"
-
-
-def get_xml_tag_text(node, tag_name):
-    tag = node.find(tag_name)
-    return tag.text.strip() if tag is not None and tag.text else ""
-
-
-def fetch_rss_news():
-    import xml.etree.ElementTree as element_tree
-    collected, seen_urls = [], set()
-    now = datetime.now(timezone.utc)
-    keywords = ("bitcoin", "btc", "crypto", "ethereum", "eth", "solana", "sol", "market", "fed", "etf", "regulation", "stablecoin", "blockchain", "digital asset")
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; BTC-AI-Signal-News/1.0)", "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"}
-    for source in RSS_NEWS_SOURCES:
-        source_name, source_url = source.get("name", "Crypto news"), source.get("url", "")
         try:
-            response = requests.get(source_url, timeout=RSS_NEWS_TIMEOUT_SECONDS, headers=headers)
-            response.raise_for_status()
-            root = element_tree.fromstring(response.content)
-            rss_items = root.findall(".//item")
-            atom_entries = root.findall(".//{http://www.w3.org/2005/Atom}entry")
-            for item in (rss_items if rss_items else atom_entries)[:50]:
-                is_atom = item.tag.endswith("entry")
-                if is_atom:
-                    headline = strip_html(get_xml_tag_text(item, "{http://www.w3.org/2005/Atom}title"))
-                    link_element = item.find("{http://www.w3.org/2005/Atom}link[@rel='alternate']") or item.find("{http://www.w3.org/2005/Atom}link")
-                    url = link_element.get("href", "").strip() if link_element is not None else ""
-                    description = strip_html(get_xml_tag_text(item, "{http://www.w3.org/2005/Atom}summary") or get_xml_tag_text(item, "{http://www.w3.org/2005/Atom}content"))
-                    published_raw = get_xml_tag_text(item, "{http://www.w3.org/2005/Atom}published") or get_xml_tag_text(item, "{http://www.w3.org/2005/Atom}updated")
-                else:
-                    headline = strip_html(get_xml_tag_text(item, "title"))
-                    url = get_xml_tag_text(item, "link")
-                    description = strip_html(get_xml_tag_text(item, "description"))
-                    published_raw = get_xml_tag_text(item, "pubDate")
-                published_at = parse_rss_time(published_raw)
-                if not headline or not url.startswith(("https://", "http://")):
-                    continue
-                normalized_url = url.split("?")[0].rstrip("/")
-                if normalized_url in seen_urls:
-                    continue
-                searchable = f"{headline} {description}".lower()
-                if not any(keyword in searchable for keyword in keywords):
-                    continue
-                if published_at and (now - published_at).total_seconds() > 7 * 24 * 60 * 60:
-                    continue
-                seen_urls.add(normalized_url)
-                collected.append({"headline": headline[:260], "source": source_name, "url": url[:1000], "published_time": format_rss_time(published_raw), "summary": description[:650] if description else "Open the original article for the publisher summary.", "_published_at": published_at.timestamp() if published_at else 0})
-        except (requests.exceptions.RequestException, element_tree.ParseError, ValueError) as error:
-            print(f"RSS news source unavailable ({source_name}): {error}")
-    collected.sort(key=lambda item: item.get("_published_at", 0), reverse=True)
-    result = []
-    for item in collected[:AI_NEWS_LIMIT]:
-        item.pop("_published_at", None)
-        result.append(item)
-    return result
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp())
 
 
-def ensure_groq_configured(user_api_key=None):
-    api_key = (str(user_api_key or "").strip()) or os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="Groq AI is not configured. Add GROQ_API_KEY on the server, or enter your own key in Settings.")
-    return Groq(api_key=api_key)
+def _news_item_image(item, raw_html):
+    """The story's picture from the feed itself: media:content / media:thumbnail,
+    an image enclosure, or the first <img> in the article body."""
+    for media in item.findall("media:content", NEWS_NS) + item.findall("media:group/media:content", NEWS_NS):
+        url = _news_clean_url(media.get("url"))
+        kind = (media.get("medium") or media.get("type") or "").lower()
+        if url and ("image" in kind or re.search(r"\.(jpe?g|png|webp|gif)(\?|$)", url, re.I) or not kind):
+            return url
+    for thumb in item.findall("media:thumbnail", NEWS_NS) + item.findall("media:group/media:thumbnail", NEWS_NS):
+        url = _news_clean_url(thumb.get("url"))
+        if url:
+            return url
+    for enclosure in item.findall("enclosure") + item.findall("atom:link[@rel='enclosure']", NEWS_NS):
+        url = _news_clean_url(enclosure.get("url") or enclosure.get("href"))
+        if url and "image" in (enclosure.get("type") or "image").lower():
+            return url
+    for chunk in raw_html:
+        match = _IMG_SRC_RE.search(chunk or "")
+        if match:
+            url = _news_clean_url(match.group(1))
+            if url:
+                return url
+    return ""
 
 
-def parse_json_from_model(text):
-    cleaned = str(text or "").strip()
-
-    if cleaned.startswith("```"):
-        cleaned = re.sub(
-            r"^```(?:json)?\s*|\s*```$",
-            "",
-            cleaned,
-            flags=re.IGNORECASE,
-        ).strip()
-
-    start = cleaned.find("{")
-    end = cleaned.rfind("}")
-
-    if start != -1 and end != -1 and end > start:
-        cleaned = cleaned[start : end + 1]
-
+def _news_page_image(url):
+    """og:image from the article page, for feeds that carry no picture."""
+    if url in news_image_cache:
+        return news_image_cache[url]
+    image = ""
     try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError as error:
-        raise ValueError("AI returned invalid JSON.") from error
-
-def enforce_trade_levels(result, current_price, provider_label="AI"):
-    result = result if isinstance(result, dict) else {}
-    signal = str(result.get("signal", "HOLD")).upper().strip()
-    # Normalize any legacy/invalid label (BUY WATCH, SELL WATCH, WATCH, NO TRADE,
-    # INVALIDATED, STRONG BUY, STRONG SELL, ...) to HOLD. Only BUY/SELL/HOLD survive.
-    if signal not in {"BUY", "SELL", "HOLD"}:
-        signal = "HOLD"
-    try:
-        confidence = max(0, min(100, int(float(result.get("confidence", 0) or 0))))
-    except (TypeError, ValueError):
-        confidence = 0
-
-    def safe_number(key):
-        try:
-            value = float(result.get(key, 0) or 0)
-            return round(value, 2) if value > 0 else 0
-        except (TypeError, ValueError):
-            return 0
-
-    entry_price = safe_number("entry_price")
-    stop_loss_price = safe_number("stop_loss_price")
-    target_1_price = safe_number("target_1_price")
-    target_2_price = safe_number("target_2_price")
-    reason = str(result.get("reason", "")).strip() or "No confirmed setup from supplied live technical data."
-    if signal == "HOLD":
-        return {**result, "signal": "HOLD", "confidence": confidence, "reason": reason, "entry_price": 0, "stop_loss_price": 0, "target_1_price": 0, "target_2_price": 0, "valid_position": False, "current_price": round_value(current_price)}
-
-    all_levels_present = all(value > 0 for value in (entry_price, stop_loss_price, target_1_price, target_2_price))
-    buy_levels_valid = signal == "BUY" and all_levels_present and stop_loss_price < entry_price < target_1_price < target_2_price
-    sell_levels_valid = signal == "SELL" and all_levels_present and target_2_price < target_1_price < entry_price < stop_loss_price
-    if not (buy_levels_valid or sell_levels_valid):
-        return {**result, "signal": "HOLD", "confidence": confidence, "reason": f"{provider_label} returned incomplete or invalid levels, so no confirmed setup was accepted.", "entry_price": 0, "stop_loss_price": 0, "target_1_price": 0, "target_2_price": 0, "valid_position": False, "current_price": round_value(current_price)}
-    return {**result, "signal": signal, "confidence": confidence, "reason": reason, "entry_price": entry_price, "stop_loss_price": stop_loss_price, "target_1_price": target_1_price, "target_2_price": target_2_price, "valid_position": True, "current_price": round_value(current_price)}
+        response = requests.get(url, timeout=NEWS_IMAGE_TIMEOUT_SECONDS, headers={"User-Agent": NEWS_HEADERS["User-Agent"]}, stream=True)
+        response.raise_for_status()
+        chunks, size = [], 0
+        for chunk in response.iter_content(16_384):
+            chunks.append(chunk)
+            size += len(chunk)
+            if size >= 200_000:
+                break
+        response.close()
+        head = b"".join(chunks).decode(response.encoding or "utf-8", errors="ignore")
+        for tag in _OG_IMAGE_RE.findall(head):
+            content = _CONTENT_ATTR_RE.search(tag)
+            if content and _news_clean_url(content.group(1)):
+                image = _news_clean_url(content.group(1))
+                break
+    except Exception:  # best effort: a story without a picture is fine
+        image = ""
+    if len(news_image_cache) > 2000:
+        news_image_cache.clear()
+    news_image_cache[url] = image
+    return image
 
 
-def groq_live_schema_prompt(market_data, technical_result):
-    return f"""
-You are a cautious BTCUSDT live-chart assistant. Analyze only the supplied Binance technical data and deterministic technical classification. Do not use news, web search, external data, or assumptions.
+def _news_coins(text):
+    return [coin for coin, pattern in _NEWS_COIN_RES.items() if pattern.search(text)]
 
-MARKET DATA:
-{json.dumps(market_data, indent=2)}
 
-DETERMINISTIC TECHNICAL CLASSIFICATION:
-{json.dumps(technical_result, indent=2)}
+def _fetch_news_feed(source, lang, now):
+    response = requests.get(source["url"], timeout=NEWS_FEED_TIMEOUT_SECONDS, headers=NEWS_HEADERS)
+    response.raise_for_status()
+    root = element_tree.fromstring(response.content)
+    nodes = root.findall(".//item") or root.findall(".//atom:entry", NEWS_NS)
+    words = NEWS_CRYPTO_WORDS[lang]
+    items = []
+    for node in nodes[:60]:
+        is_atom = node.tag.endswith("entry")
+        if is_atom:
+            title = _news_text(node, "atom:title")
+            link = node.find("atom:link[@rel='alternate']", NEWS_NS) or node.find("atom:link", NEWS_NS)
+            url = _news_clean_url(link.get("href") if link is not None else "")
+            body = _news_text(node, "atom:content")
+            summary_raw = _news_text(node, "atom:summary") or body
+            published = _news_time(_news_text(node, "atom:published") or _news_text(node, "atom:updated"))
+        else:
+            title = _news_text(node, "title")
+            url = _news_clean_url(_news_text(node, "link") or _news_text(node, "guid"))
+            body = _news_text(node, "content:encoded")
+            summary_raw = _news_text(node, "description") or body
+            published = _news_time(_news_text(node, "pubDate") or _news_text(node, "dc:date"))
+        title = strip_html(html_lib.unescape(title))
+        summary = strip_html(html_lib.unescape(summary_raw))
+        if not title or not url:
+            continue
+        if published and now - published > NEWS_MAX_AGE_SECONDS:
+            continue
+        text = f"{title} {summary}"
+        lowered = text.lower()
+        # Crypto sites: everything is crypto. Hindi business feeds: keep
+        # only the crypto stories.
+        if lang == "hi" and not any(word in lowered for word in words):
+            continue
+        if len(summary) > 280:
+            summary = summary[:277].rsplit(" ", 1)[0] + "…"
+        items.append({
+            "id": hashlib.sha1(url.encode("utf-8")).hexdigest()[:16],
+            "title": title[:240],
+            "summary": summary,
+            "url": url[:1000],
+            "source": source["name"],
+            "site": source["site"],
+            "image": _news_item_image(node, (body, summary_raw)),
+            "published": published,
+            "coins": _news_coins(text),
+        })
+    return items
 
-Return ONLY one valid JSON object with these keys: signal, confidence, risk, market_bias, setup_status, reason, confirmation_needed, entry_idea, stop_loss_idea, target_1, target_2, entry_price, stop_loss_price, target_1_price, target_2_price, timeframes.
-The signal must be exactly BUY, SELL, or HOLD. For HOLD all numeric price fields must be 0. BUY requires stop_loss_price < entry_price < target_1_price < target_2_price. SELL requires target_2_price < target_1_price < entry_price < stop_loss_price. Never promise profit or imply an order will be placed.
-Treat the deterministic classification above as one input among several, not the final word. Form your own independent judgment on whether the combined data (trend, RSI, MACD, ADX, volume relative to average, and proximity to breakout/support/resistance levels) genuinely supports a BUY, SELL, or HOLD call. You are not required to match the deterministic classification's signal: if you independently see a clear, well-supported directional case, say BUY or SELL even if the deterministic classification says HOLD. Equally, say HOLD if you independently think the case is too weak or mixed, even if the deterministic classification leans BUY or SELL. Never call BUY or SELL on genuinely thin or contradictory evidence just to give an answer — HOLD is the right call when the data doesn't clearly support a direction.
-confidence must reflect how clearly the supplied data supports your signal classification, not "confidence to trade". Base it on the whole technical picture together: trend strength (ADX), momentum (RSI distance from 50), MACD state, volume relative to average, and how close price currently is to the relevant breakout/invalidation level — not any single indicator alone. A HOLD from genuinely mixed or conflicting data can still be a meaningful confidence (for example 40-60); only use a low number like 0-20 when the data is truly sparse or contradictory.
-Write "reason" as your own independent analysis, in your own words — do not copy the "reason" or "final_conclusion" text from the deterministic technical classification verbatim or near-verbatim. You may agree with its conclusion, but explain WHY in your own phrasing, citing the specific numbers (RSI, volume ratio, ADX, price vs key levels) that led you there.
-"""
 
-def cooldown_remaining(cache, cooldown_seconds):
-    elapsed = time.time() - cache["updated_at"]
-    return max(0, int(math.ceil(cooldown_seconds - elapsed)))
+def build_news(lang):
+    now = int(time.time())
+    sources = NEWS_SOURCES[lang]
+    collected, ok = [], 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_fetch_news_feed, source, lang, now): source for source in sources}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                collected.extend(future.result())
+                ok += 1
+            except Exception as error:  # one broken feed must not hide the others
+                print(f"News feed unavailable ({futures[future]['name']}): {error}")
+    seen_urls, seen_titles, items = set(), set(), []
+    for item in sorted(collected, key=lambda x: x["published"] or 0, reverse=True):
+        url_key = item["url"].split("?")[0].rstrip("/").lower()
+        title_key = re.sub(r"\W+", " ", item["title"].lower()).strip()
+        if url_key in seen_urls or title_key in seen_titles:
+            continue
+        seen_urls.add(url_key)
+        seen_titles.add(title_key)
+        items.append(item)
+        if len(items) >= NEWS_LIMIT:
+            break
+    # Stories whose feed has no picture: take the article's own og:image.
+    missing = [item for item in items[:40] if not item["image"]]
+    if missing:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            for item, image in zip(missing, pool.map(lambda it: _news_page_image(it["url"]), missing)):
+                item["image"] = image
+    return {"lang": lang, "items": items, "updated_at": now, "sources_ok": ok, "sources_total": len(sources)}
+
+
+@app.get("/api/news")
+def news(lang: str = "en"):
+    """Latest crypto news (no AI): title, summary, picture, source and link."""
+    lang = "hi" if str(lang).lower().startswith("hi") else "en"
+    cached = news_cache.get(lang)
+    now = time.time()
+    if cached and now - cached["at"] < NEWS_CACHE_SECONDS:
+        return cached["data"]
+    with news_locks[lang]:
+        cached = news_cache.get(lang)
+        if cached and time.time() - cached["at"] < NEWS_CACHE_SECONDS:
+            return cached["data"]
+        data = build_news(lang)
+        if not data["items"] and cached:
+            # Every feed failed this time: keep showing the last good list.
+            return {**cached["data"], "stale": True}
+        news_cache[lang] = {"data": data, "at": time.time()}
+        return data
 
 
 # ================= ALL COINS (MARKETS) =================
@@ -1595,7 +1653,6 @@ def coin_stats(symbol: str = "BTCUSDT"):
 # logout, account deletion or signing up again never resets it), then a paid
 # plan. CryptoDock keeps its own records, so its trial and plans are separate
 # from MarketDock's, but it charges through the same Razorpay account.
-import hashlib
 import hmac
 
 from pydantic import BaseModel
@@ -1803,7 +1860,7 @@ def verify_payment(req: PaymentVerifyRequest):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "message": "BTC Signal Website backend running", "market_data_source": "Binance", "gemini_configured": bool(os.getenv("GEMINI_API_KEY")), "groq_configured": bool(os.getenv("GROQ_API_KEY"))}
+    return {"status": "ok", "message": "CryptoDock backend running", "market_data_source": "Binance"}
 
 
 @app.get("/api/btc/price")
@@ -1885,364 +1942,6 @@ def rrg(interval: str = "1d"):
         if cached_data:
             return {**cached_data, "cached": True, "warning": "RRG feed unavailable. Showing cached data."}
         raise HTTPException(status_code=502, detail=f"Failed to build RRG data: {str(error)}") from error
-
-
-@app.get("/api/ai-signal")
-def get_saved_ai_signal():
-    if not ai_signal_cache["data"]:
-        raise HTTPException(status_code=404, detail="No Gemini AI analysis has been run yet. Use Run Gemini AI Analysis to generate technical analysis.")
-    cache_age = time.time() - ai_signal_cache["updated_at"]
-    return {**ai_signal_cache["data"], "cached": True, "cache_age_seconds": round_value(cache_age, 1), "manual_run_only": True}
-
-
-@app.post("/api/ai-signal/run")
-def run_ai_signal(payload: dict = Body(default={})):
-    user_api_key = str((payload or {}).get("api_key") or "").strip()
-    api_key = user_api_key or os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="Gemini AI is not configured. Add GEMINI_API_KEY on the server, or enter your own key in Settings.")
-    try:
-        market_data, market_data_cached, _, _ = get_technical_market_data(force_refresh=True)
-        technical_result = technical_main_signal(market_data)
-        client = genai.Client(api_key=api_key)
-        response = None
-        fallback_model = "gemini-3.8-flash" if GEMINI_MODEL != "gemini-3.8-flash" else "gemini-3.7-flash"
-        attempts = [(GEMINI_MODEL, 0), (GEMINI_MODEL, 4), (GEMINI_MODEL, 8), (fallback_model, 2)]
-        total_attempts = len(attempts)
-        for attempt, (model_name, delay_seconds) in enumerate(attempts, start=1):
-            if delay_seconds:
-                time.sleep(delay_seconds)
-            try:
-                response = client.models.generate_content(model=model_name, contents=build_ai_prompt(market_data, technical_result), config=types.GenerateContentConfig(response_mime_type="application/json", response_json_schema=get_ai_response_schema()))
-                if not response or not getattr(response, "text", None):
-                    raise ValueError("Gemini returned an empty response.")
-                break
-            except Exception as error:
-                error_text = str(error)
-                print(f"Gemini attempt {attempt}/{total_attempts} ({model_name}) failed: {error_text}")
-                if ("503" in error_text or "UNAVAILABLE" in error_text or "high demand" in error_text.lower()) and attempt < total_attempts:
-                    continue
-                if "429" in error_text or "RESOURCE_EXHAUSTED" in error_text:
-                    raise HTTPException(status_code=429, detail="Gemini quota is temporarily exhausted. Please wait and try again later.") from error
-                raise HTTPException(status_code=503, detail="Gemini is temporarily busy or unavailable. Please try again in a few seconds.") from error
-        if response is None or not getattr(response, "text", None):
-            raise HTTPException(status_code=503, detail="Gemini did not return an analysis. Please try again shortly.")
-        result = enforce_trade_levels(parse_json_from_model(response.text), market_data["current_price_usdt"], provider_label="Gemini")
-        now = time.time()
-        result.update({"market_data": market_data, "source": "Binance market data + Gemini technical analysis", "analysis_mode": "gemini_manual_technical_only", "cached": False, "market_data_cached": market_data_cached, "updated_at": int(now), "manual_run_only": True, "provider": "GEMINI", "overlay_allowed": result["valid_position"], "disclaimer": "Educational technical market analysis only. No news is sent to Gemini. Not financial advice or an automated trading instruction."})
-        ai_signal_cache["data"], ai_signal_cache["updated_at"] = result, now
-        return result
-    except HTTPException:
-        raise
-    except Exception as error:
-        print(f"Gemini AI analysis error: {error}")
-        raise HTTPException(status_code=503, detail="Gemini AI could not respond. Please try again later.") from error
-
-
-@app.post("/api/groq-live-analysis")
-def run_groq_live_analysis(payload: dict = Body(default={})):
-    user_api_key = str((payload or {}).get("api_key") or "").strip()
-    if not user_api_key:
-        remaining = cooldown_remaining(groq_live_cache, GROQ_LIVE_COOLDOWN_SECONDS)
-        if remaining > 0:
-            raise HTTPException(status_code=429, detail=f"Groq live-chart cooldown active. Please wait {remaining} seconds.")
-    try:
-        client = ensure_groq_configured(user_api_key)
-        market_data, market_data_cached, _, _ = get_technical_market_data(force_refresh=True)
-        technical_result = technical_main_signal(market_data)
-        completion = None
-        attempts = [0, 3, 6]
-        total_attempts = len(attempts)
-        for attempt, delay_seconds in enumerate(attempts, start=1):
-            if delay_seconds:
-                time.sleep(delay_seconds)
-            try:
-                completion = client.chat.completions.create(
-                    model=GROQ_MODEL,
-                    temperature=0.15,
-                    max_tokens=1300,
-                    response_format={"type": "json_object"},
-                    messages=[
-                    {"role": "system", "content": "Return valid JSON only. Do not include Markdown, code fences, or text outside the JSON object."},
-                    {"role": "user", "content": groq_live_schema_prompt(market_data, technical_result)},
-                ],
-                )
-                if not completion or not completion.choices:
-                    raise ValueError("Groq returned an empty response.")
-                break
-            except Exception as error:
-                error_text = str(error)
-                print(f"Groq live attempt {attempt}/{total_attempts} failed: {error_text}")
-                if ("503" in error_text or "UNAVAILABLE" in error_text or "high demand" in error_text.lower()) and attempt < total_attempts:
-                    continue
-                if "429" in error_text or "RATE_LIMIT" in error_text.upper():
-                    raise HTTPException(status_code=429, detail="Groq quota is temporarily exhausted. Please wait and try again later.") from error
-                raise HTTPException(status_code=503, detail="Groq is temporarily busy or unavailable. Please try again in a few seconds.") from error
-        text = completion.choices[0].message.content if completion.choices else ""
-        result = enforce_trade_levels(parse_json_from_model(text), market_data["current_price_usdt"], provider_label="Groq")
-        now = time.time()
-        result.update({"market_data": market_data, "source": "Binance market data + Groq live-chart backup analysis", "analysis_mode": "groq_manual_live_chart_only", "provider": "GROQ", "cached": False, "market_data_cached": market_data_cached, "updated_at": int(now), "manual_run_only": True, "overlay_allowed": result["valid_position"], "disclaimer": "Educational live-chart backup analysis only. Groq does not receive news in this endpoint. Not financial advice or an automated trading instruction."})
-        groq_live_cache["data"], groq_live_cache["updated_at"] = result, now
-        return result
-    except HTTPException:
-        raise
-    except Exception as error:
-        print(f"Groq live analysis error: {error}")
-        raise HTTPException(status_code=503, detail="Groq live-chart analysis is temporarily unavailable. Please try again later.") from error
-
-
-@app.post("/api/groq-news")
-def run_groq_news():
-    remaining = cooldown_remaining(
-        groq_news_cache,
-        GROQ_NEWS_COOLDOWN_SECONDS,
-    )
-
-    if remaining > 0:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Groq news cooldown active. Please wait {remaining} seconds.",
-        )
-
-    try:
-        client = ensure_groq_configured()
-        news_items = fetch_rss_news()
-
-        if not news_items:
-            raise HTTPException(
-                status_code=503,
-                detail="No recent RSS news could be loaded. Please try again later.",
-            )
-
-        compact_news = [
-            {
-                "headline": item.get("headline", ""),
-                "source": item.get("source", ""),
-                "summary": item.get("summary", "")[:350],
-            }
-            for item in news_items[:10]
-        ]
-
-        prompt = f"""
-You are a crypto-news context assistant.
-
-Read only the following RSS headlines and summaries:
-
-{json.dumps(compact_news, ensure_ascii=False)}
-
-Return exactly one JSON object and nothing else:
-
-{{
-  "overall_sentiment": "NEUTRAL",
-  "overview": "Short Hinglish market-news summary."
-}}
-
-Rules:
-1. "overall_sentiment" must be exactly one of:
-   BULLISH, BEARISH, NEUTRAL, UNCLEAR.
-2. "overview" must contain 2 or 3 short Hinglish sentences.
-3. No trade signal.
-4. No BUY, SELL, HOLD words.
-5. No entry, stop loss, target, prediction, or investment advice.
-6. No Markdown.
-7. No code fence.
-"""
-
-        # Deliberately NO response_format here.
-        # This avoids Groq json_validate_failed on long news-item schemas.
-        completion = client.chat.completions.create(
-            model=GROQ_MODEL,
-            temperature=0.1,
-            max_tokens=350,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Return only a JSON object. "
-                        "No Markdown and no code fences."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                },
-            ],
-        )
-
-        text = completion.choices[0].message.content if completion.choices else ""
-
-        try:
-            ai_news = parse_json_from_model(text)
-        except ValueError:
-            ai_news = {
-                "overall_sentiment": "UNCLEAR",
-                "overview": (
-                    "Groq summary parse nahi hua, lekin neeche RSS headlines "
-                    "aur original article links available hain."
-                ),
-            }
-
-        sentiment = str(
-            ai_news.get("overall_sentiment", "UNCLEAR")
-        ).upper().strip()
-
-        if sentiment not in {"BULLISH", "BEARISH", "NEUTRAL", "UNCLEAR"}:
-            sentiment = "UNCLEAR"
-
-        overview = str(
-            ai_news.get(
-                "overview",
-                "Latest RSS news snapshot. Original links check karein.",
-            )
-        ).strip()
-
-        # Original RSS items always remain available.
-        # We do not depend on Groq to reproduce every headline in JSON.
-        merged_items = []
-        for item in news_items:
-            merged_items.append(
-                {
-                    **item,
-                    "market_impact": "UNCLEAR",
-                    "market_relevance": (
-                        "Publisher RSS headline and summary. "
-                        "Open the original article for full context."
-                    ),
-                    "headline_hi": "",
-                    "summary_hi": "",
-                }
-            )
-
-        now = time.time()
-
-        result = {
-            "news": merged_items,
-            "news_overview": overview,
-            "news_market_bias": sentiment,
-            "source": (
-                "CoinDesk/Cointelegraph/Decrypt/Bitcoin Magazine RSS "
-                "+ Groq news overview"
-            ),
-            "analysis_mode": "groq_manual_news_only",
-            "provider": "GROQ",
-            "updated_at": int(now),
-            "news_updated_at": int(now),
-            "manual_run_only": True,
-            "disclaimer": (
-                "News context only. Groq news output never creates BUY/SELL "
-                "signals, entry prices, stop losses, or targets. "
-                "Not financial advice."
-            ),
-        }
-
-        groq_news_cache["data"] = result
-        groq_news_cache["updated_at"] = now
-
-        return result
-
-    except HTTPException:
-        raise
-
-    except Exception as error:
-        print(f"Groq news analysis error: {error}")
-
-        # RSS fallback: Groq fail ho tab bhi headlines display hongi.
-        try:
-            fallback_news = fetch_rss_news()
-        except Exception:
-            fallback_news = []
-
-        if fallback_news:
-            now = time.time()
-
-            fallback_result = {
-                "news": [
-                    {
-                        **item,
-                        "market_impact": "UNCLEAR",
-                        "market_relevance": (
-                            "Groq summary unavailable. "
-                            "Review the original publisher article."
-                        ),
-                        "headline_hi": "",
-                        "summary_hi": "",
-                    }
-                    for item in fallback_news
-                ],
-                "news_overview": (
-                    "Groq news summary temporarily unavailable hai. "
-                    "Neeche live RSS headlines aur original links available hain."
-                ),
-                "news_market_bias": "UNCLEAR",
-                "source": "CoinDesk/Cointelegraph/Decrypt/Bitcoin Magazine RSS",
-                "analysis_mode": "rss_fallback_news_only",
-                "provider": "RSS",
-                "updated_at": int(now),
-                "news_updated_at": int(now),
-                "manual_run_only": True,
-                "disclaimer": (
-                    "RSS news context only. No trading signal or investment advice."
-                ),
-            }
-
-            return fallback_result
-
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Groq news summary and RSS feeds are temporarily unavailable. "
-                "Please try again later."
-            ),
-        ) from error
-
-
-@app.post("/api/news/translate")
-def translate_news_to_hindi(payload: dict = Body(...)):
-    headline = str(payload.get("headline", "")).strip()[:300]
-    summary = str(payload.get("summary", "")).strip()[:1200]
-    source = str(payload.get("source", "")).strip()[:100]
-    if not headline:
-        raise HTTPException(status_code=400, detail="News headline is required for translation.")
-    try:
-        client = ensure_groq_configured()
-        prompt = f"""Translate this crypto-news headline and publisher summary into simple natural Hindi in Devanagari. Preserve names, numbers, tickers, prices, dates and factual meaning. Do not add predictions, advice or new facts. Return only JSON: {{\"headline_hi\": \"...\", \"summary_hi\": \"...\"}}. Source: {source}\nHeadline: {headline}\nSummary: {summary}"""
-        completion = client.chat.completions.create(model=GROQ_MODEL, temperature=0.1, max_tokens=700, response_format={"type": "json_object"}, messages=[{"role": "user", "content": prompt}])
-        result = parse_json_from_model(completion.choices[0].message.content)
-        return {"headline_hi": str(result.get("headline_hi", "")).strip(), "summary_hi": str(result.get("summary_hi", "")).strip(), "provider": "GROQ"}
-    except HTTPException:
-        raise
-    except Exception as error:
-        print(f"Groq Hindi translation error: {error}")
-        raise HTTPException(status_code=503, detail="Groq Hindi translation is temporarily unavailable. Please try again later.") from error
-
-
-@app.post("/api/chart-analyser")
-async def chart_analyser(file: UploadFile = File(...)):
-    allowed_types = {"image/png", "image/jpeg", "image/webp"}
-    max_file_size = 8 * 1024 * 1024
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Upload a PNG, JPG, or WEBP chart image only.")
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="The uploaded chart image is empty.")
-    if len(image_bytes) > max_file_size:
-        raise HTTPException(status_code=413, detail="Chart image is too large. Maximum size is 8 MB.")
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="Gemini API key is not configured on the server.")
-    prompt = """You are a cautious technical-analysis assistant for an educational BTC/crypto chart screenshot analyser. Analyze only visible information in the uploaded chart image. Do not invent exact prices, indicators, symbols, timeframes, or levels that cannot be read clearly. Return only JSON in simple Hinglish. Output BUY only if clear bullish setup and visible confirmation are present, SELL only for clear bearish confirmation, otherwise HOLD. Never promise profit, certainty, or guaranteed targets. Educational analysis only, never automated trade order."""
-    schema = {"type": "object", "properties": {"signal": {"type": "string", "enum": ["BUY", "SELL", "HOLD"]}, "confidence": {"type": "integer", "minimum": 0, "maximum": 100}, "risk": {"type": "string", "enum": ["LOW", "MEDIUM", "HIGH"]}, "trend": {"type": "string"}, "pattern": {"type": "string"}, "support": {"type": "string"}, "resistance": {"type": "string"}, "reason": {"type": "string"}, "entry_idea": {"type": "string"}, "invalidation_idea": {"type": "string"}, "warning": {"type": "string"}}, "required": ["signal", "confidence", "risk", "trend", "pattern", "support", "resistance", "reason", "entry_idea", "invalidation_idea", "warning"]}
-    try:
-        client = genai.Client(api_key=api_key)
-        response = client.models.generate_content(model=GEMINI_MODEL, contents=[prompt, types.Part.from_bytes(data=image_bytes, mime_type=file.content_type)], config=types.GenerateContentConfig(response_mime_type="application/json", response_json_schema=schema))
-        result = parse_json_from_model(response.text)
-        result["source"] = "Uploaded chart screenshot + Gemini AI analysis"
-        result["provider"] = "GEMINI"
-        result["disclaimer"] = "Educational chart analysis only. Not financial advice or an automated trading instruction."
-        return result
-    except Exception as error:
-        print(f"Gemini chart analysis error: {error}")
-        raise HTTPException(status_code=503, detail="Chart Gemini AI is temporarily unavailable. Please try again later.") from error
 
 
 @app.post("/api/account/delete")

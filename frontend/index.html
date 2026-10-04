@@ -6,11 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>if (window.Capacitor) document.documentElement.classList.add("capacitor-app");</script>
   <title>CryptoDock — Live BTC &amp; Crypto Research Dashboard</title>
-  <meta name="description" content="CryptoDock: live BTC price tracking with an automatic technical Engine (swing structure, RSI, MACD, ATR), manual Gemini and Groq AI chart review, drawing tools, and virtual paper trading. Educational only — not financial advice." />
+  <meta name="description" content="CryptoDock: crypto paper trading with virtual money — live prices of every coin in $ and ₹, scanner, heatmap, charts, price alerts and live crypto news. Educational only — not financial advice." />
   <link rel="canonical" href="https://marketdock.in/" />
 
   <meta property="og:title" content="CryptoDock — Live BTC & Crypto Research Dashboard" />
-  <meta property="og:description" content="Live BTC and crypto charts with an automatic technical Engine plus manual Gemini and Groq AI chart review. Educational only." />
+  <meta property="og:description" content="Crypto paper trading with virtual money: live prices in $ and ₹, scanner, heatmap, charts, alerts and news. Educational only." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://marketdock.in/" />
   <meta property="og:image" content="https://marketdock.in/frontend/image-1.png" />
@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-zero-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-news-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -159,16 +159,6 @@
       <div class="btc-topbar">
         <div class="nav-action-group">
           <button id="refreshBtn" class="nav-action-btn" type="button">Refresh<span class="btn-subline">Technical</span></button>
-          <div class="ai-btn-wrap nav-ai-wrap">
-            <button id="geminiAiBtn" class="gemini-ai-btn nav-action-btn" type="button">Run Gemini<span class="btn-subtext">(Dashboard / Live Chart)</span></button>
-            <p id="geminiKeyPrompt" class="api-key-prompt"></p>
-            <button id="geminiRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
-          </div>
-          <div class="ai-btn-wrap nav-ai-wrap">
-            <button id="groqLiveBtn" class="groq-live-btn nav-action-btn" type="button">Run Groq<span class="btn-subtext">(Dashboard / Live Chart)</span></button>
-            <p id="groqKeyPrompt" class="api-key-prompt"></p>
-            <button id="groqRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
-          </div>
         </div>
       </div>
 
@@ -294,53 +284,6 @@
             <canvas id="btcChart"></canvas>
           </div>
 
-          <aside class="chart-analyser-panel">
-            <div class="chart-analyser-heading">
-              <h2>AI Chart Analyser</h2>
-              <p>Upload a BTC/crypto chart screenshot for educational Gemini AI analysis.</p>
-            </div>
-
-            <label class="chart-upload-label" for="chartImageInput">Upload Chart Screenshot</label>
-            <input id="chartImageInput" type="file" accept="image/png,image/jpeg,image/webp" />
-
-            <img id="chartImagePreview" class="chart-image-preview" alt="Selected chart preview" hidden />
-
-            <button id="analyseChartBtn" class="analyse-chart-btn" type="button">Analyse with Gemini AI</button>
-
-            <p id="chartAnalyseStatus" class="chart-analyse-status">
-              Upload PNG, JPG, or WEBP chart image. Maximum 8 MB.
-            </p>
-
-            <div id="chartAnalysisResult" class="chart-analysis-result" hidden>
-              <div class="chart-analysis-signal-row">
-                <span id="uploadedChartSignal" class="uploaded-chart-signal">HOLD</span>
-                <span id="uploadedChartConfidence" class="uploaded-chart-confidence">Confidence: --%</span>
-              </div>
-
-              <p><span>Risk</span><strong id="uploadedChartRisk">--</strong></p>
-              <p><span>Trend</span><strong id="uploadedChartTrend">--</strong></p>
-              <p><span>Pattern</span><strong id="uploadedChartPattern">--</strong></p>
-              <p><span>Support</span><strong id="uploadedChartSupport">--</strong></p>
-              <p><span>Resistance</span><strong id="uploadedChartResistance">--</strong></p>
-
-              <div class="uploaded-chart-copy">
-                <h3>AI Reason</h3>
-                <p id="uploadedChartReason">--</p>
-              </div>
-
-              <div class="uploaded-chart-copy">
-                <h3>Educational Entry Idea</h3>
-                <p id="uploadedChartEntry">--</p>
-              </div>
-
-              <div class="uploaded-chart-copy">
-                <h3>Invalidation Idea</h3>
-                <p id="uploadedChartInvalidation">--</p>
-              </div>
-
-              <p id="uploadedChartWarning" class="uploaded-chart-warning">--</p>
-            </div>
-          </aside>
         </div>
       </section>
 
@@ -398,122 +341,9 @@
           </article>
         </div>
 
-        <p class="provider-note">Automatic and deterministic — never plots lines on the live chart. Educational only.</p>
       </section>
 
-      <section class="card gemini-card provider-card">
-        <div class="section-heading">
-          <div>
-            <h2>Gemini AI Review</h2>
-            <p id="geminiUpdatedAt">Not run yet — click "Run Gemini AI Analysis".</p>
-          </div>
 
-          <span id="geminiRiskBadge" class="risk-badge">Risk: --</span>
-        </div>
-
-        <div class="signal-details">
-          <div class="signal-tag date-tag">
-            <span class="tag-label">SOURCE</span>
-            <span>Manual • button only</span>
-          </div>
-
-          <div class="signal-tag buy-tag">
-            <span class="tag-label">GEMINI SIGNAL</span>
-            <span id="geminiSignalAction">Not run yet</span>
-          </div>
-
-          <div class="signal-tag confidence-tag">
-            <span class="tag-label">CONFIDENCE</span>
-            <span id="geminiConfidence">--%</span>
-          </div>
-        </div>
-
-        <div class="ai-copy">
-          <h3>Why this signal?</h3>
-          <p id="geminiReason">Run Gemini AI Analysis to get an educational chart review.</p>
-        </div>
-
-        <div class="trade-ideas">
-          <article class="idea-box">
-            <h3>Entry</h3>
-            <p id="geminiEntry">--</p>
-          </article>
-
-          <article class="idea-box">
-            <h3>Stop-Loss</h3>
-            <p id="geminiStopLoss">--</p>
-          </article>
-
-          <article class="idea-box">
-            <h3>Target 1</h3>
-            <p id="geminiTarget1">--</p>
-          </article>
-
-          <article class="idea-box">
-            <h3>Target 2</h3>
-            <p id="geminiTarget2">--</p>
-          </article>
-        </div>
-
-        <p class="provider-note">Only shown on the chart when this is the most recently run provider and the signal is BUY or SELL.</p>
-      </section>
-
-      <section class="card groq-card provider-card">
-        <div class="section-heading">
-          <div>
-            <h2>Groq Chart AI Review</h2>
-            <p id="groqUpdatedAt">Not run yet — click "Run Groq Live Chart Analysis".</p>
-          </div>
-
-          <span id="groqRiskBadge" class="risk-badge">Risk: --</span>
-        </div>
-
-        <div class="signal-details">
-          <div class="signal-tag date-tag">
-            <span class="tag-label">SOURCE</span>
-            <span>Manual • button only</span>
-          </div>
-
-          <div class="signal-tag buy-tag">
-            <span class="tag-label">GROQ SIGNAL</span>
-            <span id="groqSignalAction">Not run yet</span>
-          </div>
-
-          <div class="signal-tag confidence-tag">
-            <span class="tag-label">CONFIDENCE</span>
-            <span id="groqConfidence">--%</span>
-          </div>
-        </div>
-
-        <div class="ai-copy">
-          <h3>Why this signal?</h3>
-          <p id="groqReason">Run Groq Live Chart Analysis to get an educational backup review.</p>
-        </div>
-
-        <div class="trade-ideas">
-          <article class="idea-box">
-            <h3>Entry</h3>
-            <p id="groqEntry">--</p>
-          </article>
-
-          <article class="idea-box">
-            <h3>Stop-Loss</h3>
-            <p id="groqStopLoss">--</p>
-          </article>
-
-          <article class="idea-box">
-            <h3>Target 1</h3>
-            <p id="groqTarget1">--</p>
-          </article>
-
-          <article class="idea-box">
-            <h3>Target 2</h3>
-            <p id="groqTarget2">--</p>
-          </article>
-        </div>
-
-        <p class="provider-note">Only shown on the chart when this is the most recently run provider and the signal is BUY or SELL.</p>
-      </section>
       </div>
     </section>
 
@@ -756,7 +586,7 @@
     <div class="section-heading">
       <div>
         <h2>Live BTCUSDT Candlestick Chart</h2>
-        <p>Spot-market candles update live. Select a timeframe to inspect price structure before using the Swing Structure and Gemini AI tools.</p>
+        <p>Spot-market candles update live. Select a timeframe to inspect price structure before using the Swing Structure tools.</p>
       </div>
       <span id="liveChartConnection" class="live-chart-connection live-connecting">Connecting…</span>
     </div>
@@ -849,8 +679,8 @@
       </article>
 
       <article class="live-chart-note">
-        <h3>Manual AI confirmation</h3>
-        <p>When the technical card says BUY — FINAL or SELL — FINAL, run Gemini AI Analysis manually. Review both directions before using paper trading.</p>
+        <h3>Confirm before you trade</h3>
+        <p>When the technical card says BUY — FINAL or SELL — FINAL, check the higher timeframes and both directions before using paper trading.</p>
       </article>
     </div>
 
@@ -1189,36 +1019,6 @@
           </p>
         </section>
 
-        <section class="card signal-comparison-card layout-editable" data-layout-id="signal-confirmation">
-          <div class="section-heading">
-            <div>
-              <h2>Signal Confirmation</h2>
-              <p>Compares the most recent successful Gemini or Groq AI view with current live technical conditions.</p>
-            </div>
-          </div>
-
-          <div class="signal-comparison">
-            <article class="signal-card ai-history-card">
-              <div class="card-label">Last AI Signal</div>
-              <strong id="lastAiSignal">No previous AI analysis</strong>
-              <p id="lastAiConfidence">Confidence: --</p>
-              <p id="lastAiUpdated">Updated: --</p>
-            </article>
-
-            <article class="signal-card technical-live-card">
-              <div class="card-label">Live Technical Status</div>
-              <strong id="liveTechnicalSignal">Waiting for live technical analysis</strong>
-              <p id="liveTechnicalReason">--</p>
-              <p id="liveTechnicalUpdated">Updated: --</p>
-            </article>
-          </div>
-
-          <article class="combined-decision-card">
-            <div class="card-label">Execution Decision</div>
-            <strong id="combinedDecision">Waiting for analysis</strong>
-            <p id="combinedDecisionReason">--</p>
-          </article>
-        </section>
 
         <section class="card trade-plan-card layout-editable" data-layout-id="advanced-trade-plan">
           <div class="section-heading">
@@ -1266,7 +1066,7 @@
             <h2>Price &amp; Signal Alerts</h2>
             <p>
               Alerts run only while this dashboard is open. They use live BTC price
-              and technical refreshes; no Gemini request is made.
+              and technical refreshes.
             </p>
           </div>
 
@@ -1383,54 +1183,32 @@
       </section>
 
     </section>
-        <section class="tab-panel" data-panel="news">
-  <section class="card gemini-news-card groq-news-card">
-    <div class="section-heading">
-      <div>
-        <h2>Groq AI News Context</h2>
-        <p id="geminiNewsUpdated">
-          News refreshes only when you manually run Groq News.
-        </p>
+    <section class="tab-panel" data-panel="news">
+      <div class="cd-dash cd-news-page">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Crypto News</h2>
+            <p class="cd-meta" id="cdNewsUpdated">Loading the latest headlines…</p>
+          </div>
+          <button type="button" class="cd-ghost-btn" id="cdNewsRefresh">↻ Refresh</button>
+        </div>
+        <div class="cd-pills cd-news-lang" id="cdNewsLang">
+          <button type="button" class="cd-pill is-active" data-news-lang="en">English</button>
+          <button type="button" class="cd-pill" data-news-lang="hi">हिंदी</button>
+        </div>
+        <div class="cd-pills cd-news-coins" id="cdNewsCoins"></div>
+        <div id="cdNewsList" class="cd-news-list" aria-live="polite"></div>
+        <button type="button" class="cd-show-more" id="cdNewsMore" hidden>Show more news</button>
+        <ul class="cd-page-notes"><li>Headlines from the publishers' own feeds</li><li>Tap a story to read it on the source website</li></ul>
       </div>
-
-      <div class="news-heading-actions">
-        <button id="groqNewsBtn" class="groq-news-btn" type="button">
-          Refresh News with Groq
-        </button>
-
-        <span id="geminiNewsBias" class="news-bias-badge news-impact-neutral">
-          News bias: UNCLEAR
-        </span>
-      </div>
-    </div>
-
-    <div class="gemini-news-intro">
-      <h3>Latest market context</h3>
-      <p id="geminiNewsOverview">
-        Click "Refresh News with Groq" to load RSS headlines, sentiment, and Hindi explanation.
-      </p>
-    </div>
-
-    <div id="geminiNewsList" class="gemini-news-list" aria-live="polite">
-      <p class="gemini-news-empty">
-        No Groq news snapshot yet. News is separate from Gemini technical analysis.
-      </p>
-    </div>
-
-    <p class="gemini-news-note">
-      Groq processes RSS news for summary, sentiment, and Hindi explanation only.
-      This section never produces BUY/SELL signals, Entry, Stop Loss, Target 1, or Target 2.
-      News context is educational and not financial advice.
-    </p>
-  </section>
-</section>
+    </section>
 
 <section class="tab-panel" data-panel="chart-analysis">
   <section class="card chart-analysis-card">
     <div class="section-heading">
       <div>
         <h2>Chart Analysis</h2>
-        <p>Full TradingView chart with 100+ built-in indicators and 80+ drawing tools, for general technical analysis. Separate from this dashboard's own Engine/Gemini/Groq signals and AI overlay lines.</p>
+        <p>Full TradingView chart with 100+ built-in indicators and 80+ drawing tools, for general technical analysis. Separate from this dashboard's own Engine signals and overlay lines.</p>
       </div>
     </div>
 
@@ -1783,7 +1561,7 @@
         </span>
         <div>
           <h3>Alerts &amp; notifications</h3>
-          <p class="settings-section-desc">Crypto price and AI signal alerts</p>
+          <p class="settings-section-desc">Crypto price and signal alerts</p>
         </div>
       </div>
 
@@ -1807,37 +1585,6 @@
       </div>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-        </span>
-        <div>
-          <h3>AI API keys</h3>
-          <p class="settings-section-desc">Optional — use your own quota</p>
-        </div>
-      </div>
-
-      <div class="settings-group settings-group--plain">
-        <label for="userGeminiKeyInput">Gemini API key</label>
-        <p class="settings-help">If you add your own key, Gemini AI Analysis runs on your quota instead of the site's shared one. Get a free key at Google AI Studio. Saved only in this browser.</p>
-        <div class="settings-name-row">
-          <input id="userGeminiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" />
-          <button id="saveGeminiKeyBtn" type="button">Save</button>
-        </div>
-        <p id="geminiKeyStatus" class="settings-help"></p>
-      </div>
-
-      <div class="settings-group settings-group--plain">
-        <label for="userGroqKeyInput">Groq API key</label>
-        <p class="settings-help">If you add your own key, Groq requests run on your quota (and skip the shared cooldown). Get a free key at console.groq.com. Saved only in this browser.</p>
-        <div class="settings-name-row">
-          <input id="userGroqKeyInput" type="password" placeholder="Paste your Groq API key" autocomplete="off" />
-          <button id="saveGroqKeyBtn" type="button">Save</button>
-        </div>
-        <p id="groqKeyStatus" class="settings-help"></p>
-      </div>
-    </section>
 
     <section class="settings-section">
       <div class="settings-section-header">
@@ -1871,7 +1618,7 @@
 
       <div class="settings-group settings-group--plain">
         <p class="settings-help">CryptoDock v1.0.0 — live prices for 400+ coins in $ and ₹, with paper trading on virtual funds. Education only — not financial advice, and no real-money trading.</p>
-        <p class="settings-help">Built with Chart.js, Lightweight Charts &amp; the TradingView widget, Supabase, Razorpay, Google Gemini and Groq AI. Market data: Binance public API. CryptoDock is not affiliated with Binance.</p>
+        <p class="settings-help">Built with Chart.js, Lightweight Charts &amp; the TradingView widget, Supabase and Razorpay. Market data: Binance public API. CryptoDock is not affiliated with Binance.</p>
       </div>
     </section>
 
@@ -1951,7 +1698,7 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-stats-1"></script>
+  <script src="/frontend/markets.js?v=20261004-news-1"></script>
   <script src="/frontend/paper.js?v=20261004-btn-1"></script>
   <script src="/frontend/coin-tools.js?v=20261004-mom-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
@@ -2067,7 +1814,7 @@
     <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
       <span class="cd-pro-badge cd-pro-badge--green">PRO TRIAL ACTIVATED · 7 DAYS</span>
       <h3 id="cdTrialTitle">CryptoDock Pro unlocked</h3>
-      <p id="cdTrialText" class="cd-meta">Paper trading, Heatmap, Price Alerts, News and AI chart analysis are free for 7 days.</p>
+      <p id="cdTrialText" class="cd-meta">Paper trading, Heatmap, Price Alerts, News and Pro Charts are free for 7 days.</p>
       <div class="cd-plan-mini">
         <div><strong>₹99</strong><span>1 month</span></div>
         <div><strong>₹299</strong><span>6 months</span></div>
@@ -2084,7 +1831,7 @@
       <div class="cd-ticket-head"><h3 id="cdPlansTitle">CryptoDock Pro plans</h3><button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
       <p id="cdPlansStatus" class="cd-meta"></p>
       <div class="cd-plan-list">
-        <label class="cd-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><span><strong>1 Month</strong><small>Paper trading, Heatmap, Alerts, News, AI</small></span><b>₹99</b></label>
+        <label class="cd-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><span><strong>1 Month</strong><small>Paper trading, Heatmap, Alerts, News, Charts</small></span><b>₹99</b></label>
         <label class="cd-plan"><input type="radio" name="cdPlan" value="Half-Yearly Plan" /><span><strong>6 Months</strong><small>₹50/month</small></span><b>₹299</b></label>
         <label class="cd-plan is-best"><input type="radio" name="cdPlan" value="Annual Plan" checked /><span><strong>1 Year</strong><small>Best value · ₹42/month</small></span><b>₹499</b></label>
       </div>
@@ -2097,8 +1844,9 @@
   <script src="/frontend/coin-sheet.js?v=20261004-motion-2"></script>
   <script src="/frontend/coin-stats.js?v=20261004-card-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261004-motion-2"></script>
+  <script src="/frontend/news.js?v=20261004-news-1"></script>
   <script src="/frontend/fit-line.js?v=20261004-line-1"></script>
-  <script src="/frontend/pro.js?v=20261004-scan-1"></script>
+  <script src="/frontend/pro.js?v=20261004-news-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

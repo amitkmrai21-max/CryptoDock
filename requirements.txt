@@ -2,5 +2,3 @@ fastapi
 uvicorn[standard]
 requests
 python-multipart
-google-genai
-groq
