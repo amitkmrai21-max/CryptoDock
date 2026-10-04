@@ -115,16 +115,17 @@
   function momPill(coin) {
     const label = coin.momentum_label || "NEUTRAL";
     const tone = label === "BULLISH" ? "is-bull" : label === "BEARISH" ? "is-bear" : "is-neutral";
-    return `<span class="cd-mom-pill ${tone}">${label} <b>${coin.momentum ?? "--"}</b></span>`;
+    return `<span class="cd-mom-pill ${tone}"><span class="cd-mom-txt">${label}</span><b class="cd-mom-bubble">${coin.momentum ?? "--"}</b></span>`;
   }
 
   // ---------- rendering ----------
   function coinRow(coin) {
     const on = watchlist.includes(coin.base);
-    return `<tr data-base="${escapeHtml(coin.base)}">
+    const tone = coin.momentum_label === "BULLISH" ? "cd-row-bull" : coin.momentum_label === "BEARISH" ? "cd-row-bear" : "cd-row-neutral";
+    return `<tr class="${tone}" data-base="${escapeHtml(coin.base)}">
       <td><button class="cd-star${on ? " is-on" : ""}" type="button" data-star="${escapeHtml(coin.base)}" aria-label="${on ? "Remove from" : "Add to"} watchlist">${on ? "★" : "☆"}</button></td>
       <td><div class="cd-coin-cell">${avatar(coin.base)}<div><strong>${escapeHtml(coin.base)}</strong><small>/USDT</small></div></div></td>
-      <td class="cd-num">${fmtUsd(coin.price)}<span class="cd-sub cd-inr">${fmtInr(coin.price)}</span><span class="cd-sub cd-price-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></td>
+      <td class="cd-num">${fmtUsd(coin.price)}<span class="cd-sub cd-inr">${fmtInr(coin.price)}</span><span class="cd-sub cd-price-chg ${pctClass(coin.change_percent)}">${coin.change_percent > 0 ? "▲ " : coin.change_percent < 0 ? "▼ " : ""}${fmtPct(coin.change_percent)}</span></td>
       <td class="cd-num cd-col-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</td>
       <td class="cd-num cd-col-mom">${momPill(coin)}<span class="cd-mom-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></td>
       <td class="cd-num cd-col-wide">${fmtUsd(coin.high)}<span class="cd-sub">${fmtUsd(coin.low)}</span></td>
