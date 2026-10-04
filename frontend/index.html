@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-pro-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-sheet-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -200,28 +200,6 @@
           <section class="card cd-mover-card"><h3>Most Active</h3><ul id="cdMostActive" class="cd-mover-list"></ul></section>
         </div>
 
-        <section class="card cd-table-card">
-          <div class="cd-table-head">
-            <h3>All Coins <span id="cdCoinCount" class="cd-meta"></span></h3>
-            <input id="cdSearch" class="cd-search" type="search" placeholder="Search coin (BTC, ETH, SOL…)" autocomplete="off" />
-          </div>
-          <div class="cd-table-wrap">
-            <table class="cd-table">
-              <thead>
-                <tr>
-                  <th class="cd-col-star" aria-label="Watchlist"></th>
-                  <th data-sort="base">Coin</th>
-                  <th data-sort="price" class="cd-num">Price</th>
-                  <th data-sort="change_percent" class="cd-num">24h</th>
-                  <th data-sort="high" class="cd-num cd-col-wide">24h High / Low</th>
-                  <th data-sort="volume_usdt" class="cd-num cd-col-wide">Volume</th>
-                </tr>
-              </thead>
-              <tbody id="cdAllCoinsBody"></tbody>
-            </table>
-          </div>
-          <button id="cdShowMore" class="cd-show-more" type="button" hidden>Show more</button>
-        </section>
       </div>
 
       <div class="cd-legacy-dashboard" hidden>
@@ -505,10 +483,36 @@
         <div class="cd-dash-head">
           <div>
             <h2>Watchlist</h2>
-            <p class="cd-meta">Tap ☆ on any coin to add it here. Prices in $ and ₹.</p>
+            <p class="cd-meta">Every Binance coin, live in $ and ₹. Tap a coin to Buy or Sell; tap ☆ to star it.</p>
           </div>
         </div>
-        <section class="card cd-table-card">
+        <div class="cd-pills" id="cdWatchTabs">
+          <button type="button" class="cd-pill is-active" data-watch-tab="all">All Coins</button>
+          <button type="button" class="cd-pill" data-watch-tab="starred">★ Starred</button>
+        </div>
+        <section class="card cd-table-card" id="cdAllCoinsCard">
+          <div class="cd-table-head">
+            <h3>All Coins <span id="cdCoinCount" class="cd-meta"></span></h3>
+            <input id="cdSearch" class="cd-search" type="search" placeholder="Search coin (BTC, ETH, SOL…)" autocomplete="off" />
+          </div>
+          <div class="cd-table-wrap">
+            <table class="cd-table">
+              <thead>
+                <tr>
+                  <th class="cd-col-star" aria-label="Watchlist"></th>
+                  <th data-sort="base">Coin</th>
+                  <th data-sort="price" class="cd-num">Price</th>
+                  <th data-sort="change_percent" class="cd-num">24h</th>
+                  <th data-sort="high" class="cd-num cd-col-wide">24h High / Low</th>
+                  <th data-sort="volume_usdt" class="cd-num cd-col-wide">Volume</th>
+                </tr>
+              </thead>
+              <tbody id="cdAllCoinsBody"></tbody>
+            </table>
+          </div>
+          <button id="cdShowMore" class="cd-show-more" type="button" hidden>Show more</button>
+        </section>
+        <section class="card cd-table-card" id="cdStarredCard" hidden>
           <div class="cd-table-head">
             <h3>My Coins <span id="cdWatchCount" class="cd-meta"></span></h3>
             <input id="cdWatchSearch" class="cd-search" type="search" placeholder="Search to add a coin…" autocomplete="off" />
@@ -528,7 +532,7 @@
               <tbody id="cdWatchBody"></tbody>
             </table>
           </div>
-          <p id="cdWatchEmpty" class="cd-empty" hidden>No coins yet — search above or tap ☆ on the Dashboard.</p>
+          <p id="cdWatchEmpty" class="cd-empty" hidden>No starred coins yet — tap ☆ next to any coin in All Coins.</p>
         </section>
       </div>
     </section>
@@ -1890,10 +1894,55 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">Buy</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-alerts-1"></script>
-  <script src="/frontend/paper.js?v=20261004-tools-1"></script>
-  <script src="/frontend/coin-tools.js?v=20261004-alerts-1"></script>
-  <script src="/frontend/alerts.js?v=20261004-pro-1"></script>
+  <script src="/frontend/markets.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/paper.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
+
+  <!-- Coin sheet: tap any coin (coin-sheet.js) -->
+  <div id="cdSheet" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket cd-sheet" role="dialog" aria-modal="true" aria-labelledby="cdSheetTitle">
+      <div class="cd-sheet-handle"></div>
+      <div class="cd-ticket-head">
+        <div class="cd-coin-cell"><span id="cdSheetAvatar"></span><div><strong id="cdSheetTitle">--</strong> <span class="cd-sheet-badge">BINANCE SPOT</span><small id="cdSheetPair">/USDT</small></div></div>
+        <button id="cdSheetClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="cd-sheet-price-row">
+        <div>
+          <strong id="cdSheetPrice">--</strong>
+          <span id="cdSheetChange"></span>
+          <span id="cdSheetInr" class="cd-meta"></span>
+        </div>
+        <div class="cd-sheet-vol"><span>24H VOLUME</span><strong id="cdSheetVolume">--</strong></div>
+      </div>
+      <div class="cd-sheet-actions">
+        <button type="button" class="cd-pill" id="cdSheetChart">📈 Chart</button>
+        <button type="button" class="cd-pill" id="cdSheetAlert">🔔 Set Alert</button>
+        <button type="button" class="cd-pill" id="cdSheetStar">☆ Watchlist</button>
+      </div>
+      <div class="cd-sheet-section">
+        <div class="cd-sheet-section-head"><span>MARKET DEPTH</span><span class="cd-meta">TOP 5 BIDS / ASKS</span></div>
+        <div class="cd-depth">
+          <div class="cd-depth-side"><div class="cd-depth-head"><span>Bid (Buy)</span><span>Qty</span></div><div id="cdDepthBids"></div></div>
+          <div class="cd-depth-side"><div class="cd-depth-head"><span>Ask (Sell)</span><span>Qty</span></div><div id="cdDepthAsks"></div></div>
+        </div>
+      </div>
+      <div class="cd-sheet-section">
+        <div class="cd-sheet-section-head"><span>24H RANGE</span></div>
+        <div class="cd-range"><span id="cdRangeLow">--</span><div class="cd-range-bar"><i id="cdRangeMark"></i></div><span id="cdRangeHigh">--</span></div>
+      </div>
+      <div class="cd-sheet-stats">
+        <div><span>24h High</span><strong id="cdSheetHigh">--</strong></div>
+        <div><span>24h Low</span><strong id="cdSheetLow">--</strong></div>
+        <div><span>Price in ₹</span><strong id="cdSheetInr2">--</strong></div>
+        <div><span>My holding</span><strong id="cdSheetHolding">--</strong></div>
+      </div>
+      <div class="cd-sheet-footer">
+        <button id="cdSheetBuy" class="cd-submit is-buy" type="button">BUY</button>
+        <button id="cdSheetSell" class="cd-submit is-sell" type="button">SELL</button>
+      </div>
+    </div>
+  </div>
   <!-- Pro: gate, trial card and plans (pro.js) -->
   <div id="cdProGate" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdProGateTitle">
@@ -1934,7 +1983,8 @@
       <p class="cd-meta" style="text-align:center;margin:0">Secure payment by Razorpay · UPI, cards, net banking</p>
     </div>
   </div>
-  <script src="/frontend/pro.js?v=20261004-pro-1"></script>
+  <script src="/frontend/coin-sheet.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/pro.js?v=20261004-sheet-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
