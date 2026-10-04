@@ -1509,6 +1509,87 @@ def coin_depth(symbol: str = "BTCUSDT"):
     return data
 
 
+COIN_STATS_CACHE_SECONDS = 3
+COIN_PERF_CACHE_SECONDS = 300
+coin_stats_cache = {}
+coin_perf_cache = {}
+
+
+def _coin_performance(symbol):
+    """7-day and 30-day change and high/low from daily candles (cached 5 min)."""
+    now = time.time()
+    cached = coin_perf_cache.get(symbol)
+    if cached and now - cached["updated_at"] < COIN_PERF_CACHE_SECONDS:
+        return cached["data"]
+    response = requests.get(f"{BINANCE_BASE_URL}/api/v3/klines", params={"symbol": symbol, "interval": "1d", "limit": 31}, timeout=10)
+    response.raise_for_status()
+    candles = [{"open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4])} for c in response.json()]
+    data = {}
+    for days in (7, 30):
+        window = candles[-days:]
+        if len(candles) > days:
+            # Change from the close `days` days ago to the latest close.
+            base_close = candles[-days - 1]["close"]
+        else:
+            base_close = window[0]["open"] if window else 0
+        last = window[-1]["close"] if window else 0
+        data[f"d{days}"] = {
+            "change_percent": round((last - base_close) / base_close * 100, 2) if base_close else None,
+            "high": max((c["high"] for c in window), default=None),
+            "low": min((c["low"] for c in window), default=None),
+            "days": len(window),
+        }
+    if len(coin_perf_cache) > 500:
+        coin_perf_cache.clear()
+    coin_perf_cache[symbol] = {"data": data, "updated_at": now}
+    return data
+
+
+@app.get("/api/coin/stats")
+def coin_stats(symbol: str = "BTCUSDT"):
+    """Full 24h statistics for one coin plus 7D / 30D performance (Scanner's coin stats sheet)."""
+    symbol = (symbol or "").strip().upper()
+    now = time.time()
+    cached = coin_stats_cache.get(symbol)
+    if cached and now - cached["updated_at"] < COIN_STATS_CACHE_SECONDS:
+        return cached["data"]
+    try:
+        if symbol not in get_usdt_symbols():
+            raise HTTPException(status_code=404, detail="Unknown coin.")
+        response = requests.get(f"{BINANCE_BASE_URL}/api/v3/ticker/24hr", params={"symbol": symbol}, timeout=10)
+        response.raise_for_status()
+        t = response.json()
+        num = lambda key: float(t.get(key) or 0)
+        data = {
+            "symbol": symbol,
+            "price": num("lastPrice"),
+            "open": num("openPrice"),
+            "high": num("highPrice"),
+            "low": num("lowPrice"),
+            "change": num("priceChange"),
+            "change_percent": num("priceChangePercent"),
+            "avg_price": num("weightedAvgPrice"),
+            "volume_base": num("volume"),
+            "volume_usdt": num("quoteVolume"),
+            "trades": int(t.get("count") or 0),
+            "bid": num("bidPrice"),
+            "ask": num("askPrice"),
+            "updated_at": int(now),
+        }
+    except requests.exceptions.RequestException as error:
+        if cached:
+            return cached["data"]
+        raise HTTPException(status_code=502, detail=f"Could not load coin stats: {str(error)}") from error
+    try:
+        data["performance"] = _coin_performance(symbol)
+    except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError):
+        data["performance"] = (coin_perf_cache.get(symbol) or {}).get("data")
+    if len(coin_stats_cache) > 500:
+        coin_stats_cache.clear()
+    coin_stats_cache[symbol] = {"data": data, "updated_at": now}
+    return data
+
+
 # ================= TRIAL & SUBSCRIPTION (RAZORPAY) =================
 # Same model as MarketDock: every email gets one 7-day trial (kept for good —
 # logout, account deletion or signing up again never resets it), then a paid

@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-wl-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-stats-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1951,7 +1951,7 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-wl-1"></script>
+  <script src="/frontend/markets.js?v=20261004-stats-1"></script>
   <script src="/frontend/paper.js?v=20261004-btn-1"></script>
   <script src="/frontend/coin-tools.js?v=20261004-mom-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
@@ -2016,6 +2016,42 @@
       </div>
     </div>
   </div>
+  <!-- Coin stats sheet (coin-stats.js): what a Scanner row opens -->
+  <div id="cdStats" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket cd-sheet cd-stats-sheet" role="dialog" aria-modal="true" aria-labelledby="cdStatsTitle">
+      <div class="cd-sheet-handle"></div>
+      <div class="cd-ticket-head">
+        <div class="cd-coin-cell"><span id="cdStatsAvatar"></span><div><strong id="cdStatsTitle">--</strong> <span class="cd-sheet-badge">MARKET STATS</span></div></div>
+        <button id="cdStatsClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="cd-sheet-price-row">
+        <div>
+          <strong id="cdStatsPrice" class="cd-stats-price">--</strong>
+          <span id="cdStatsChange"></span>
+          <span id="cdStatsInr" class="cd-meta"></span>
+        </div>
+        <div class="cd-stats-tags"><span id="cdStatsMom"></span><span id="cdStatsRank" class="cd-meta"></span></div>
+      </div>
+      <div class="cd-sheet-section">
+        <div class="cd-sheet-section-head"><span>24H RANGE</span><span id="cdStatsRangePct" class="cd-meta"></span></div>
+        <div class="cd-range"><span id="cdStatsLow">--</span><div class="cd-range-bar"><i id="cdStatsMark"></i></div><span id="cdStatsHigh">--</span></div>
+      </div>
+      <div class="cd-sheet-section">
+        <div class="cd-sheet-section-head"><span>24H STATISTICS</span><span class="cd-meta">LIVE</span></div>
+        <div class="cd-sheet-stats" id="cdStats24"></div>
+      </div>
+      <div class="cd-sheet-section">
+        <div class="cd-sheet-section-head"><span>PERFORMANCE</span><span class="cd-meta">DAILY CANDLES</span></div>
+        <div class="cd-perf" id="cdStatsPerf"></div>
+      </div>
+      <div class="cd-sheet-actions">
+        <button type="button" class="cd-pill" id="cdStatsChart">📈 Chart</button>
+        <button type="button" class="cd-pill" id="cdStatsAlert">🔔 Set Alert</button>
+        <button type="button" class="cd-pill" id="cdStatsStar">☆ Watchlist</button>
+      </div>
+      <p class="cd-meta cd-stats-note">Market data for study only — not advice.</p>
+    </div>
+  </div>
   <!-- Pro: gate, trial card and plans (pro.js) -->
   <div id="cdProGate" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdProGateTitle">
@@ -2059,6 +2095,7 @@
   </div>
   <script src="/frontend/tabbar.js?v=20261004-tabs-2"></script>
   <script src="/frontend/coin-sheet.js?v=20261004-motion-2"></script>
+  <script src="/frontend/coin-stats.js?v=20261004-stats-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261004-motion-2"></script>
   <script src="/frontend/fit-line.js?v=20261004-line-1"></script>
   <script src="/frontend/pro.js?v=20261004-scan-1"></script>

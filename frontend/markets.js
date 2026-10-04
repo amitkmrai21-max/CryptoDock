@@ -487,7 +487,9 @@
     // sheet — price, market depth, range — with Buy / Sell at the bottom.
     const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base], .cd-mini-coin[data-base], .cd-tick[data-base], .cd-feature[data-base]");
     if (coinEl) {
-      if (typeof window.cdOpenSheet === "function") window.cdOpenSheet(coinEl.dataset.base);
+      // Scanner rows show the coin's market stats rather than Buy / Sell.
+      if (coinEl.closest("#cdScanBody") && typeof window.cdOpenStats === "function") window.cdOpenStats(coinEl.dataset.base);
+      else if (typeof window.cdOpenSheet === "function") window.cdOpenSheet(coinEl.dataset.base);
       else if (typeof window.cdOpenTicket === "function") window.cdOpenTicket(coinEl.dataset.base);
       return;
     }
@@ -548,8 +550,13 @@
   el("cdShowMore")?.addEventListener("click", () => { shown += PAGE_SIZE; renderAllCoins(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); schedule(); } });
 
-  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow };
+  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow, momPill };
   window.cdToggleWatch = toggleWatch;
+  window.cdVolumeRank = (base) => {
+    const sorted = coins.slice().sort((a, b) => (b.volume_usdt || 0) - (a.volume_usdt || 0));
+    const i = sorted.findIndex((c) => c.base === base);
+    return i < 0 ? null : { rank: i + 1, total: sorted.length };
+  };
   window.cdIsWatched = (base) => watchlist.includes(base);
   window.cdRefreshMarkets = refresh;
 
