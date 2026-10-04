@@ -464,7 +464,7 @@ body > header.topbar {
 .metric-box strong {
   margin-top: 6px;
   color: var(--text);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-variant-numeric: tabular-nums;
   font-size: clamp(1rem, 1.6vw, 1.4rem);
 }
@@ -4667,7 +4667,7 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .im-action-sheet-price {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 15px;
   font-weight: 700;
   color: var(--im-muted);
@@ -5168,14 +5168,14 @@ body.im-chart-fullscreen-open {
 }
 
 .indian-market-mode .im-ticker-value {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--im-text);
 }
 
 .indian-market-mode .im-ticker-change {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-size: 12px;
@@ -6181,7 +6181,7 @@ body.im-chart-fullscreen-open {
 
 .indian-market-mode .stat-value {
   margin-top: 8px;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -6940,7 +6940,7 @@ body.im-chart-fullscreen-open {
 .indian-market-mode .technical-item strong {
   display: block;
   margin-top: 5px;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
@@ -8368,14 +8368,14 @@ body.im-chart-fullscreen-open {
 }
 
 .im-kite-price {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 16px;
   font-weight: 800;
   color: #f8fafc;
 }
 
 .im-kite-change {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 13px;
   font-weight: 700;
   color: #22c55e;
@@ -8505,7 +8505,7 @@ body.im-chart-fullscreen-open {
 .im-kite-depth-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1.2fr 2fr 1fr 1.2fr;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 12px;
   padding: 6px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -8540,7 +8540,7 @@ body.im-chart-fullscreen-open {
   padding-top: 8px;
   margin-top: 4px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 12px;
 }
 
@@ -8645,7 +8645,7 @@ body.im-chart-fullscreen-open {
   font-weight: 600;
 }
 .im-kite-range-val strong {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 13px;
   color: #f1f5f9;
 }
@@ -8763,14 +8763,14 @@ body.im-chart-fullscreen-open {
 }
 
 .im-terminal-price {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 18px;
   font-weight: 600;
   color: #ffffff;
 }
 
 .im-terminal-change {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 13px;
   font-weight: 700;
   color: #10b981;
@@ -8793,7 +8793,7 @@ body.im-chart-fullscreen-open {
 }
 
 .im-term-sub-val {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 12px;
   font-weight: 700;
   color: #cbd5e1;
@@ -8959,7 +8959,7 @@ body.im-chart-fullscreen-open {
 }
 
 .im-term-badge-tag {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 11px;
   font-weight: 700;
   color: #10b981;
@@ -9012,7 +9012,7 @@ body.im-chart-fullscreen-open {
   gap: 14px;
   padding: 6px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 11.5px;
   align-items: center;
 }
@@ -9078,7 +9078,7 @@ body.im-chart-fullscreen-open {
   margin-top: 10px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 11.5px;
 }
 
@@ -9113,7 +9113,7 @@ body.im-chart-fullscreen-open {
 }
 
 .im-range-values {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-size: 12px;
   font-weight: 700;
   color: #f1f5f9;
@@ -9192,7 +9192,7 @@ body.im-chart-fullscreen-open {
 }
 
 .im-stat-val {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   font-weight: 700;
   color: #f1f5f9;
 }
@@ -10618,7 +10618,7 @@ body.im-chart-fullscreen-open {
   color: #f8fafc;
   font-size: 17px;
   font-weight: 700;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
   -moz-appearance: textfield;
 }
 .im-order-stepper input::-webkit-outer-spin-button,
@@ -10722,7 +10722,7 @@ body.im-chart-fullscreen-open {
   border: 0;
   color: #f8fafc;
   font-size: 15px;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
 }
 .im-order-input-wrap input:disabled {
   color: #64748b;
@@ -10767,7 +10767,7 @@ body.im-chart-fullscreen-open {
 .im-order-margin-box strong {
   color: #f8fafc;
   font-size: 17px;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: var(--cd-num-font);
 }
 .im-order-available {
   margin: 8px 2px 0;
