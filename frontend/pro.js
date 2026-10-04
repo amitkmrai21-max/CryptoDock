@@ -1,7 +1,8 @@
 // CryptoDock Pro: every email gets one 7-day trial (the server remembers it
 // for good), then a plan — ₹99 / 1 month, ₹299 / 6 months, ₹499 / 1 year,
 // paid through Razorpay. Pro: paper trading (order ticket, Positions,
-// Orders), Scanner, Heatmap, Price Alerts, News and AI Chart Analysis.
+// Orders), Heatmap, Price Alerts, News and AI Chart Analysis. The Scanner is
+// free, like the Indian market's.
 // Everything else stays free. The owner's email always has access.
 (function cryptoPro() {
   const OWNER_EMAIL = "amitkmrai21@gmail.com";
@@ -9,7 +10,6 @@
   const PRO_TABS = {
     positions: "Paper Trading",
     orders: "Paper Trading",
-    scanner: "Scanner",
     heatmap: "Heatmap",
     alerts: "Price Alerts",
     news: "News",
@@ -103,12 +103,12 @@
       primary.onclick = () => hide("cdProGate");
     } else if (acc.reason === "plan-expired") {
       title.textContent = "Your CryptoDock Pro plan has expired";
-      text.textContent = `${feature} needs an active plan. Renew to unlock paper trading, Scanner, Heatmap, Alerts, News and AI again.`;
+      text.textContent = `${feature} needs an active plan. Renew to unlock paper trading, Heatmap, Alerts, News and AI again.`;
       primary.textContent = "Renew plan";
       primary.onclick = () => { hide("cdProGate"); openPlans(); };
     } else {
       title.textContent = "Your 7-day free trial has ended";
-      text.textContent = `${feature} needs a CryptoDock Pro plan — from ₹99/month. Choose a plan to unlock paper trading, Scanner, Heatmap, Alerts, News and AI.`;
+      text.textContent = `${feature} needs a CryptoDock Pro plan — from ₹99/month. Choose a plan to unlock paper trading, Heatmap, Alerts, News and AI.`;
       primary.textContent = "View plans";
       primary.onclick = () => { hide("cdProGate"); openPlans(); };
     }
@@ -122,7 +122,7 @@
   }
   let pendingResume = null;
   function showTrialCard(acc, resume) {
-    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: paper trading, Scanner, Heatmap, Price Alerts, News and AI chart analysis.`;
+    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: paper trading, Heatmap, Price Alerts, News and AI chart analysis.`;
     pendingResume = resume;
     show("cdTrialCard");
   }

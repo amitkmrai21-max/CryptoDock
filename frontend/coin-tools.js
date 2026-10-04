@@ -155,13 +155,24 @@
     volatile: { hint: "Widest gap between 24h high and low.", run: (l) => l.filter((c) => c.low > 0).sort((a, b) => (b.high - b.low) / b.low - (a.high - a.low) / a.low) },
   };
 
+  // Every matching coin (not just a top few), re-drawn on each live price
+  // update while the Scanner is open.
   function renderScanner() {
     const body = el("cdScanBody");
     if (!body || !F().coinRow) return;
-    const pick = SCANS[scan];
-    const rows = pick.run(coins().filter((c) => c.volume_usdt >= MIN_VOLUME)).slice(0, 50);
-    el("cdScanHint").textContent = `${pick.hint} ${rows.length ? "" : "Nothing matches right now."}`;
-    body.innerHTML = rows.map(F().coinRow).join("");
+    const liquidOnly = el("cdScanLiquid")?.checked;
+    const pool = liquidOnly ? coins().filter((c) => c.volume_usdt >= MIN_VOLUME) : coins();
+    const rows = SCANS[scan].run(pool);
+    document.querySelectorAll("[data-scan-count]").forEach((node) => {
+      const n = SCANS[node.dataset.scanCount].run(pool).length;
+      node.textContent = coins().length ? `(${n})` : "";
+    });
+    const time = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    el("cdScanHint").textContent = coins().length
+      ? `${SCANS[scan].hint} ${rows.length} coin${rows.length === 1 ? "" : "s"} · live · updated ${time}`
+      : "Loading coins…";
+    body.innerHTML = rows.map(F().coinRow).join("") ||
+      `<tr><td colspan="6" class="cd-empty">${coins().length ? "Nothing matches right now." : "Loading coins…"}</td></tr>`;
   }
 
   // ---------- Heatmap ----------
@@ -228,6 +239,7 @@
     if (event.target.closest(".app-tab")) setTimeout(renderActive, 0);
   });
 
+  el("cdScanLiquid")?.addEventListener("change", renderScanner);
   el("cdCoinSearch").addEventListener("change", pickSearchedCoin);
   el("cdCoinSearch").addEventListener("keydown", (event) => { if (event.key === "Enter") pickSearchedCoin(); });
   el("cdCoinBuy").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "BUY"));

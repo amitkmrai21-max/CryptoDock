@@ -238,6 +238,15 @@
     }, onMarketsPage() ? POLL_MS : 15000);
   }
 
+  // On a phone the sidebar is a sideways-scrolling bottom bar; keep the
+  // current page's button visible in it.
+  function keepActiveTabInView() {
+    const active = document.querySelector("#btcModeRoot .sidebar .app-tab.active");
+    const nav = active && active.closest(".nav");
+    if (!nav || nav.scrollWidth <= nav.clientWidth) return;
+    nav.scrollTo({ left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2, behavior: "smooth" });
+  }
+
   // The BTC Refresh / Run Gemini / Run Groq bar belongs to the old BTC
   // chart tools, not to the all-coins Dashboard or Watchlist.
   function syncTopbar() {
@@ -278,7 +287,12 @@
       return;
     }
     if (event.target.closest(".app-tab")) {
-      setTimeout(() => { syncTopbar(); if (onMarketsPage()) refresh(); schedule(); }, 0);
+      setTimeout(() => {
+        syncTopbar();
+        keepActiveTabInView();
+        if (onMarketsPage()) refresh();
+        schedule();
+      }, 0);
     }
   });
 
@@ -293,6 +307,7 @@
   window.cdRefreshMarkets = refresh;
 
   syncTopbar();
+  keepActiveTabInView();
   refresh();
   schedule();
 })();
