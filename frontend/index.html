@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-sheet-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-scan-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -623,19 +623,22 @@
         <div class="cd-dash-head">
           <div>
             <h2>Scanner</h2>
-            <p class="cd-meta">Live filters across every coin. Only coins with at least $1M 24h volume, so thin coins don't crowd the list.</p>
+            <p class="cd-meta">Every Binance coin, live — updates every few seconds. Tap a coin to Buy or Sell.</p>
           </div>
         </div>
         <div class="cd-pills" id="cdScanFilters">
-          <button type="button" class="cd-pill is-active" data-scan="gainers">Top Gainers</button>
-          <button type="button" class="cd-pill" data-scan="losers">Top Losers</button>
+          <button type="button" class="cd-pill is-active" data-scan="gainers">Top Gainers <span data-scan-count="gainers"></span></button>
+          <button type="button" class="cd-pill" data-scan="losers">Top Losers <span data-scan-count="losers"></span></button>
           <button type="button" class="cd-pill" data-scan="volume">Volume Leaders</button>
           <button type="button" class="cd-pill" data-scan="nearHigh">Near 24h High</button>
           <button type="button" class="cd-pill" data-scan="nearLow">Near 24h Low</button>
           <button type="button" class="cd-pill" data-scan="volatile">Big 24h Range</button>
         </div>
         <section class="card cd-table-card">
-          <p id="cdScanHint" class="cd-meta" style="margin:0 0 8px"></p>
+          <div class="cd-scan-bar">
+            <p id="cdScanHint" class="cd-meta"></p>
+            <label class="cd-scan-toggle"><input id="cdScanLiquid" type="checkbox" /> Hide coins under $1M volume</label>
+          </div>
           <div class="cd-table-wrap">
             <table class="cd-table">
               <thead><tr><th class="cd-col-star" aria-label="Watchlist"></th><th>Coin</th><th class="cd-num">Price</th><th class="cd-num">24h</th><th class="cd-num cd-col-wide">24h High / Low</th><th class="cd-num cd-col-wide">Volume</th></tr></thead>
@@ -1895,9 +1898,9 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">Buy</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/markets.js?v=20261004-scan-1"></script>
   <script src="/frontend/paper.js?v=20261004-sheet-1"></script>
-  <script src="/frontend/coin-tools.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261004-scan-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
   <!-- Coin sheet: tap any coin (coin-sheet.js) -->
@@ -1959,7 +1962,7 @@
     <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
       <span class="cd-pro-badge cd-pro-badge--green">PRO TRIAL ACTIVATED · 7 DAYS</span>
       <h3 id="cdTrialTitle">CryptoDock Pro unlocked</h3>
-      <p id="cdTrialText" class="cd-meta">Paper trading, Scanner, Heatmap, Price Alerts, News and AI chart analysis are free for 7 days.</p>
+      <p id="cdTrialText" class="cd-meta">Paper trading, Heatmap, Price Alerts, News and AI chart analysis are free for 7 days.</p>
       <div class="cd-plan-mini">
         <div><strong>₹99</strong><span>1 month</span></div>
         <div><strong>₹299</strong><span>6 months</span></div>
@@ -1975,7 +1978,7 @@
       <div class="cd-ticket-head"><h3 id="cdPlansTitle">CryptoDock Pro plans</h3><button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
       <p id="cdPlansStatus" class="cd-meta"></p>
       <div class="cd-plan-list">
-        <label class="cd-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><span><strong>1 Month</strong><small>Paper trading, Scanner, Heatmap, Alerts, News, AI</small></span><b>₹99</b></label>
+        <label class="cd-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><span><strong>1 Month</strong><small>Paper trading, Heatmap, Alerts, News, AI</small></span><b>₹99</b></label>
         <label class="cd-plan"><input type="radio" name="cdPlan" value="Half-Yearly Plan" /><span><strong>6 Months</strong><small>₹50/month</small></span><b>₹299</b></label>
         <label class="cd-plan is-best"><input type="radio" name="cdPlan" value="Annual Plan" checked /><span><strong>1 Year</strong><small>Best value · ₹42/month</small></span><b>₹499</b></label>
       </div>
@@ -1985,7 +1988,7 @@
     </div>
   </div>
   <script src="/frontend/coin-sheet.js?v=20261004-sheet-1"></script>
-  <script src="/frontend/pro.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/pro.js?v=20261004-scan-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

@@ -671,3 +671,63 @@
   .cd-sheet { max-width: none; }
   .cd-sheet-handle { display: block; }
 }
+
+/* ---------- Scanner bar ---------- */
+.cd-scan-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cd-scan-bar .cd-meta { margin: 0; }
+.cd-scan-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.cd-scan-toggle input { accent-color: var(--green); }
+#cdScanFilters .cd-pill span { opacity: 0.75; font-weight: 600; }
+
+/* ---------- Phone: sidebar becomes a bottom bar, like the Indian market app ---------- */
+@media (max-width: 760px) {
+  #btcModeRoot .sidebar {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 55;
+    height: auto;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-right: 0;
+    border-bottom: 0;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  #btcModeRoot .sidebar .nav {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-right: 4px;
+  }
+
+  #btcModeRoot .sidebar .nav::-webkit-scrollbar { display: none; }
+
+  #btcModeRoot .nav-button {
+    width: auto;
+    min-width: max-content;
+    margin: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  #btcModeRoot .nav-button.active {
+    color: #24123f;
+    background: linear-gradient(135deg, #8b5cf6, #c4b5fd);
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
+  }
+
+  #btcModeRoot .nav-button.active .nav-icon { color: #24123f; }
+
+  /* Room for the bottom bar so it never covers the last row. */
+  #btcModeRoot .content { padding-bottom: 92px; }
+  .cd-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+}
