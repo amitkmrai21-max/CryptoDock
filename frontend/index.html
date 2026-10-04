@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-paper-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-tools-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -94,6 +94,21 @@
         <button class="nav-button app-tab" type="button" data-tab="orders">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 4h10l2 3v13H5V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 15h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           Orders
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="coin">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Coin Detail
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="scanner">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Scanner
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="heatmap">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="15" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="15" y="11" width="6" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="15" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg></span>
+          Heatmap
         </button>
 
         <button class="nav-button app-tab" type="button" data-tab="live-chart">
@@ -553,6 +568,87 @@
           <div id="cdOrderList" class="cd-order-list"></div>
           <p id="cdOrderEmpty" class="cd-empty" hidden>No orders here yet.</p>
         </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="coin">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div class="cd-coin-cell"><span id="cdCoinAvatar"></span><div><h2 id="cdCoinTitle">BTC</h2><p class="cd-meta">/USDT · Binance spot</p></div></div>
+          <input id="cdCoinSearch" class="cd-search" type="search" placeholder="Search coin…" autocomplete="off" list="cdCoinList" />
+          <datalist id="cdCoinList"></datalist>
+        </div>
+        <div class="cd-coin-price-row">
+          <strong id="cdCoinPrice">--</strong>
+          <span id="cdCoinInr" class="cd-meta"></span>
+          <span id="cdCoinChange"></span>
+        </div>
+        <div class="cd-funds-grid">
+          <div class="cd-fund"><span>24h High</span><strong id="cdCoinHigh">--</strong></div>
+          <div class="cd-fund"><span>24h Low</span><strong id="cdCoinLow">--</strong></div>
+          <div class="cd-fund"><span>24h Volume</span><strong id="cdCoinVolume">--</strong></div>
+          <div class="cd-fund"><span>My holding</span><strong id="cdCoinHolding">--</strong><small id="cdCoinHoldingPnl"></small></div>
+        </div>
+        <section class="card cd-table-card">
+          <div class="cd-pills" id="cdCoinIntervals">
+            <button type="button" class="cd-pill" data-interval="15m">15m</button>
+            <button type="button" class="cd-pill is-active" data-interval="1h">1H</button>
+            <button type="button" class="cd-pill" data-interval="4h">4H</button>
+            <button type="button" class="cd-pill" data-interval="1d">1D</button>
+            <button type="button" class="cd-pill" data-interval="1w">1W</button>
+          </div>
+          <div id="cdCoinChart" class="cd-coin-chart"></div>
+          <p id="cdCoinChartStatus" class="cd-empty" hidden></p>
+        </section>
+        <div class="cd-coin-actions">
+          <button id="cdCoinBuy" class="cd-submit is-buy" type="button">Buy</button>
+          <button id="cdCoinSell" class="cd-submit is-sell" type="button">Sell</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="scanner">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Scanner</h2>
+            <p class="cd-meta">Live filters across every coin. Only coins with at least $1M 24h volume, so thin coins don't crowd the list.</p>
+          </div>
+        </div>
+        <div class="cd-pills" id="cdScanFilters">
+          <button type="button" class="cd-pill is-active" data-scan="gainers">Top Gainers</button>
+          <button type="button" class="cd-pill" data-scan="losers">Top Losers</button>
+          <button type="button" class="cd-pill" data-scan="volume">Volume Leaders</button>
+          <button type="button" class="cd-pill" data-scan="nearHigh">Near 24h High</button>
+          <button type="button" class="cd-pill" data-scan="nearLow">Near 24h Low</button>
+          <button type="button" class="cd-pill" data-scan="volatile">Big 24h Range</button>
+        </div>
+        <section class="card cd-table-card">
+          <p id="cdScanHint" class="cd-meta" style="margin:0 0 8px"></p>
+          <div class="cd-table-wrap">
+            <table class="cd-table">
+              <thead><tr><th class="cd-col-star" aria-label="Watchlist"></th><th>Coin</th><th class="cd-num">Price</th><th class="cd-num">24h</th><th class="cd-num cd-col-wide">24h High / Low</th><th class="cd-num cd-col-wide">Volume</th></tr></thead>
+              <tbody id="cdScanBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="heatmap">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Heatmap</h2>
+            <p class="cd-meta">24h change of the most traded coins. Tap a coin to open it.</p>
+          </div>
+          <div class="cd-pills" id="cdHeatSize">
+            <button type="button" class="cd-pill" data-heat="50">Top 50</button>
+            <button type="button" class="cd-pill is-active" data-heat="100">Top 100</button>
+            <button type="button" class="cd-pill" data-heat="200">Top 200</button>
+          </div>
+        </div>
+        <div id="cdHeatGrid" class="cd-heat-grid"></div>
       </div>
     </section>
 
@@ -1709,7 +1805,10 @@
     <div class="cd-ticket" role="dialog" aria-modal="true" aria-labelledby="cdTicketTitle">
       <div class="cd-ticket-head">
         <div class="cd-coin-cell"><span id="cdTicketAvatar"></span><div><strong id="cdTicketTitle">--</strong><small>/USDT · Paper trade</small></div></div>
-        <button id="cdTicketClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+        <span class="cd-ticket-head-actions">
+          <button id="cdTicketChart" class="cd-ghost-btn" type="button">Chart</button>
+          <button id="cdTicketClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+        </span>
       </div>
       <div class="cd-ticket-price">
         <strong id="cdTicketPrice">--</strong>
@@ -1751,8 +1850,9 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">Buy</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-paper-1"></script>
-  <script src="/frontend/paper.js?v=20261004-paper-1"></script>
+  <script src="/frontend/markets.js?v=20261004-tools-1"></script>
+  <script src="/frontend/paper.js?v=20261004-tools-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261004-tools-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

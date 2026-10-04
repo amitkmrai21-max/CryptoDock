@@ -225,7 +225,7 @@
 
   // Pages that need live prices (Positions/Orders for P&L and limit fills).
   function onMarketsPage() {
-    return ["dashboard", "watchlist", "positions", "orders"].includes(activePanel());
+    return ["dashboard", "watchlist", "positions", "orders", "coin", "scanner", "heatmap"].includes(activePanel());
   }
 
   // Poll only while a markets page is on screen and the tab is visible.
@@ -276,7 +276,7 @@
   el("cdShowMore")?.addEventListener("click", () => { shown += PAGE_SIZE; renderAllCoins(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); schedule(); } });
 
-  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml };
+  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow };
   window.cdRefreshMarkets = refresh;
 
   syncTopbar();
