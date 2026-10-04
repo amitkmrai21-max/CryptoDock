@@ -225,14 +225,15 @@
 
   // Pages that need live prices (Positions/Orders for P&L and limit fills).
   function onMarketsPage() {
-    return ["dashboard", "watchlist", "positions", "orders", "coin", "scanner", "heatmap"].includes(activePanel());
+    return ["dashboard", "watchlist", "positions", "orders", "coin", "scanner", "heatmap", "alerts"].includes(activePanel());
   }
 
-  // Poll only while a markets page is on screen and the tab is visible.
+  // Every 3s on the coin pages; every 15s elsewhere (price alerts and limit
+  // orders still need prices there). Paused while the tab is hidden.
   function schedule() {
     clearTimeout(pollTimer);
     pollTimer = setTimeout(async () => {
-      if (document.visibilityState === "visible" && onMarketsPage()) await refresh();
+      if (document.visibilityState === "visible") await refresh();
       schedule();
     }, onMarketsPage() ? POLL_MS : 15000);
   }

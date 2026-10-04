@@ -128,6 +128,7 @@
     requestAnimationFrame(() => loadCandles(true));
   }
 
+  // Shared with the Alerts page's coin field.
   function fillCoinList() {
     const list = el("cdCoinList");
     if (!list || list.childElementCount === coins().length) return;
@@ -231,7 +232,9 @@
   el("cdCoinSearch").addEventListener("keydown", (event) => { if (event.key === "Enter") pickSearchedCoin(); });
   el("cdCoinBuy").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "BUY"));
   el("cdCoinSell").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "SELL"));
+  el("cdCoinAlert")?.addEventListener("click", () => window.cdNewAlert && window.cdNewAlert(coinBase));
 
   window.cdOpenCoin = openCoin;
+  window.cdFillCoinList = fillCoinList;
   if (activePanel() === "coin") requestAnimationFrame(() => { renderCoinHeader(); loadCandles(true); });
 })();
