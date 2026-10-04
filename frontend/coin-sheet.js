@@ -41,8 +41,6 @@
     const starred = typeof window.cdIsWatched === "function" && window.cdIsWatched(base);
     el("cdSheetStar").textContent = starred ? "★ In Watchlist" : "☆ Watchlist";
     el("cdSheetStar").classList.toggle("is-active", starred);
-    el("cdSheetBuy").textContent = `BUY ${base}`;
-    el("cdSheetSell").textContent = `SELL ${base}`;
   }
 
   function depthRows(rows, side, maxQty) {

@@ -112,8 +112,6 @@
     const pnl = el("cdCoinHoldingPnl");
     pnl.textContent = held ? `${held.pnl >= 0 ? "+" : "-"}${money(Math.abs(held.pnl))} (${held.pct >= 0 ? "+" : ""}${held.pct.toFixed(2)}%)` : "";
     pnl.className = held && f.pctClass ? f.pctClass(held.pnl) : "";
-    el("cdCoinBuy").textContent = `Buy ${coinBase}`;
-    el("cdCoinSell").textContent = `Sell ${coinBase}`;
     el("cdCoinSell").disabled = !held;
     el("cdCoinSell").style.opacity = held ? "" : "0.5";
   }

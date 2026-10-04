@@ -295,7 +295,7 @@
     const total = isBuy ? amount + fee : amount - fee;
     el("cdTicketTotal").textContent = amount > 0 ? `${fmtMoney(total)} · ${fmtInr(total)}${isBuy ? "" : " (you get)"}` : "--";
     const submit = el("cdTicketSubmit");
-    submit.textContent = `${isBuy ? "Buy" : "Sell"} ${ticket.base}`;
+    submit.textContent = isBuy ? "BUY" : "SELL";
     submit.className = `cd-submit ${isBuy ? "is-buy" : "is-sell"}`;
   }
 
