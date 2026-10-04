@@ -253,10 +253,20 @@
       toggleWatch(star.dataset.star);
       return;
     }
-    // Tapping a coin anywhere on the Dashboard/Watchlist opens its order ticket.
+    // Tapping a coin anywhere (Dashboard, Watchlist, Scanner) opens its coin
+    // sheet — price, market depth, range — with Buy / Sell at the bottom.
     const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base]");
-    if (coinEl && typeof window.cdOpenTicket === "function") {
-      window.cdOpenTicket(coinEl.dataset.base);
+    if (coinEl) {
+      if (typeof window.cdOpenSheet === "function") window.cdOpenSheet(coinEl.dataset.base);
+      else if (typeof window.cdOpenTicket === "function") window.cdOpenTicket(coinEl.dataset.base);
+      return;
+    }
+    const watchTab = event.target.closest("#cdWatchTabs [data-watch-tab]");
+    if (watchTab) {
+      const starred = watchTab.dataset.watchTab === "starred";
+      document.querySelectorAll("#cdWatchTabs [data-watch-tab]").forEach((b) => b.classList.toggle("is-active", b === watchTab));
+      el("cdAllCoinsCard").hidden = starred;
+      el("cdStarredCard").hidden = !starred;
       return;
     }
     const th = event.target.closest(".cd-table th[data-sort]");
@@ -278,6 +288,8 @@
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); schedule(); } });
 
   window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow };
+  window.cdToggleWatch = toggleWatch;
+  window.cdIsWatched = (base) => watchlist.includes(base);
   window.cdRefreshMarkets = refresh;
 
   syncTopbar();

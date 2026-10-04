@@ -1479,6 +1479,36 @@ def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300
     return data
 
 
+COIN_DEPTH_CACHE_SECONDS = 2
+coin_depth_cache = {}
+
+
+@app.get("/api/coin/depth")
+def coin_depth(symbol: str = "BTCUSDT"):
+    """Top 5 bids and asks from Binance's order book (coin sheet's Market Depth)."""
+    symbol = (symbol or "").strip().upper()
+    now = time.time()
+    cached = coin_depth_cache.get(symbol)
+    if cached and now - cached["updated_at"] < COIN_DEPTH_CACHE_SECONDS:
+        return cached["data"]
+    try:
+        if symbol not in get_usdt_symbols():
+            raise HTTPException(status_code=404, detail="Unknown coin.")
+        response = requests.get(f"{BINANCE_BASE_URL}/api/v3/depth", params={"symbol": symbol, "limit": 5}, timeout=10)
+        response.raise_for_status()
+        book = response.json()
+    except requests.exceptions.RequestException as error:
+        if cached:
+            return cached["data"]
+        raise HTTPException(status_code=502, detail=f"Could not load the order book: {str(error)}") from error
+    side = lambda rows: [{"price": float(p), "qty": float(q)} for p, q in rows[:5]]
+    data = {"symbol": symbol, "bids": side(book.get("bids", [])), "asks": side(book.get("asks", [])), "updated_at": int(now)}
+    if len(coin_depth_cache) > 500:
+        coin_depth_cache.clear()
+    coin_depth_cache[symbol] = {"data": data, "updated_at": now}
+    return data
+
+
 # ================= TRIAL & SUBSCRIPTION (RAZORPAY) =================
 # Same model as MarketDock: every email gets one 7-day trial (kept for good —
 # logout, account deletion or signing up again never resets it), then a paid
