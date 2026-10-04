@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-news-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-welcome-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -65,6 +65,40 @@
     <span id="topMarketStatusText">Connecting…</span>
   </span>
 
+  <!-- Welcome / sign-in screen (welcome.js): shown on opening CryptoDock
+       until the user signs in or signs up. -->
+  <div id="cdWelcome" class="cd-welcome" hidden>
+    <div class="cd-welcome-card" role="dialog" aria-modal="true" aria-labelledby="cdWelcomeTitle">
+      <div class="cd-welcome-head">
+        <img src="/frontend/logo.png?v=v1" alt="CryptoDock logo" class="cd-welcome-logo" />
+        <h2 id="cdWelcomeTitle">Welcome to CryptoDock</h2>
+        <span class="cd-welcome-badge">BTC • ETH • SOL • 400+ COINS</span>
+        <p class="cd-welcome-tagline">Buy &amp; Sell crypto with virtual money</p>
+      </div>
+      <ul class="cd-welcome-features">
+        <li><span>💰</span><div><strong>10,000 USDT virtual balance</strong><small>Practise trading with zero risk</small></div></li>
+        <li><span>📈</span><div><strong>Every coin live in $ and ₹</strong><small>Watchlists, scanner, heatmap and charts</small></div></li>
+        <li><span>📰</span><div><strong>Live crypto news</strong><small>English and हिंदी, with pictures and sources</small></div></li>
+      </ul>
+      <div class="cd-welcome-actions">
+        <button id="cdWelcomeGoogle" class="cd-welcome-google" type="button"><svg width="20" height="20" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg> Continue with Google</button>
+        <button id="cdWelcomeEmailToggle" class="cd-welcome-email-toggle" type="button">Continue with Email</button>
+        <div id="cdWelcomeEmailForm" class="cd-welcome-form" hidden>
+          <input id="cdWelcomeEmail" type="email" placeholder="Email address" autocomplete="email" />
+          <div class="cd-welcome-pass">
+            <input id="cdWelcomePassword" type="password" placeholder="Password (min 6 characters)" autocomplete="current-password" />
+            <button id="cdWelcomePassToggle" type="button" aria-label="Show password">👁</button>
+          </div>
+          <div class="cd-welcome-btns">
+            <button id="cdWelcomeLogin" class="cd-welcome-primary" type="button">Log In</button>
+            <button id="cdWelcomeSignup" class="cd-welcome-secondary" type="button">Sign Up</button>
+          </div>
+        </div>
+        <p id="cdWelcomeStatus" class="cd-welcome-status" role="status"></p>
+      </div>
+      <p class="cd-welcome-foot">No real money involved — CryptoDock is a paper-trading app.<br><a href="/terms" target="_blank" rel="noopener">Terms</a> · <a href="/privacy" target="_blank" rel="noopener">Privacy</a></p>
+    </div>
+  </div>
   <div id="aiErrorToast" class="ai-error-toast" role="status" aria-live="polite">
     <span class="ai-error-toast-icon">&#9888;</span>
     <span class="ai-error-toast-text" id="aiErrorToastText"></span>
@@ -1645,7 +1679,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=20261004-auth-1"></script>
+  <script src="/frontend/app.js?v=20261004-welcome-1"></script>
 
   <!-- Paper trading order ticket (paper.js) -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
@@ -1845,6 +1879,7 @@
   <script src="/frontend/coin-stats.js?v=20261004-card-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261004-motion-2"></script>
   <script src="/frontend/news.js?v=20261004-news-1"></script>
+  <script src="/frontend/welcome.js?v=20261004-welcome-1"></script>
   <script src="/frontend/fit-line.js?v=20261004-line-1"></script>
   <script src="/frontend/pro.js?v=20261004-news-2"></script>
   <script>

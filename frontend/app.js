@@ -2458,6 +2458,7 @@ setInterval(loadRrg, 300000);
     function showLoggedIn(session) {
       loggedOutGroup.hidden = true;
       loggedInGroup.hidden = false;
+      window.dispatchEvent(new CustomEvent("cd-auth-state", { detail: { signedIn: true } }));
       const email = session?.user?.email || "--";
       if (emailDisplay) emailDisplay.textContent = email;
       if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
@@ -2467,6 +2468,7 @@ setInterval(loadRrg, 300000);
     function showLoggedOut() {
       loggedOutGroup.hidden = false;
       loggedInGroup.hidden = true;
+      window.dispatchEvent(new CustomEvent("cd-auth-state", { detail: { signedIn: false } }));
       setStatus("", false);
       setPaperAccount("");
     }
