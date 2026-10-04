@@ -1213,8 +1213,18 @@ news_cache = {}
 news_image_cache = {}
 news_locks = {"en": threading.Lock(), "hi": threading.Lock()}
 _IMG_SRC_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.I)
-_OG_IMAGE_RE = re.compile(r"<meta[^>]+(?:property|name)=[\"'](?:og:image|twitter:image)(?::src)?[\"'][^>]*>", re.I)
+_OG_IMAGE_RE = re.compile(r"<meta[^>]+(?:property|name|itemprop)=[\"'](?:og:image(?::url|:secure_url)?|twitter:image(?::src)?|image)[\"'][^>]*>", re.I)
 _CONTENT_ATTR_RE = re.compile(r"content=[\"']([^\"']+)[\"']", re.I)
+_LINK_IMAGE_RE = re.compile(r"<link[^>]+rel=[\"']image_src[\"'][^>]*href=[\"']([^\"']+)[\"']|<link[^>]+href=[\"']([^\"']+)[\"'][^>]*rel=[\"']image_src[\"']", re.I)
+_JSONLD_IMAGE_RE = re.compile(r'"image"\s*:\s*(?:\[\s*)?(?:\{[^{}]*?"url"\s*:\s*)?"(https?:[^"\s]+)"', re.I)
+# Article pages are fetched like a phone browser would; several Hindi
+# publishers refuse unknown bots and then no picture can be found.
+NEWS_PAGE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "hi-IN,hi;q=0.9,en-IN;q=0.8,en;q=0.7",
+}
+NEWS_IMAGE_RETRY_SECONDS = 1800
 
 
 def _news_text(node, path):
@@ -1269,31 +1279,43 @@ def _news_item_image(item, raw_html):
 
 
 def _news_page_image(url):
-    """og:image from the article page, for feeds that carry no picture."""
-    if url in news_image_cache:
-        return news_image_cache[url]
+    """The article's picture from its page: og:image / twitter:image, then
+    <link rel=image_src>, then the JSON-LD "image". Cached; a page that gave
+    no picture is tried again after 30 minutes."""
+    now = time.time()
+    cached = news_image_cache.get(url)
+    if cached and (cached["image"] or now - cached["at"] < NEWS_IMAGE_RETRY_SECONDS):
+        return cached["image"]
     image = ""
     try:
-        response = requests.get(url, timeout=NEWS_IMAGE_TIMEOUT_SECONDS, headers={"User-Agent": NEWS_HEADERS["User-Agent"]}, stream=True)
+        response = requests.get(url, timeout=NEWS_IMAGE_TIMEOUT_SECONDS, headers=NEWS_PAGE_HEADERS, stream=True)
         response.raise_for_status()
         chunks, size = [], 0
-        for chunk in response.iter_content(16_384):
+        for chunk in response.iter_content(32_768):
             chunks.append(chunk)
             size += len(chunk)
-            if size >= 200_000:
+            if size >= 600_000 or b"</head>" in chunk.lower():
                 break
         response.close()
-        head = b"".join(chunks).decode(response.encoding or "utf-8", errors="ignore")
-        for tag in _OG_IMAGE_RE.findall(head):
+        page = b"".join(chunks).decode(response.encoding or "utf-8", errors="ignore")
+        base = getattr(response, "url", None) or url
+        candidates = []
+        for tag in _OG_IMAGE_RE.findall(page):
             content = _CONTENT_ATTR_RE.search(tag)
-            if content and _news_clean_url(content.group(1)):
-                image = _news_clean_url(content.group(1))
+            if content:
+                candidates.append(content.group(1))
+        candidates += [a or b for a, b in _LINK_IMAGE_RE.findall(page)]
+        candidates += _JSONLD_IMAGE_RE.findall(page)
+        for candidate in candidates:
+            full = _news_clean_url(urllib.parse.urljoin(base, html_lib.unescape(candidate.strip())))
+            if full:
+                image = full
                 break
     except Exception:  # best effort: a story without a picture is fine
         image = ""
-    if len(news_image_cache) > 2000:
+    if len(news_image_cache) > 3000:
         news_image_cache.clear()
-    news_image_cache[url] = image
+    news_image_cache[url] = {"image": image, "at": now}
     return image
 
 
@@ -1419,14 +1441,26 @@ def _resolve_google_items(items):
     Results are cached; a story that can't be resolved keeps its Google
     News link (which still opens the article) and is retried later."""
     now = time.time()
-    todo = []
+    todo, no_picture = [], []
     for item in items:
         cached = gnews_cache.get(item["url"])
         if cached and (cached["url"] or now - cached["at"] < GNEWS_RETRY_SECONDS):
             if cached["url"]:
                 item["url"], item["image"] = cached["url"], cached["image"]
+                if not item["image"]:
+                    no_picture.append(item)
         elif len(todo) < GNEWS_RESOLVE_PER_BUILD:
             todo.append(item)
+    if no_picture:
+        # Resolved earlier but the page gave no picture then; try again
+        # (_news_page_image waits 30 min between attempts per page).
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            for item, image in zip(no_picture, pool.map(lambda it: _news_page_image(it["url"]), no_picture)):
+                if image:
+                    item["image"] = image
+                    for entry in gnews_cache.values():
+                        if entry["url"] == item["url"]:
+                            entry["image"] = image
     if not todo:
         return
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
@@ -1478,11 +1512,11 @@ def build_news(lang):
         items.append(item)
         if len(items) >= NEWS_LIMIT:
             break
-    google = [item for item in items[:40] if item.get("_google")]
+    google = [item for item in items if item.get("_google")]
     if google:
         _resolve_google_items(google)
     # Stories whose feed has no picture: take the article's own og:image.
-    missing = [item for item in items[:40] if not item["image"] and not item.get("_google")]
+    missing = [item for item in items if not item["image"] and not item.get("_google")]
     if missing:
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             for item, image in zip(missing, pool.map(lambda it: _news_page_image(it["url"]), missing)):
