@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-gap-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-line-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -575,7 +575,7 @@
           </div>
           <p id="cdWatchEmpty" class="cd-empty" hidden>No starred coins yet — tap ☆ next to any coin in All Coins.</p>
         </section>
-        <ul class="cd-page-notes"><li>Live prices, updated every few seconds</li><li>Tap a coin to Buy / Sell (virtual money)</li><li>Tap ☆ to save it in Starred</li><li>Momentum 0–100 = 24h move + range, not advice</li></ul>
+        <ul class="cd-page-notes"><li>Tap a coin to Buy / Sell</li><li>☆ = Starred</li><li>Momentum is not advice</li></ul>
       </div>
     </section>
 
@@ -598,7 +598,7 @@
           <div id="cdHoldList" class="cd-hold-list"></div>
           <p id="cdHoldEmpty" class="cd-empty" hidden>No coins yet. Tap any coin on the Dashboard or Watchlist, then Buy.</p>
         </section>
-        <ul class="cd-page-notes"><li>Paper trading only — virtual USDT</li><li>No real money, no exchange orders</li><li>Tap a holding to sell it</li></ul>
+        <ul class="cd-page-notes"><li>Virtual USDT only</li><li>No real orders</li><li>Tap a holding to sell it</li></ul>
       </div>
     </section>
 
@@ -619,7 +619,7 @@
           <div id="cdOrderList" class="cd-order-list"></div>
           <p id="cdOrderEmpty" class="cd-empty" hidden>No orders here yet.</p>
         </section>
-        <ul class="cd-page-notes"><li>Limit order fills when price reaches it</li><li>Open orders can be cancelled</li></ul>
+        <ul class="cd-page-notes"><li>Limit fills at your price</li><li>Open orders can be cancelled</li></ul>
       </div>
     </section>
 
@@ -687,7 +687,7 @@
             </table>
           </div>
         </section>
-        <ul class="cd-page-notes"><li>All coins, updates every few seconds</li><li>Tap a coin to practise trading it</li></ul>
+        <ul class="cd-page-notes"><li>All coins, live</li><li>Tap a coin to practise trading it</li></ul>
       </div>
     </section>
 
@@ -704,7 +704,7 @@
           </div>
         </div>
         <div id="cdHeatGrid" class="cd-heat-grid"></div>
-        <ul class="cd-page-notes"><li>Green = up, red = down (last 24h)</li><li>Tap a coin to open its chart</li></ul>
+        <ul class="cd-page-notes"><li>Green = up, red = down (24h)</li><li>Tap a coin for its chart</li></ul>
       </div>
     </section>
 
@@ -737,7 +737,7 @@
           <div id="cdAlertDone" class="cd-order-list"></div>
           <p id="cdAlertDoneEmpty" class="cd-empty">Nothing triggered yet.</p>
         </section>
-        <ul class="cd-page-notes"><li>Alert when a coin crosses your price</li><li>Works while CryptoDock is open</li></ul>
+        <ul class="cd-page-notes"><li>Alert when a coin hits your price</li><li>Works while the app is open</li></ul>
       </div>
     </section>
 
@@ -1530,10 +1530,10 @@
 
     <section class="disclaimer-card">
      <p id="disclaimerText">
-        Educational market analysis only. Not financial advice or an automated trading instruction.
+        Educational only. Not financial advice.
       </p>
       <p class="tv-attribution">
-        Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a>.
+        Charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a>.
       </p>
     </section>
   </main>
@@ -2050,6 +2050,7 @@
   <script src="/frontend/tabbar.js?v=20261004-tabs-2"></script>
   <script src="/frontend/coin-sheet.js?v=20261004-motion-2"></script>
   <script src="/frontend/sheet-motion.js?v=20261004-motion-2"></script>
+  <script src="/frontend/fit-line.js?v=20261004-line-1"></script>
   <script src="/frontend/pro.js?v=20261004-scan-1"></script>
   <script>
     if ("serviceWorker" in navigator) {

@@ -1007,7 +1007,7 @@
 .cd-mom-pill.is-bear { color: var(--red); background: rgba(234, 57, 67, 0.12); border-color: rgba(234, 57, 67, 0.35); }
 .cd-mom-pill.is-neutral { color: var(--muted); background: var(--surface-soft); border-color: var(--border); }
 .cd-mom-chg { display: none; }
-.cd-mom-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.cd-mom-summary { display: flex; justify-content: space-between; gap: 6px; margin: 2px 0 8px; }
 .cd-mom-summary:empty { display: none; }
 
 /* Phones: the 24h % moves under the pill to save a column. */
@@ -1082,6 +1082,26 @@
 @media (max-width: 760px) {
   #btcModeRoot .content { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
   #btcModeRoot main.dashboard { padding-bottom: 8px; row-gap: 10px; }
-  #btcModeRoot .cd-page-notes { margin-top: -4px; padding: 8px 12px 8px 28px; line-height: 1.6; }
-  #btcModeRoot .disclaimer-card { padding-top: 10px; padding-bottom: 10px; }
+  #btcModeRoot .cd-page-notes { margin-top: -4px; padding: 7px 10px; }
+  #btcModeRoot .disclaimer-card { padding: 8px 10px; }
 }
+
+/* Page notes and the disclaimer: one line each. fit-line.js shrinks the
+   font until the line fits (down to 8.5px); text that still doesn't fit
+   (a long AI disclaimer) wraps instead of being cut. */
+#btcModeRoot .cd-page-notes {
+  list-style: none;
+  padding-left: 10px;
+  padding-right: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: center;
+  line-height: 1.5;
+}
+#btcModeRoot .cd-page-notes li { display: inline; }
+#btcModeRoot .cd-page-notes li + li::before { content: " · "; color: var(--purple, #a78bfa); font-weight: 800; }
+#btcModeRoot .disclaimer-card { white-space: nowrap; overflow: hidden; line-height: 1.5; }
+#btcModeRoot .disclaimer-card p { display: inline; font-size: 12px; }
+#btcModeRoot .disclaimer-card .tv-attribution { margin: 0 0 0 4px; }
+#btcModeRoot .cd-page-notes.is-wrapped,
+#btcModeRoot .disclaimer-card.is-wrapped { white-space: normal; }
