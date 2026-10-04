@@ -12,11 +12,13 @@
 
   const panelOf = (overlay) => overlay.querySelector(".cd-ticket");
 
+  // Paint one frame at the off-screen position, then let it slide in. Two
+  // animation frames instead of reading offsetHeight: forcing a layout of
+  // this big page right on the tap cost a visible stutter on phones.
   function animateIn(overlay) {
     overlay.classList.add("cd-off");
     overlay.classList.remove("cd-closing");
-    void overlay.offsetHeight; // start from the off-screen position
-    requestAnimationFrame(() => overlay.classList.remove("cd-off"));
+    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.remove("cd-off")));
   }
 
   // Code set hidden=true: keep it on screen just long enough to slide out.
@@ -106,6 +108,18 @@
     panel.addEventListener("touchend", end);
     panel.addEventListener("touchcancel", end);
   }
+
+  // Hide without the slide-down, for handing over straight to another sheet
+  // (coin sheet → order ticket) so only one sheet animates at a time.
+  window.cdHideSheetNow = (overlay) => {
+    if (!overlay || overlay.hidden) return;
+    closingNow.delete(overlay);
+    overlay.classList.remove("cd-closing", "cd-off");
+    const panel = panelOf(overlay);
+    if (panel) panel.style.transform = "";
+    ourHide.add(overlay);
+    overlay.hidden = true;
+  };
 
   document.querySelectorAll(OVERLAY).forEach(watch);
 })();

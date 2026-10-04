@@ -937,13 +937,13 @@
 /* ================= Sheet motion (sheet-motion.js) ================= */
 .cd-ticket-overlay {
   background: rgba(5, 4, 12, calc(0.7 * var(--cd-sheet-dim, 1)));
-  transition: background-color 0.28s ease, backdrop-filter 0.28s ease;
+  transition: background-color 0.24s ease;
 }
 .cd-ticket-overlay > .cd-ticket {
-  transition: transform 0.32s cubic-bezier(0.18, 0.89, 0.32, 1), opacity 0.25s ease;
+  transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
   will-change: transform;
 }
-.cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); backdrop-filter: blur(0); }
+.cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
 .cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(24px) scale(0.98); opacity: 0; }
 .cd-ticket-overlay.cd-closing { pointer-events: none; }
 .cd-ticket-overlay.cd-closing > .cd-ticket { transition-duration: 0.22s; transition-timing-function: cubic-bezier(0.4, 0, 1, 1); }
@@ -952,5 +952,9 @@
   /* Phones: slide all the way up from the bottom edge, and back down. */
   .cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(100%); opacity: 1; }
   .cd-ticket-overlay > .cd-ticket { touch-action: pan-y; overscroll-behavior: contain; }
+  /* A full-screen blur behind a moving sheet is what stuttered on phones;
+     a slightly darker plain backdrop looks the same and stays smooth. */
+  .cd-ticket-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(5, 4, 12, calc(0.78 * var(--cd-sheet-dim, 1))); }
+  .cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
   .cd-ticket-overlay .cd-sheet-handle { display: block; width: 44px; height: 5px; margin: -6px auto 2px; cursor: grab; }
 }
