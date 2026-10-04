@@ -745,3 +745,191 @@
 @media (max-width: 760px) {
   html.capacitor-app #btcModeRoot .sidebar .nav { padding-right: 52px; }
 }
+
+/* ================= Home dashboard (pro look) ================= */
+.cd-home { gap: 12px; }
+.cd-avatar { position: relative; overflow: hidden; }
+.cd-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.cd-avatar.has-logo { background: transparent !important; color: transparent; border-radius: 50%; }
+
+.cd-ticker-card,
+.cd-panel,
+.cd-feature,
+.cd-mover-panel {
+  border: 1px solid color-mix(in srgb, var(--border-strong, #8b5cf6) 45%, transparent);
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, #1e1b4b), var(--surface));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+
+/* Ticker */
+.cd-ticker-card { display: flex; align-items: center; gap: 4px; padding: 8px 6px 8px 10px; }
+.cd-ticker { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.cd-ticker::-webkit-scrollbar { display: none; }
+.cd-tick { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-right: 1px solid var(--border); background: none; color: var(--text); font: inherit; cursor: pointer; flex-shrink: 0; }
+.cd-tick:last-child { border-right: 0; }
+.cd-tick .cd-avatar { width: 26px; height: 26px; }
+.cd-tick-text { display: flex; flex-direction: column; text-align: left; line-height: 1.25; }
+.cd-tick-text strong { font-size: 12.5px; }
+.cd-tick-text span { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.cd-tick-text em { font-style: normal; font-weight: 700; margin-left: 4px; }
+.cd-ticker-more { flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--surface-soft); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; }
+
+/* Hero */
+.cd-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 132px;
+  padding: 18px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  background:
+    radial-gradient(120% 140% at 100% 100%, rgba(16, 185, 129, 0.22), transparent 55%),
+    radial-gradient(120% 140% at 0% 0%, rgba(139, 92, 246, 0.35), transparent 60%),
+    linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  overflow: hidden;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+}
+.cd-hero h2 { margin: 0 0 6px; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: -0.3px; }
+.cd-hero p { margin: 0 0 14px; color: #c7d2fe; font-size: 13px; }
+.cd-hero-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font: inherit; font-weight: 800; font-size: 14px; cursor: pointer; box-shadow: 0 8px 20px rgba(99, 102, 241, 0.45); }
+.cd-hero-btn span { font-size: 18px; line-height: 1; }
+.cd-hero-art { width: 46%; max-width: 230px; height: auto; flex-shrink: 0; }
+
+/* BTC / ETH */
+.cd-feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cd-feature { display: flex; flex-direction: column; gap: 4px; padding: 12px 12px 8px; min-width: 0; cursor: pointer; }
+.cd-feature-top { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.cd-feature-top .cd-avatar { width: 30px; height: 30px; }
+.cd-feature-live { margin-left: auto; padding: 2px 8px; border-radius: 999px; background: rgba(52, 211, 153, 0.14); color: var(--green); font-size: 10.5px; font-weight: 800; }
+.cd-feature-price-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.cd-feature-price { font-family: "IBM Plex Mono", monospace; font-size: 20px; font-weight: 800; }
+.cd-feature-pct { font-weight: 800; font-size: 14px; }
+.cd-feature-sub { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+.cd-spark { width: 100%; height: 44px; margin-top: 4px; }
+
+/* Movers */
+.cd-mover-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cd-mover-panel { padding: 12px; min-width: 0; }
+.cd-mover-panel.is-up { border-color: rgba(52, 211, 153, 0.45); background: linear-gradient(180deg, rgba(16, 185, 129, 0.16), var(--surface) 70%); }
+.cd-mover-panel.is-down { border-color: rgba(248, 113, 113, 0.45); background: linear-gradient(180deg, rgba(239, 68, 68, 0.16), var(--surface) 70%); }
+.cd-mover-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.cd-mover-head h3 { margin: 0; font-size: 15px; }
+.cd-mover-head small { color: var(--muted); font-size: 11px; }
+.cd-mover-icon { font-size: 20px; font-weight: 800; }
+.is-up .cd-mover-icon, .is-up .cd-mover-head small { color: var(--green); }
+.is-down .cd-mover-icon, .is-down .cd-mover-head small { color: var(--red); }
+.cd-view-all { margin-left: auto; padding: 0; border: 0; background: none; color: var(--text-soft, #c4b5fd); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.is-down .cd-view-all { color: #fca5a5; }
+.cd-mover-panel .cd-mover-list li { padding: 7px 0; border-top-color: color-mix(in srgb, var(--border) 70%, transparent); cursor: pointer; }
+.cd-mover-panel .cd-mover-name .cd-avatar { width: 26px; height: 26px; }
+
+/* Panels */
+.cd-panel { padding: 12px 14px; }
+.cd-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cd-panel-head h3 { margin: 0; font-size: 15.5px; }
+.cd-panel-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font-size: 15px; }
+.cd-mini-coins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cd-mini-coin { display: flex; flex-direction: column; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); cursor: pointer; min-width: 0; }
+.cd-mini-top { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.cd-mini-top .cd-avatar { width: 22px; height: 22px; font-size: 8px; }
+.cd-mini-price { font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-mini-pct { font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 700; }
+.cd-home-meta { margin: 10px 0 0; font-size: 11.5px; }
+.cd-mood .cd-panel-head { margin-bottom: 10px; }
+.cd-mood-text { margin-left: auto; font-size: 12.5px; font-weight: 800; }
+.cd-mood .cd-breadth-bar { height: 10px; }
+
+@media (max-width: 520px) {
+  .cd-hero { min-height: 120px; padding: 16px 14px; }
+  .cd-hero h2 { font-size: 21px; }
+  .cd-hero p { font-size: 12px; }
+  .cd-hero-btn { padding: 9px 16px; font-size: 13px; }
+  .cd-feature-price { font-size: 17px; }
+  .cd-mover-panel { padding: 10px; }
+  .cd-mover-head h3 { font-size: 13.5px; }
+  .cd-mover-panel .cd-mover-list li { font-size: 12px; }
+  .cd-mover-panel .cd-mover-name { gap: 6px; }
+  .cd-mover-panel .cd-mover-right { font-size: 11px; }
+  .cd-mini-coins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ================= Phone tab bar (tabbar.js) ================= */
+.cd-tabbar { display: none; }
+
+@media (max-width: 760px) {
+  /* The tab bar replaces the scrolling sidebar on phones. */
+  #btcModeRoot .sidebar { display: none; }
+  html.capacitor-app #topSettingsMenuButton { display: none !important; }
+
+  .cd-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 56;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid color-mix(in srgb, var(--border-strong, #8b5cf6) 40%, transparent);
+    background: color-mix(in srgb, var(--bg) 94%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .cd-tabbar button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 2px 5px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .cd-tabbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .cd-tabbar button.is-active { color: #ffffff; background: linear-gradient(180deg, rgba(139, 92, 246, 0.45), rgba(99, 102, 241, 0.2)); }
+  .cd-tabbar button.is-active svg { stroke: #c4b5fd; }
+
+  #btcModeRoot .content { padding-bottom: 86px; }
+  .cd-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+}
+
+.cd-more { gap: 12px; }
+.cd-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cd-more-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: center; }
+.cd-more-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(99, 102, 241, 0.2)); color: #c4b5fd; }
+.cd-more-icon svg { width: 17px; height: 17px; }
+
+/* The ticker's long row must scroll inside its card, not widen the page. */
+#btcModeRoot .content,
+#btcModeRoot .dashboard,
+.tab-panel,
+.cd-home,
+.cd-ticker-card { min-width: 0; max-width: 100%; }
+.cd-ticker-card { overflow: hidden; }
+
+@media (max-width: 520px) {
+  .cd-mover-head h3 { white-space: nowrap; font-size: 13.5px; }
+  .cd-mover-head small { display: none; }
+  .cd-mover-head { gap: 6px; }
+  .cd-mover-icon { font-size: 16px; }
+  .cd-view-all { font-size: 11px; }
+  .cd-hero h2 { font-size: 20px; }
+  .cd-hero-art { width: 40%; }
+}
+@media (max-width: 420px) {
+  .cd-mover-head h3 { font-size: 12.5px; }
+  .cd-view-all { font-size: 10.5px; }
+  .cd-mover-icon { font-size: 14px; }
+}
