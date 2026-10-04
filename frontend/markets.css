@@ -988,3 +988,32 @@
   .cd-table .cd-num { font-size: 12.5px; }
   .cd-table th:last-child, .cd-table td:last-child { padding-right: 6px; }
 }
+
+/* Momentum pill (like the Indian market's MOMENTUM column). */
+.cd-mom-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.cd-mom-pill b { font-weight: 800; }
+.cd-mom-pill.is-bull { color: var(--green); background: rgba(22, 199, 132, 0.13); border-color: rgba(22, 199, 132, 0.35); }
+.cd-mom-pill.is-bear { color: var(--red); background: rgba(234, 57, 67, 0.12); border-color: rgba(234, 57, 67, 0.35); }
+.cd-mom-pill.is-neutral { color: var(--muted); background: var(--surface-soft); border-color: var(--border); }
+.cd-mom-chg { display: none; }
+.cd-mom-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.cd-mom-summary:empty { display: none; }
+
+/* Phones: the 24h % moves under the pill to save a column. */
+@media (max-width: 520px) {
+  .cd-table .cd-col-chg { display: none; }
+  .cd-mom-chg { display: block; margin-top: 3px; font-size: 11.5px; }
+  .cd-table .cd-mom-pill { font-size: 10px; padding: 2px 6px; gap: 3px; }
+  .cd-table-card .cd-mom-summary { padding: 0 8px; }
+}

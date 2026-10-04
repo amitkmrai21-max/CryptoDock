@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-table-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-mom-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -533,6 +533,7 @@
             <h3>All Coins <span id="cdCoinCount" class="cd-meta"></span></h3>
             <input id="cdSearch" class="cd-search" type="search" placeholder="Search coin (BTC, ETH, SOL…)" autocomplete="off" />
           </div>
+          <div class="cd-mom-summary" id="cdMomSummary" aria-label="Momentum summary"></div>
           <div class="cd-table-wrap">
             <table class="cd-table">
               <thead>
@@ -540,7 +541,8 @@
                   <th class="cd-col-star" aria-label="Watchlist"></th>
                   <th data-sort="base">Coin</th>
                   <th data-sort="price" class="cd-num">Price</th>
-                  <th data-sort="change_percent" class="cd-num">24h</th>
+                  <th data-sort="change_percent" class="cd-num cd-col-chg">24h</th>
+                  <th data-sort="momentum" class="cd-num cd-col-mom">Momentum</th>
                   <th data-sort="high" class="cd-num cd-col-wide">24h High / Low</th>
                   <th data-sort="volume_usdt" class="cd-num cd-col-wide">Volume</th>
                 </tr>
@@ -562,7 +564,8 @@
                   <th class="cd-col-star" aria-label="Watchlist"></th>
                   <th>Coin</th>
                   <th class="cd-num">Price</th>
-                  <th class="cd-num">24h</th>
+                  <th class="cd-num cd-col-chg">24h</th>
+                  <th class="cd-num cd-col-mom">Momentum</th>
                   <th class="cd-num cd-col-wide">24h High / Low</th>
                   <th class="cd-num cd-col-wide">Volume</th>
                 </tr>
@@ -572,7 +575,7 @@
           </div>
           <p id="cdWatchEmpty" class="cd-empty" hidden>No starred coins yet — tap ☆ next to any coin in All Coins.</p>
         </section>
-        <ul class="cd-page-notes"><li>Live prices in $ and ₹</li><li>Tap a coin to Buy / Sell (virtual money)</li><li>Tap ☆ to save it in Starred</li></ul>
+        <ul class="cd-page-notes"><li>Live prices in $ and ₹</li><li>Tap a coin to Buy / Sell (virtual money)</li><li>Tap ☆ to save it in Starred</li><li>Momentum 0–100 = 24h move + range, not advice</li></ul>
       </div>
     </section>
 
@@ -679,7 +682,7 @@
           </div>
           <div class="cd-table-wrap">
             <table class="cd-table">
-              <thead><tr><th class="cd-col-star" aria-label="Watchlist"></th><th>Coin</th><th class="cd-num">Price</th><th class="cd-num">24h</th><th class="cd-num cd-col-wide">24h High / Low</th><th class="cd-num cd-col-wide">Volume</th></tr></thead>
+              <thead><tr><th class="cd-col-star" aria-label="Watchlist"></th><th>Coin</th><th class="cd-num">Price</th><th class="cd-num cd-col-chg">24h</th><th class="cd-num cd-col-mom">Momentum</th><th class="cd-num cd-col-wide">24h High / Low</th><th class="cd-num cd-col-wide">Volume</th></tr></thead>
               <tbody id="cdScanBody"></tbody>
             </table>
           </div>
@@ -1938,9 +1941,9 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-text-1"></script>
+  <script src="/frontend/markets.js?v=20261004-mom-1"></script>
   <script src="/frontend/paper.js?v=20261004-btn-1"></script>
-  <script src="/frontend/coin-tools.js?v=20261004-btn-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261004-mom-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
 

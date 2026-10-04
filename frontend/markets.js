@@ -90,6 +90,34 @@
     return `<span class="cd-avatar" style="background:${colour}">${escapeHtml(base.slice(0, 3))}<img src="${LOGO_URL(base)}" alt="" loading="lazy" onload="this.parentNode.classList.add('has-logo')" onerror="this.remove()"></span>`;
   }
 
+  // ---------- momentum ----------
+  // A 0–100 score like the Indian market's MOMENTUM pill: the 24h change
+  // (full weight at ±6%) plus where the price sits in its 24h high–low
+  // range. It describes the move so far; it is not a buy/sell signal.
+  function momentumOf(coin) {
+    const change = Math.max(-6, Math.min(6, Number(coin.change_percent) || 0));
+    const span = coin.high - coin.low;
+    const rangePos = span > 0 ? Math.max(0, Math.min(1, (coin.price - coin.low) / span)) : 0.5;
+    return Math.max(1, Math.min(99, Math.round(50 + (change / 6) * 35 + (rangePos - 0.5) * 30)));
+  }
+
+  function momentumLabel(score) {
+    return score >= 60 ? "BULLISH" : score <= 40 ? "BEARISH" : "NEUTRAL";
+  }
+
+  function addMomentum(list) {
+    list.forEach((coin) => {
+      coin.momentum = momentumOf(coin);
+      coin.momentum_label = momentumLabel(coin.momentum);
+    });
+  }
+
+  function momPill(coin) {
+    const label = coin.momentum_label || "NEUTRAL";
+    const tone = label === "BULLISH" ? "is-bull" : label === "BEARISH" ? "is-bear" : "is-neutral";
+    return `<span class="cd-mom-pill ${tone}">${label} <b>${coin.momentum ?? "--"}</b></span>`;
+  }
+
   // ---------- rendering ----------
   function coinRow(coin) {
     const on = watchlist.includes(coin.base);
@@ -97,7 +125,8 @@
       <td><button class="cd-star${on ? " is-on" : ""}" type="button" data-star="${escapeHtml(coin.base)}" aria-label="${on ? "Remove from" : "Add to"} watchlist">${on ? "★" : "☆"}</button></td>
       <td><div class="cd-coin-cell">${avatar(coin.base)}<div><strong>${escapeHtml(coin.base)}</strong><small>/USDT</small></div></div></td>
       <td class="cd-num">${fmtUsd(coin.price)}<span class="cd-sub">${fmtInr(coin.price)}</span></td>
-      <td class="cd-num ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</td>
+      <td class="cd-num cd-col-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</td>
+      <td class="cd-num cd-col-mom">${momPill(coin)}<span class="cd-mom-chg ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></td>
       <td class="cd-num cd-col-wide">${fmtUsd(coin.high)}<span class="cd-sub">${fmtUsd(coin.low)}</span></td>
       <td class="cd-num cd-col-wide">${fmtVolume(coin.volume_usdt)}</td>
     </tr>`;
@@ -212,11 +241,20 @@
     el("cdBreadthText").innerHTML = `<span class="cd-up">${up} Up</span> · <span class="cd-down">${down} Down</span>`;
   }
 
+  function renderMomentumSummary() {
+    const box = el("cdMomSummary");
+    if (!box) return;
+    const count = (label) => coins.filter((c) => c.momentum_label === label).length;
+    box.innerHTML = `<span class="cd-mom-pill is-bull">Bullish <b>${count("BULLISH")}</b></span>` +
+      `<span class="cd-mom-pill is-neutral">Neutral <b>${count("NEUTRAL")}</b></span>` +
+      `<span class="cd-mom-pill is-bear">Bearish <b>${count("BEARISH")}</b></span>`;
+  }
+
   function renderAllCoins() {
     const query = (el("cdSearch")?.value || "").trim().toUpperCase();
     const list = sortedCoins(coins.filter((c) => matches(c, query)));
     dashBody.innerHTML = list.slice(0, shown).map(coinRow).join("") ||
-      `<tr><td colspan="6" class="cd-empty">${coins.length ? "No coin matches your search." : "Loading coins…"}</td></tr>`;
+      `<tr><td colspan="7" class="cd-empty">${coins.length ? "No coin matches your search." : "Loading coins…"}</td></tr>`;
     el("cdCoinCount").textContent = coins.length ? `(${list.length})` : "";
     const more = el("cdShowMore");
     if (more) {
@@ -261,6 +299,7 @@
     renderKeyCoins();
     renderBreadth();
     renderMovers();
+    renderMomentumSummary();
     renderAllCoins();
     renderWatchlist();
   }
@@ -273,6 +312,7 @@
       const data = await res.json();
       if (Array.isArray(data.coins) && data.coins.length) {
         coins = data.coins;
+        addMomentum(coins);
         coinsByBase = new Map(coins.map((c) => [c.base, c]));
         if (Number.isFinite(data.usdt_inr)) usdtInr = data.usdt_inr;
         lastOkAt = Date.now();
