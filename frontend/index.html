@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-motion-2">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-notes-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -522,7 +522,6 @@
         <div class="cd-dash-head">
           <div>
             <h2>Watchlist</h2>
-            <p class="cd-meta">Live prices of every coin in $ and ₹. Tap a coin to practise Buy/Sell with virtual money; tap ☆ to star it.</p>
           </div>
         </div>
         <div class="cd-pills" id="cdWatchTabs">
@@ -573,6 +572,7 @@
           </div>
           <p id="cdWatchEmpty" class="cd-empty" hidden>No starred coins yet — tap ☆ next to any coin in All Coins.</p>
         </section>
+        <ul class="cd-page-notes"><li>Live prices in $ and ₹</li><li>Tap a coin to Buy / Sell (virtual money)</li><li>Tap ☆ to save it in Starred</li></ul>
       </div>
     </section>
 
@@ -581,7 +581,6 @@
         <div class="cd-dash-head">
           <div>
             <h2>Positions</h2>
-            <p class="cd-meta">Paper trading only — virtual USDT, no real money or exchange orders.</p>
           </div>
           <button id="cdResetFunds" class="cd-ghost-btn" type="button">Reset funds</button>
         </div>
@@ -596,6 +595,7 @@
           <div id="cdHoldList" class="cd-hold-list"></div>
           <p id="cdHoldEmpty" class="cd-empty" hidden>No coins yet. Tap any coin on the Dashboard or Watchlist, then Buy.</p>
         </section>
+        <ul class="cd-page-notes"><li>Paper trading only — virtual USDT</li><li>No real money, no exchange orders</li><li>Tap a holding to sell it</li></ul>
       </div>
     </section>
 
@@ -604,7 +604,6 @@
         <div class="cd-dash-head">
           <div>
             <h2>Orders</h2>
-            <p class="cd-meta">Limit orders fill when the live price reaches your price.</p>
           </div>
         </div>
         <div class="cd-pills" id="cdOrderFilters">
@@ -617,6 +616,7 @@
           <div id="cdOrderList" class="cd-order-list"></div>
           <p id="cdOrderEmpty" class="cd-empty" hidden>No orders here yet.</p>
         </section>
+        <ul class="cd-page-notes"><li>Limit order fills when price reaches it</li><li>Open orders can be cancelled</li></ul>
       </div>
     </section>
 
@@ -662,7 +662,6 @@
         <div class="cd-dash-head">
           <div>
             <h2>Scanner</h2>
-            <p class="cd-meta">Every coin, live — updates every few seconds. Tap a coin to practise trading it with virtual money.</p>
           </div>
         </div>
         <div class="cd-pills" id="cdScanFilters">
@@ -685,6 +684,7 @@
             </table>
           </div>
         </section>
+        <ul class="cd-page-notes"><li>All coins, updates every few seconds</li><li>Tap a coin to practise trading it</li></ul>
       </div>
     </section>
 
@@ -693,7 +693,6 @@
         <div class="cd-dash-head">
           <div>
             <h2>Heatmap</h2>
-            <p class="cd-meta">24h change of the most traded coins. Tap a coin to open it.</p>
           </div>
           <div class="cd-pills" id="cdHeatSize">
             <button type="button" class="cd-pill" data-heat="50">Top 50</button>
@@ -702,6 +701,7 @@
           </div>
         </div>
         <div id="cdHeatGrid" class="cd-heat-grid"></div>
+        <ul class="cd-page-notes"><li>Green = up, red = down (last 24h)</li><li>Tap a coin to open its chart</li></ul>
       </div>
     </section>
 
@@ -710,7 +710,6 @@
         <div class="cd-dash-head">
           <div>
             <h2>Price Alerts</h2>
-            <p class="cd-meta">Get told when a coin crosses your price. Alerts are checked while CryptoDock is open.</p>
           </div>
           <button id="cdAlertNotifyBtn" class="cd-ghost-btn" type="button">Enable notifications</button>
         </div>
@@ -735,6 +734,7 @@
           <div id="cdAlertDone" class="cd-order-list"></div>
           <p id="cdAlertDoneEmpty" class="cd-empty">Nothing triggered yet.</p>
         </section>
+        <ul class="cd-page-notes"><li>Alert when a coin crosses your price</li><li>Works while CryptoDock is open</li></ul>
       </div>
     </section>
 
