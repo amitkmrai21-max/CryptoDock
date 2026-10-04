@@ -1,6 +1,6 @@
-// Phone navigation like a native app: Home, Market (all coins), Watchlist
-// (starred), Portfolio and More — More opens a sheet with every other page
-// and Settings. It drives the same sidebar buttons, so page switching and
+// Phone navigation like a native app: Home, Watchlist (every coin, with
+// its All / Starred tabs), Scanner, Portfolio and More — More opens a sheet
+// with every other page and Settings. It drives the same sidebar buttons, so page switching and
 // Pro rules stay in one place. Shown only on narrow screens (markets.css).
 (function cryptoTabBar() {
   const bar = document.getElementById("cdTabBar");
@@ -8,10 +8,9 @@
   const grid = document.getElementById("cdMoreGrid");
   if (!bar || !sheet || !grid) return;
 
-  const MAIN_PAGES = ["dashboard", "watchlist", "positions"];
+  const MAIN_PAGES = ["dashboard", "watchlist", "scanner", "positions"];
   const sidebarTab = (page) => document.querySelector(`.sidebar .app-tab[data-tab="${page}"]`);
   const activePanel = () => document.querySelector(".tab-panel.active")?.dataset.panel || "dashboard";
-  const watchTab = () => document.querySelector("#cdWatchTabs .is-active")?.dataset.watchTab || "all";
 
   function go(page, after) {
     sidebarTab(page)?.click();
@@ -23,7 +22,8 @@
     const panel = activePanel();
     const current =
       panel === "dashboard" ? "home" :
-      panel === "watchlist" ? (watchTab() === "starred" ? "watch" : "market") :
+      panel === "watchlist" ? "watch" :
+      panel === "scanner" ? "scanner" :
       panel === "positions" || panel === "orders" ? "portfolio" : "more";
     bar.querySelectorAll("[data-tabbar]").forEach((b) => b.classList.toggle("is-active", b.dataset.tabbar === current));
   }
@@ -58,8 +58,8 @@
     if (!btn) return;
     const which = btn.dataset.tabbar;
     if (which === "home") go("dashboard");
-    else if (which === "market") go("watchlist", () => document.querySelector('#cdWatchTabs [data-watch-tab="all"]')?.click());
-    else if (which === "watch") go("watchlist", () => document.querySelector('#cdWatchTabs [data-watch-tab="starred"]')?.click());
+    else if (which === "watch") go("watchlist");
+    else if (which === "scanner") go("scanner");
     else if (which === "portfolio") go("positions");
     else openMore();
   });
