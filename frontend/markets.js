@@ -5,7 +5,12 @@
 (function cryptoMarkets() {
   const POLL_MS = 3000;
   const PAGE_SIZE = 100;
-  const KEY_COINS = ["BTC", "ETH", "BNB", "SOL", "XRP", "DOGE"];
+  const KEY_COINS = ["BNB", "SOL", "XRP", "DOGE"]; // the Crypto Market row
+  const FEATURED = ["BTC", "ETH"]; // big cards with a 24h sparkline
+  const TICKER_SIZE = 12;
+  const SPARK_REFRESH_MS = 5 * 60 * 1000;
+  // Coin logos (open-source icon set); coins without one keep the letter badge.
+  const LOGO_URL = (base) => `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${base.toLowerCase()}.png`;
   // Gainers/losers among thinly traded coins are mostly noise.
   const MOVER_MIN_VOLUME_USDT = 1000000;
   const WATCHLIST_KEY = "cdWatchlistV1";
@@ -82,7 +87,7 @@
     let hash = 0;
     for (const ch of base) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
     const colour = AVATAR_COLOURS[hash % AVATAR_COLOURS.length];
-    return `<span class="cd-avatar" style="background:${colour}">${escapeHtml(base.slice(0, 3))}</span>`;
+    return `<span class="cd-avatar" style="background:${colour}">${escapeHtml(base.slice(0, 3))}<img src="${LOGO_URL(base)}" alt="" loading="lazy" onload="this.parentNode.classList.add('has-logo')" onerror="this.remove()"></span>`;
   }
 
   // ---------- rendering ----------
@@ -111,15 +116,76 @@
     });
   }
 
+  // Crypto Market row: small cards for a few big coins.
   function renderKeyCoins() {
     const box = el("cdKeyCoins");
     if (!box) return;
     box.innerHTML = KEY_COINS.map((base) => coinsByBase.get(base)).filter(Boolean).map((coin) => `
-      <div class="cd-key-card" data-base="${escapeHtml(coin.base)}">
-        <div class="cd-key-card-top">${avatar(coin.base)}<span>${escapeHtml(coin.base)}</span><span class="${pctClass(coin.change_percent)}" style="margin-left:auto;font-size:12.5px">${fmtPct(coin.change_percent)}</span></div>
-        <div class="cd-key-price">${fmtUsd(coin.price)}</div>
-        <div class="cd-key-inr">${fmtInr(coin.price)}</div>
+      <div class="cd-mini-coin" data-base="${escapeHtml(coin.base)}">
+        <div class="cd-mini-top">${avatar(coin.base)}<strong>${escapeHtml(coin.base)}</strong></div>
+        <div class="cd-mini-price">${fmtUsd(coin.price)}</div>
+        <div class="cd-mini-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</div>
       </div>`).join("");
+  }
+
+  // Ticker strip: the most traded coins.
+  function renderTicker() {
+    const box = el("cdTicker");
+    if (!box) return;
+    box.innerHTML = coins.slice(0, TICKER_SIZE).map((coin) => `
+      <button type="button" class="cd-tick" data-base="${escapeHtml(coin.base)}">
+        ${avatar(coin.base)}
+        <span class="cd-tick-text"><strong>${escapeHtml(coin.base)}</strong><span>${fmtUsd(coin.price)} <em class="${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</em></span></span>
+      </button>`).join("");
+  }
+
+  // BTC / ETH cards with a 24h sparkline (hourly closes, refreshed every
+  // few minutes; the live price is drawn as the last point).
+  const sparks = {};
+  let sparksFetchedAt = 0;
+  async function loadSparks() {
+    if (Date.now() - sparksFetchedAt < SPARK_REFRESH_MS) return;
+    sparksFetchedAt = Date.now();
+    await Promise.all(FEATURED.map(async (base) => {
+      try {
+        const res = await fetch(`/api/coin/candles?symbol=${base}USDT&interval=1h&limit=24`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        sparks[base] = (data.candles || []).map((c) => c.close);
+      } catch (e) { /* keep the old line */ }
+    }));
+    renderFeatured();
+  }
+
+  function sparkSvg(points, up) {
+    if (!points || points.length < 2) return "";
+    const w = 160, h = 44;
+    const min = Math.min(...points), max = Math.max(...points), span = max - min || 1;
+    const xy = points.map((v, i) => [(i / (points.length - 1)) * w, h - 3 - ((v - min) / span) * (h - 6)]);
+    const line = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+    const colour = up ? "#34d399" : "#f87171";
+    const id = "cdSpark" + Math.random().toString(36).slice(2, 7);
+    return `<svg class="cd-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${colour}" stop-opacity="0.35"/><stop offset="1" stop-color="${colour}" stop-opacity="0"/></linearGradient></defs>
+      <path d="${line} L${w} ${h} L0 ${h} Z" fill="url(#${id})"/>
+      <path d="${line}" fill="none" stroke="${colour}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+  }
+
+  function renderFeatured() {
+    FEATURED.forEach((base) => {
+      const box = el("cdFeature" + base);
+      const coin = coinsByBase.get(base);
+      if (!box || !coin) return;
+      const prev = coin.price / (1 + coin.change_percent / 100);
+      const diff = coin.price - prev;
+      const points = sparks[base] ? sparks[base].concat(coin.price) : null;
+      box.innerHTML = `
+        <div class="cd-feature-top">${avatar(base)}<strong>${base}</strong><span class="cd-feature-live">● Live</span></div>
+        <div class="cd-feature-price-row"><span class="cd-feature-price">${fmtUsd(coin.price)}</span><span class="cd-feature-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></div>
+        <div class="cd-feature-sub"><span>${fmtInr(coin.price)}</span><span class="${pctClass(diff)}">${diff >= 0 ? "+" : "-"}$${Math.abs(diff).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: Math.abs(diff) < 1 ? 6 : 2 })}</span></div>
+        ${sparkSvg(points, coin.change_percent >= 0)}`;
+    });
   }
 
   function moverItem(coin, right) {
@@ -131,12 +197,10 @@
     const byChange = liquid.slice().sort((a, b) => b.change_percent - a.change_percent);
     const gainers = byChange.filter((c) => c.change_percent > 0).slice(0, 5);
     const losers = byChange.filter((c) => c.change_percent < 0).reverse().slice(0, 5);
-    const active = coins.slice(0, 5); // server already sorts by volume
     const priceAndPct = (c) => `${fmtUsd(c.price)}<br><span class="${pctClass(c.change_percent)}">${fmtPct(c.change_percent)}</span>`;
     const empty = '<li class="cd-meta">--</li>';
     el("cdTopGainers").innerHTML = gainers.map((c) => moverItem(c, priceAndPct(c))).join("") || empty;
     el("cdTopLosers").innerHTML = losers.map((c) => moverItem(c, priceAndPct(c))).join("") || empty;
-    el("cdMostActive").innerHTML = active.map((c) => moverItem(c, `${fmtVolume(c.volume_usdt)}<br><span class="${pctClass(c.change_percent)}">${fmtPct(c.change_percent)}</span>`)).join("") || empty;
   }
 
   function renderBreadth() {
@@ -145,7 +209,7 @@
     const total = up + down || 1;
     el("cdBreadthUp").style.width = (up / total) * 100 + "%";
     el("cdBreadthDown").style.width = (down / total) * 100 + "%";
-    el("cdBreadthText").innerHTML = `<span class="cd-up">${up} up</span> · <span class="cd-down">${down} down</span>`;
+    el("cdBreadthText").innerHTML = `<span class="cd-up">${up} Up</span> · <span class="cd-down">${down} Down</span>`;
   }
 
   function renderAllCoins() {
@@ -191,6 +255,9 @@
   function render() {
     if (!coins.length) return;
     renderMeta();
+    renderTicker();
+    renderFeatured();
+    loadSparks();
     renderKeyCoins();
     renderBreadth();
     renderMovers();
@@ -264,10 +331,19 @@
     }
     // Tapping a coin anywhere (Dashboard, Watchlist, Scanner) opens its coin
     // sheet — price, market depth, range — with Buy / Sell at the bottom.
-    const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base]");
+    const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base], .cd-mini-coin[data-base], .cd-tick[data-base], .cd-feature[data-base]");
     if (coinEl) {
       if (typeof window.cdOpenSheet === "function") window.cdOpenSheet(coinEl.dataset.base);
       else if (typeof window.cdOpenTicket === "function") window.cdOpenTicket(coinEl.dataset.base);
+      return;
+    }
+    // "Start Trading", "View All" and the ticker arrow jump to a page (and
+    // the right Scanner filter / Watchlist tab).
+    const go = event.target.closest("[data-go]");
+    if (go) {
+      document.querySelector(`.app-tab[data-tab="${go.dataset.go}"]`)?.click();
+      if (go.dataset.scanGo) setTimeout(() => document.querySelector(`#cdScanFilters [data-scan="${go.dataset.scanGo}"]`)?.click(), 0);
+      if (go.dataset.go === "watchlist") setTimeout(() => document.querySelector('#cdWatchTabs [data-watch-tab="all"]')?.click(), 0);
       return;
     }
     const watchTab = event.target.closest("#cdWatchTabs [data-watch-tab]");
