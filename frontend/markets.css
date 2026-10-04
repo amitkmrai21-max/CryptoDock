@@ -540,3 +540,27 @@
   .cd-dash-head:has(.cd-search) { flex-wrap: wrap; }
   #cdHeatSize { width: 100%; }
 }
+
+/* ---------- Price alerts (alerts.js) ---------- */
+.cd-alert-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+.cd-alert-form select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.cd-alert-form .cd-submit { padding: 11px 16px; }
+#cdCoinAlert { align-self: flex-start; }
+@media (max-width: 760px) {
+  .cd-alert-form { grid-template-columns: 1fr 1fr; }
+  .cd-alert-form .cd-submit,
+  .cd-alert-form .cd-field:nth-child(3) { grid-column: 1 / -1; }
+}

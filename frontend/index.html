@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-tools-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-alerts-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -109,6 +109,11 @@
         <button class="nav-button app-tab" type="button" data-tab="heatmap">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="15" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="15" y="11" width="6" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="15" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg></span>
           Heatmap
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="alerts">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Alerts
         </button>
 
         <button class="nav-button app-tab" type="button" data-tab="live-chart">
@@ -604,6 +609,7 @@
           <button id="cdCoinBuy" class="cd-submit is-buy" type="button">Buy</button>
           <button id="cdCoinSell" class="cd-submit is-sell" type="button">Sell</button>
         </div>
+        <button id="cdCoinAlert" class="cd-ghost-btn" type="button">🔔 Set price alert</button>
       </div>
     </section>
 
@@ -649,6 +655,39 @@
           </div>
         </div>
         <div id="cdHeatGrid" class="cd-heat-grid"></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="alerts">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Price Alerts</h2>
+            <p class="cd-meta">Get told when a coin crosses your price. Alerts are checked while CryptoDock is open.</p>
+          </div>
+          <button id="cdAlertNotifyBtn" class="cd-ghost-btn" type="button">Enable notifications</button>
+        </div>
+        <section class="card cd-table-card">
+          <div class="cd-alert-form">
+            <label class="cd-field"><span>Coin</span><input id="cdAlertCoin" type="text" list="cdCoinList" placeholder="BTC" autocomplete="off" /></label>
+            <label class="cd-field"><span>When price goes</span>
+              <select id="cdAlertDir"><option value="above">Above</option><option value="below">Below</option></select>
+            </label>
+            <label class="cd-field"><span>Price (USDT)</span><input id="cdAlertPrice" type="number" inputmode="decimal" min="0" step="any" /></label>
+            <button id="cdAlertAdd" class="cd-submit is-buy" type="button">Add alert</button>
+          </div>
+          <p id="cdAlertMsg" class="cd-meta" style="margin:8px 0 0"></p>
+        </section>
+        <section class="card cd-table-card">
+          <div class="cd-table-head"><h3>Active <span id="cdAlertActiveCount" class="cd-meta"></span></h3></div>
+          <div id="cdAlertActive" class="cd-order-list"></div>
+          <p id="cdAlertActiveEmpty" class="cd-empty">No active alerts.</p>
+        </section>
+        <section class="card cd-table-card">
+          <div class="cd-table-head"><h3>Triggered</h3><button id="cdAlertClear" class="cd-ghost-btn" type="button">Clear</button></div>
+          <div id="cdAlertDone" class="cd-order-list"></div>
+          <p id="cdAlertDoneEmpty" class="cd-empty">Nothing triggered yet.</p>
+        </section>
       </div>
     </section>
 
@@ -1850,9 +1889,10 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">Buy</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-tools-1"></script>
+  <script src="/frontend/markets.js?v=20261004-alerts-1"></script>
   <script src="/frontend/paper.js?v=20261004-tools-1"></script>
-  <script src="/frontend/coin-tools.js?v=20261004-tools-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261004-alerts-1"></script>
+  <script src="/frontend/alerts.js?v=20261004-alerts-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
