@@ -30,6 +30,18 @@
   let shown = PAGE_SIZE;
   let pollTimer = null;
 
+  // Watchlist 1–10: coins ranked by 24h volume when the page first gets
+  // prices (kept for the visit so coins don't hop between lists), 50 per
+  // list; the last list also takes any coins beyond 500.
+  const WL_COUNT = 10;
+  const WL_SIZE = 50;
+  const wlTrack = el("cdWlTrack");
+  const rankOf = new Map();
+  let wlIndex = 0;
+  let wlBuilt = false;
+  let wlAllRendered = false;
+  let wlScrollingUntil = 0;
+
   // ---------- watchlist (this device) ----------
   function loadWatchlist() {
     try {
@@ -244,23 +256,124 @@
 
   function renderMomentumSummary() {
     const box = el("cdMomSummary");
-    if (!box) return;
-    const count = (label) => coins.filter((c) => c.momentum_label === label).length;
+    if (!box || !coins.length) return;
+    // Counts for the list on screen (all coins while searching).
+    const searching = !!(el("cdSearch")?.value || "").trim();
+    const scope = searching ? coins : wlLists()[wlIndex];
+    const count = (label) => scope.filter((c) => c.momentum_label === label).length;
     box.innerHTML = `<span class="cd-mom-pill is-bull">Bullish <b>${count("BULLISH")}</b></span>` +
       `<span class="cd-mom-pill is-neutral">Neutral <b>${count("NEUTRAL")}</b></span>` +
       `<span class="cd-mom-pill is-bear">Bearish <b>${count("BEARISH")}</b></span>`;
   }
 
+  // ---------- Watchlist 1–10 (swipe between lists) ----------
+  function rankCoins() {
+    if (!rankOf.size) {
+      coins.slice().sort((a, b) => (b.volume_usdt || 0) - (a.volume_usdt || 0)).forEach((c, i) => rankOf.set(c.base, i));
+    }
+    coins.forEach((c) => { if (!rankOf.has(c.base)) rankOf.set(c.base, rankOf.size); });
+  }
+
+  function wlLists() {
+    const ordered = coins.slice().sort((a, b) => rankOf.get(a.base) - rankOf.get(b.base));
+    return Array.from({ length: WL_COUNT }, (_, i) =>
+      ordered.slice(i * WL_SIZE, i === WL_COUNT - 1 ? ordered.length : (i + 1) * WL_SIZE));
+  }
+
+  function buildTrack() {
+    if (wlBuilt || !wlTrack) return;
+    const head = dashBody.closest("table").querySelector("thead").outerHTML;
+    wlTrack.innerHTML = Array.from({ length: WL_COUNT }, (_, i) => `
+      <div class="cd-wl-slide" data-wl-slide="${i}">
+        <div class="cd-table-wrap"><table class="cd-table cd-watch-table">${head}<tbody data-wl-body="${i}">
+          <tr><td colspan="7" class="cd-empty">Loading coins…</td></tr></tbody></table></div>
+      </div>`).join("");
+    wlBuilt = true;
+    let ticking = false;
+    wlTrack.addEventListener("scroll", () => {
+      wlScrollingUntil = Date.now() + 250;
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const width = wlTrack.clientWidth;
+        if (!width) return;
+        const next = Math.max(0, Math.min(WL_COUNT - 1, Math.round(wlTrack.scrollLeft / width)));
+        if (next !== wlIndex) {
+          wlIndex = next;
+          syncWlHeader();
+          renderWlSlides();
+        }
+      });
+    }, { passive: true });
+  }
+
+  function renderWlSlides(all) {
+    if (!wlTrack || !coins.length) return;
+    const lists = wlLists();
+    const from = all || !wlAllRendered ? 0 : Math.max(0, wlIndex - 1);
+    const to = all || !wlAllRendered ? WL_COUNT - 1 : Math.min(WL_COUNT - 1, wlIndex + 1);
+    for (let i = from; i <= to; i++) {
+      const body = wlTrack.querySelector(`[data-wl-body="${i}"]`);
+      if (body) body.innerHTML = sortedCoins(lists[i]).map(coinRow).join("") ||
+        '<tr><td colspan="7" class="cd-empty">No coins in this list yet.</td></tr>';
+    }
+    wlAllRendered = true;
+    syncWlHeader(lists);
+  }
+
+  function syncWlHeader(lists) {
+    const searching = !!(el("cdSearch")?.value || "").trim();
+    if (!searching) {
+      el("cdWlTitle").textContent = `Watchlist ${wlIndex + 1}`;
+      el("cdCoinCount").textContent = coins.length ? `(${(lists || wlLists())[wlIndex].length})` : "";
+    }
+    renderMomentumSummary();
+    const tabs = el("cdWatchTabs");
+    if (!tabs || !el("cdStarredCard").hidden) return;
+    let active = null;
+    tabs.querySelectorAll("[data-watch-tab]").forEach((b) => {
+      const on = b.dataset.wl !== undefined && Number(b.dataset.wl) === wlIndex;
+      b.classList.toggle("is-active", on);
+      if (on) active = b;
+    });
+    if (active && tabs.scrollWidth > tabs.clientWidth) {
+      tabs.scrollTo({ left: active.offsetLeft - (tabs.clientWidth - active.offsetWidth) / 2, behavior: "smooth" });
+    }
+  }
+
+  function goToList(index, smooth) {
+    if (!wlTrack) return;
+    wlIndex = Math.max(0, Math.min(WL_COUNT - 1, index));
+    const left = wlIndex * wlTrack.clientWidth;
+    if (smooth) wlTrack.scrollTo({ left, behavior: "smooth" });
+    else wlTrack.scrollLeft = left;
+    renderWlSlides();
+  }
+
   function renderAllCoins() {
     const query = (el("cdSearch")?.value || "").trim().toUpperCase();
-    const list = sortedCoins(coins.filter((c) => matches(c, query)));
-    dashBody.innerHTML = list.slice(0, shown).map(coinRow).join("") ||
-      `<tr><td colspan="7" class="cd-empty">${coins.length ? "No coin matches your search." : "Loading coins…"}</td></tr>`;
-    el("cdCoinCount").textContent = coins.length ? `(${list.length})` : "";
+    // Searching looks through every coin in one list; otherwise the
+    // swipeable Watchlist 1–10.
+    el("cdSearchWrap").hidden = !query;
+    if (wlTrack) wlTrack.hidden = !!query;
     const more = el("cdShowMore");
-    if (more) {
-      more.hidden = list.length <= shown;
-      more.textContent = `Show more (${Math.max(0, list.length - shown)} left)`;
+    if (!query) {
+      if (more) more.hidden = true;
+      buildTrack();
+      // Don't redraw rows under a finger mid-swipe; the next poll will.
+      if (Date.now() > wlScrollingUntil || !wlAllRendered) renderWlSlides();
+    } else {
+      const list = sortedCoins(coins.filter((c) => matches(c, query)));
+      dashBody.innerHTML = list.slice(0, shown).map(coinRow).join("") ||
+        `<tr><td colspan="7" class="cd-empty">${coins.length ? "No coin matches your search." : "Loading coins…"}</td></tr>`;
+      el("cdWlTitle").textContent = "Search";
+      el("cdCoinCount").textContent = coins.length ? `(${list.length})` : "";
+      renderMomentumSummary();
+      if (more) {
+        more.hidden = list.length <= shown;
+        more.textContent = `Show more (${Math.max(0, list.length - shown)} left)`;
+      }
     }
     document.querySelectorAll(".cd-table th[data-sort]").forEach((th) => {
       th.classList.toggle("is-sorted", th.dataset.sort === sortKey);
@@ -300,7 +413,6 @@
     renderKeyCoins();
     renderBreadth();
     renderMovers();
-    renderMomentumSummary();
     renderAllCoins();
     renderWatchlist();
   }
@@ -314,6 +426,7 @@
       if (Array.isArray(data.coins) && data.coins.length) {
         coins = data.coins;
         addMomentum(coins);
+        rankCoins();
         coinsByBase = new Map(coins.map((c) => [c.base, c]));
         if (Number.isFinite(data.usdt_inr)) usdtInr = data.usdt_inr;
         lastOkAt = Date.now();
@@ -390,16 +503,26 @@
     const watchTab = event.target.closest("#cdWatchTabs [data-watch-tab]");
     if (watchTab) {
       const starred = watchTab.dataset.watchTab === "starred";
+      const wasHidden = el("cdAllCoinsCard").hidden;
       document.querySelectorAll("#cdWatchTabs [data-watch-tab]").forEach((b) => b.classList.toggle("is-active", b === watchTab));
       el("cdAllCoinsCard").hidden = starred;
       el("cdStarredCard").hidden = !starred;
+      if (!starred) {
+        // Picking a list ends a search; slide to it (or jump straight
+        // there when the lists weren't on screen).
+        const search = el("cdSearch");
+        const wasSearching = !!(search && search.value.trim());
+        if (wasSearching) { search.value = ""; renderAllCoins(); }
+        goToList(Number(watchTab.dataset.wl || 0), !wasHidden && !wasSearching);
+      }
       return;
     }
     const th = event.target.closest(".cd-table th[data-sort]");
-    if (th && dashBody.closest("table").contains(th)) {
+    if (th && el("cdAllCoinsCard").contains(th)) {
       const key = th.dataset.sort;
       sortDir = key === sortKey ? -sortDir : key === "base" ? 1 : -1;
       sortKey = key;
+      wlAllRendered = false;
       renderAllCoins();
       return;
     }
@@ -407,13 +530,20 @@
       setTimeout(() => {
         syncTopbar();
         keepActiveTabInView();
+        // Back on Watchlist: the track forgets its scroll while hidden.
+        if (activePanel() === "watchlist" && wlTrack && wlTrack.clientWidth) wlTrack.scrollLeft = wlIndex * wlTrack.clientWidth;
         if (onMarketsPage()) refresh();
         schedule();
       }, 0);
     }
   });
 
-  el("cdSearch")?.addEventListener("input", () => { shown = PAGE_SIZE; renderAllCoins(); });
+  el("cdSearch")?.addEventListener("input", () => {
+    shown = PAGE_SIZE;
+    renderAllCoins();
+    if (!el("cdSearch").value.trim()) goToList(wlIndex, false);
+  });
+  window.addEventListener("resize", () => { if (wlTrack && wlTrack.clientWidth) wlTrack.scrollLeft = wlIndex * wlTrack.clientWidth; });
   el("cdWatchSearch")?.addEventListener("input", renderWatchlist);
   el("cdShowMore")?.addEventListener("click", () => { shown += PAGE_SIZE; renderAllCoins(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); schedule(); } });

@@ -1105,3 +1105,36 @@
 #btcModeRoot .disclaimer-card .tv-attribution { margin: 0 0 0 4px; }
 #btcModeRoot .cd-page-notes.is-wrapped,
 #btcModeRoot .disclaimer-card.is-wrapped { white-space: normal; }
+
+/* Watchlist 1–10: a row of list tabs that scrolls sideways, and a track of
+   lists you swipe through (native scroll-snap, so it follows the finger
+   and settles on one list at a time). */
+#cdWatchTabs.cd-wl-tabs {
+  position: relative;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+#cdWatchTabs.cd-wl-tabs::-webkit-scrollbar { display: none; }
+#cdWatchTabs.cd-wl-tabs .cd-pill { flex: 0 0 auto; white-space: nowrap; padding: 7px 16px; transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+.cd-wl-track {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.cd-wl-track::-webkit-scrollbar { display: none; }
+.cd-wl-track[hidden] { display: none; }
+.cd-wl-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.cd-wl-slide .cd-table-wrap { overflow-x: visible; }
