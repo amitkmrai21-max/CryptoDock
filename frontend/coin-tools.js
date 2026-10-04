@@ -170,7 +170,7 @@
       ? `${SCANS[scan].hint} ${rows.length} coin${rows.length === 1 ? "" : "s"} · live · updated ${time}`
       : "Loading coins…";
     body.innerHTML = rows.map(F().coinRow).join("") ||
-      `<tr><td colspan="6" class="cd-empty">${coins().length ? "Nothing matches right now." : "Loading coins…"}</td></tr>`;
+      `<tr><td colspan="7" class="cd-empty">${coins().length ? "Nothing matches right now." : "Loading coins…"}</td></tr>`;
   }
 
   // ---------- Heatmap ----------
