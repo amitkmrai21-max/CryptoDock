@@ -1341,6 +1341,110 @@ def cooldown_remaining(cache, cooldown_seconds):
     return max(0, int(math.ceil(cooldown_seconds - elapsed)))
 
 
+# ================= ALL COINS (MARKETS) =================
+# Every coin Binance trades against USDT on spot, with 24h stats, plus the
+# USDT→INR rate so the app can show both $ and ₹. Shared caches keep this to
+# one Binance call per few seconds no matter how many people have it open.
+MARKETS_CACHE_SECONDS = 3
+SYMBOLS_CACHE_SECONDS = 3600
+USDT_INR_CACHE_SECONDS = 300
+# Stablecoins and fiat pairs aren't coins anyone trades for price moves, and
+# leveraged tokens (BTCUP/BTCDOWN...) are delisted products — keep them out.
+EXCLUDED_BASES = {"USDC", "FDUSD", "TUSD", "BUSD", "DAI", "USDP", "PAX", "USDS", "AEUR", "EUR", "GBP", "AUD", "TRY", "BRL", "EURI", "XUSD", "USD1", "BFUSD"}
+LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
+
+markets_cache = {"data": None, "updated_at": 0}
+symbols_cache = {"data": None, "updated_at": 0}
+usdt_inr_cache = {"rate": None, "source": None, "updated_at": 0}
+
+
+def get_usdt_symbols():
+    now = time.time()
+    if symbols_cache["data"] and now - symbols_cache["updated_at"] < SYMBOLS_CACHE_SECONDS:
+        return symbols_cache["data"]
+    response = requests.get(f"{BINANCE_BASE_URL}/api/v3/exchangeInfo", params={"permissions": "SPOT"}, timeout=20)
+    response.raise_for_status()
+    symbols = {}
+    for item in response.json().get("symbols", []):
+        base = item.get("baseAsset", "")
+        if item.get("quoteAsset") != "USDT" or item.get("status") != "TRADING":
+            continue
+        if base in EXCLUDED_BASES or (len(base) > 4 and base.endswith(LEVERAGED_SUFFIXES)):
+            continue
+        symbols[item["symbol"]] = base
+    symbols_cache["data"], symbols_cache["updated_at"] = symbols, now
+    return symbols
+
+
+def get_usdt_inr_rate():
+    """USDT price in rupees, refreshed every few minutes; last good value on failure."""
+    now = time.time()
+    if usdt_inr_cache["rate"] and now - usdt_inr_cache["updated_at"] < USDT_INR_CACHE_SECONDS:
+        return usdt_inr_cache["rate"], usdt_inr_cache["source"]
+    sources = [
+        ("CoinGecko", "https://api.coingecko.com/api/v3/simple/price", {"ids": "tether", "vs_currencies": "inr"}, lambda d: d["tether"]["inr"]),
+        ("ExchangeRate-API", "https://open.er-api.com/v6/latest/USD", None, lambda d: d["rates"]["INR"]),
+    ]
+    for name, url, params, pick in sources:
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            rate = float(pick(response.json()))
+            if rate > 0:
+                usdt_inr_cache.update(rate=rate, source=name, updated_at=now)
+                return rate, name
+        except (requests.exceptions.RequestException, KeyError, TypeError, ValueError):
+            continue
+    return usdt_inr_cache["rate"], usdt_inr_cache["source"]
+
+
+def build_markets():
+    symbols = get_usdt_symbols()
+    response = requests.get(f"{BINANCE_BASE_URL}/api/v3/ticker/24hr", params={"type": "MINI"}, timeout=20)
+    response.raise_for_status()
+    coins = []
+    for ticker in response.json():
+        base = symbols.get(ticker.get("symbol"))
+        if not base:
+            continue
+        try:
+            price = float(ticker["lastPrice"])
+            open_price = float(ticker["openPrice"])
+            quote_volume = float(ticker["quoteVolume"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if price <= 0:
+            continue
+        coins.append({
+            "symbol": ticker["symbol"],
+            "base": base,
+            "price": price,
+            "change_percent": round((price - open_price) / open_price * 100, 2) if open_price else 0.0,
+            "high": float(ticker.get("highPrice") or 0),
+            "low": float(ticker.get("lowPrice") or 0),
+            "volume_usdt": quote_volume,
+        })
+    coins.sort(key=lambda coin: coin["volume_usdt"], reverse=True)
+    rate, rate_source = get_usdt_inr_rate()
+    return {"coins": coins, "count": len(coins), "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Binance", "updated_at": int(time.time())}
+
+
+@app.get("/api/markets")
+def markets():
+    now = time.time()
+    cached = markets_cache["data"]
+    if cached and now - markets_cache["updated_at"] < MARKETS_CACHE_SECONDS:
+        return {**cached, "cached": True}
+    try:
+        result = build_markets()
+        markets_cache["data"], markets_cache["updated_at"] = result, now
+        return {**result, "cached": False}
+    except (requests.exceptions.RequestException, ValueError) as error:
+        if cached:
+            return {**cached, "cached": True, "warning": "Live market feed is temporarily unavailable. Showing last saved prices."}
+        raise HTTPException(status_code=502, detail=f"Could not load coin prices from Binance: {str(error)}") from error
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "message": "BTC Signal Website backend running", "market_data_source": "Binance", "gemini_configured": bool(os.getenv("GEMINI_API_KEY")), "groq_configured": bool(os.getenv("GROQ_API_KEY"))}

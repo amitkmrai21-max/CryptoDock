@@ -1,0 +1,291 @@
+/* All-coins Dashboard and Watchlist (markets.js). Uses the app's theme
+   variables, so dark/light/midnight themes all apply. */
+
+.cd-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cd-dash-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cd-dash-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.cd-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+/* Key coin cards */
+.cd-key-coins {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 10px;
+}
+
+.cd-key-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.cd-key-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.cd-key-price {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 17px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-key-inr {
+  color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+}
+
+/* Coin avatar */
+.cd-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: -0.4px;
+  overflow: hidden;
+}
+
+/* Up / down colours */
+.cd-up { color: var(--green); }
+.cd-down { color: var(--red); }
+.cd-flat { color: var(--muted); }
+
+/* Market mood */
+.cd-breadth-card { padding: 12px 14px; }
+
+.cd-breadth-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 13.5px;
+  margin-bottom: 8px;
+}
+
+.cd-breadth-row .cd-meta { margin: 0; }
+
+.cd-breadth-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.cd-breadth-bar span:first-child { background: var(--green); }
+.cd-breadth-bar span:last-child { background: var(--red); }
+
+/* Movers */
+.cd-movers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cd-mover-card { padding: 12px 14px; min-width: 0; }
+
+.cd-mover-card h3 {
+  margin: 0 0 8px;
+  font-size: 14.5px;
+}
+
+.cd-mover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cd-mover-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.cd-mover-list li:first-child { border-top: 0; }
+
+.cd-mover-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 700;
+}
+
+.cd-mover-name span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-mover-right {
+  text-align: right;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+/* Tables */
+.cd-table-card { padding: 12px 14px; min-width: 0; }
+
+.cd-table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cd-table-head h3 { margin: 0; font-size: 15px; }
+.cd-table-head h3 .cd-meta { font-size: 12px; }
+
+.cd-search {
+  flex: 1 1 220px;
+  max-width: 320px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.cd-table-wrap { overflow-x: auto; }
+
+.cd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.cd-table th {
+  padding: 8px 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.cd-table th[data-sort] { cursor: pointer; user-select: none; }
+.cd-table th[data-sort].is-sorted { color: var(--text); }
+
+.cd-table td {
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.cd-table .cd-num {
+  text-align: right;
+  font-family: "IBM Plex Mono", monospace;
+  white-space: nowrap;
+}
+
+.cd-table th.cd-num { font-family: inherit; }
+
+.cd-coin-cell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.cd-coin-cell strong { display: block; }
+.cd-coin-cell small { color: var(--muted); font-size: 11px; }
+
+.cd-sub {
+  display: block;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.cd-col-star { width: 30px; }
+
+.cd-star {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.cd-star.is-on { color: var(--yellow); }
+
+.cd-show-more {
+  display: block;
+  margin: 10px auto 2px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cd-empty {
+  margin: 14px 0 6px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13.5px;
+}
+
+@media (max-width: 900px) {
+  .cd-movers { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .cd-col-wide { display: none; }
+  .cd-search { max-width: none; }
+  .cd-key-coins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cd-key-price { font-size: 15px; }
+}
