@@ -293,6 +293,9 @@
   document.querySelectorAll('input[name="cdPlan"]').forEach((r) => r.addEventListener("change", renderPlans));
   el("cdProGateClose").addEventListener("click", () => hide("cdProGate"));
   ["cdProGate", "cdPlans"].forEach((id) => el(id).addEventListener("click", (e) => { if (e.target.id === id) hide(id); }));
+  // The trial card closes the same way (tap outside, Back); the Pro page
+  // simply isn't opened until it is accepted.
+  el("cdTrialCard").addEventListener("click", (e) => { if (e.target.id === "cdTrialCard") { pendingResume = null; hide("cdTrialCard"); } });
 
   window.addEventListener("cd-user-changed", (event) => {
     const next = (event.detail && event.detail.email) || "";
