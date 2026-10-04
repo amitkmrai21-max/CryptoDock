@@ -1076,3 +1076,12 @@
   .cd-table .cd-mom-txt { font-size: 9px; }
   .cd-table th.cd-col-star, .cd-table td:first-child { padding-left: 5px; }
 }
+
+/* Phones: tighter bottom of every page — the notes, the disclaimer and the
+   tab bar sit closer together (the gaps added up to ~80px of empty space). */
+@media (max-width: 760px) {
+  #btcModeRoot .content { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+  #btcModeRoot main.dashboard { padding-bottom: 8px; row-gap: 10px; }
+  #btcModeRoot .cd-page-notes { margin-top: -4px; padding: 8px 12px 8px 28px; line-height: 1.6; }
+  #btcModeRoot .disclaimer-card { padding-top: 10px; padding-bottom: 10px; }
+}
