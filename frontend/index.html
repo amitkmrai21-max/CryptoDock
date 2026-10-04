@@ -26,6 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-markets-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -78,6 +79,11 @@
         <button class="nav-button app-tab active" type="button" data-tab="dashboard">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2"/></svg></span>
           Dashboard
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="watchlist">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+          Watchlist
         </button>
 
         <button class="nav-button app-tab" type="button" data-tab="live-chart">
@@ -136,6 +142,57 @@
 
   <main class="dashboard">
     <section class="tab-panel active" data-panel="dashboard">
+      <!-- All-coins market dashboard (no AI). The previous BTC/AI dashboard
+           cards are kept below, hidden, because app.js still writes to them. -->
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Crypto Market</h2>
+            <p id="cdMarketMeta" class="cd-meta">Loading live prices…</p>
+          </div>
+        </div>
+
+        <div id="cdKeyCoins" class="cd-key-coins"></div>
+
+        <section class="card cd-breadth-card">
+          <div class="cd-breadth-row">
+            <span>Market mood (24h)</span>
+            <span id="cdBreadthText" class="cd-meta">--</span>
+          </div>
+          <div class="cd-breadth-bar"><span id="cdBreadthUp"></span><span id="cdBreadthDown"></span></div>
+        </section>
+
+        <div class="cd-movers">
+          <section class="card cd-mover-card"><h3>Top Gainers</h3><ul id="cdTopGainers" class="cd-mover-list"></ul></section>
+          <section class="card cd-mover-card"><h3>Top Losers</h3><ul id="cdTopLosers" class="cd-mover-list"></ul></section>
+          <section class="card cd-mover-card"><h3>Most Active</h3><ul id="cdMostActive" class="cd-mover-list"></ul></section>
+        </div>
+
+        <section class="card cd-table-card">
+          <div class="cd-table-head">
+            <h3>All Coins <span id="cdCoinCount" class="cd-meta"></span></h3>
+            <input id="cdSearch" class="cd-search" type="search" placeholder="Search coin (BTC, ETH, SOL…)" autocomplete="off" />
+          </div>
+          <div class="cd-table-wrap">
+            <table class="cd-table">
+              <thead>
+                <tr>
+                  <th class="cd-col-star" aria-label="Watchlist"></th>
+                  <th data-sort="base">Coin</th>
+                  <th data-sort="price" class="cd-num">Price</th>
+                  <th data-sort="change_percent" class="cd-num">24h</th>
+                  <th data-sort="high" class="cd-num cd-col-wide">24h High / Low</th>
+                  <th data-sort="volume_usdt" class="cd-num cd-col-wide">Volume</th>
+                </tr>
+              </thead>
+              <tbody id="cdAllCoinsBody"></tbody>
+            </table>
+          </div>
+          <button id="cdShowMore" class="cd-show-more" type="button" hidden>Show more</button>
+        </section>
+      </div>
+
+      <div class="cd-legacy-dashboard" hidden>
       <section class="card hero-card">
         <h2>Live Market</h2>
 
@@ -408,6 +465,40 @@
 
         <p class="provider-note">Only shown on the chart when this is the most recently run provider and the signal is BUY or SELL.</p>
       </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="watchlist">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Watchlist</h2>
+            <p class="cd-meta">Tap ☆ on any coin to add it here. Prices in $ and ₹.</p>
+          </div>
+        </div>
+        <section class="card cd-table-card">
+          <div class="cd-table-head">
+            <h3>My Coins <span id="cdWatchCount" class="cd-meta"></span></h3>
+            <input id="cdWatchSearch" class="cd-search" type="search" placeholder="Search to add a coin…" autocomplete="off" />
+          </div>
+          <div class="cd-table-wrap">
+            <table class="cd-table">
+              <thead>
+                <tr>
+                  <th class="cd-col-star" aria-label="Watchlist"></th>
+                  <th>Coin</th>
+                  <th class="cd-num">Price</th>
+                  <th class="cd-num">24h</th>
+                  <th class="cd-num cd-col-wide">24h High / Low</th>
+                  <th class="cd-num cd-col-wide">Volume</th>
+                </tr>
+              </thead>
+              <tbody id="cdWatchBody"></tbody>
+            </table>
+          </div>
+          <p id="cdWatchEmpty" class="cd-empty" hidden>No coins yet — search above or tap ☆ on the Dashboard.</p>
+        </section>
+      </div>
     </section>
 
     <section class="tab-panel" data-panel="live-chart">
@@ -1557,6 +1648,7 @@
   </aside>
 
   <script src="/frontend/app.js?v=v20260927v65"></script>
+  <script src="/frontend/markets.js?v=20261004-markets-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
