@@ -4405,6 +4405,9 @@ function clearLiveChartAiOverlay() {
   // that list back up must scroll it, not reload the app).
   function isPullBlocked(target) {
     if (isSettingsDrawerOpen()) return true;
+    // A coin sheet, order ticket or other bottom sheet is open: a downward
+    // swipe there closes the sheet (sheet-motion.js), it must not reload.
+    if (document.querySelector(".cd-ticket-overlay:not([hidden])")) return true;
     const sheetBackdrop = document.getElementById("im-watchlist-sheet-backdrop");
     if (sheetBackdrop && !sheetBackdrop.hidden) return true;
     if (document.getElementById("im-stock-options")?.classList.contains("active") &&
