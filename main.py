@@ -1142,6 +1142,7 @@ import concurrent.futures
 import hashlib
 import html as html_lib
 import threading
+import urllib.parse
 import xml.etree.ElementTree as element_tree
 from email.utils import parsedate_to_datetime
 
@@ -1162,13 +1163,16 @@ NEWS_SOURCES = {
         {"name": "CryptoPotato", "site": "cryptopotato.com", "url": "https://cryptopotato.com/feed/"},
     ],
     "hi": [
-        {"name": "Economic Times Hindi", "site": "hindi.economictimes.com", "url": "https://hindi.economictimes.com/rssfeeds/1286551815.cms"},
-        {"name": "Moneycontrol Hindi", "site": "hindi.moneycontrol.com", "url": "https://hindi.moneycontrol.com/rss/latestnews.xml"},
-        {"name": "Live Hindustan", "site": "livehindustan.com", "url": "https://www.livehindustan.com/rss/business"},
+        # Google News' Hindi crypto search gathers stories from many Hindi
+        # publishers (its own feed has no pictures or direct links; both are
+        # filled in below). The business feeds add any crypto story they run.
+        {"name": "Google News", "site": "news.google.com", "google": True,
+         "url": "https://news.google.com/rss/search?q=" + requests.utils.quote("(क्रिप्टो OR बिटकॉइन OR क्रिप्टोकरेंसी) when:7d") + "&hl=hi&gl=IN&ceid=IN:hi"},
         {"name": "News18 Hindi", "site": "hindi.news18.com", "url": "https://hindi.news18.com/rss/khabar/business/business.xml"},
-        {"name": "Zee Business Hindi", "site": "zeebiz.com", "url": "https://www.zeebiz.com/hindi/rss"},
         {"name": "Amar Ujala", "site": "amarujala.com", "url": "https://www.amarujala.com/rss/business.xml"},
-        {"name": "Dainik Bhaskar", "site": "bhaskar.com", "url": "https://www.bhaskar.com/rss-v1--category-1051.xml"},
+        {"name": "India TV", "site": "indiatv.in", "url": "https://www.indiatv.in/rssnews/topstory-paisa.xml"},
+        {"name": "ABP News", "site": "abplive.com", "url": "https://www.abplive.com/business/feed"},
+        {"name": "TV9 Bharatvarsh", "site": "tv9hindi.com", "url": "https://www.tv9hindi.com/business/feed"},
     ],
 }
 # A story counts as crypto news when it mentions one of these.
@@ -1321,6 +1325,18 @@ def _fetch_news_feed(source, lang, now):
             published = _news_time(_news_text(node, "pubDate") or _news_text(node, "dc:date"))
         title = strip_html(html_lib.unescape(title))
         summary = strip_html(html_lib.unescape(summary_raw))
+        name, site = source["name"], source["site"]
+        if source.get("google"):
+            # "Headline - Publisher"; the description is only links, and the
+            # real publisher is in <source url="...">Publisher</source>.
+            publisher = node.find("source")
+            if publisher is not None and (publisher.text or "").strip():
+                name = publisher.text.strip()
+                domain = urllib.parse.urlparse(publisher.get("url") or "").netloc.lower()
+                site = domain[4:] if domain.startswith("www.") else (domain or site)
+                if title.endswith(" - " + name):
+                    title = title[: -len(name) - 3].strip()
+            summary = summary_raw = body = ""
         if not title or not url:
             continue
         if published and now - published > NEWS_MAX_AGE_SECONDS:
@@ -1338,13 +1354,105 @@ def _fetch_news_feed(source, lang, now):
             "title": title[:240],
             "summary": summary,
             "url": url[:1000],
-            "source": source["name"],
-            "site": source["site"],
-            "image": _news_item_image(node, (body, summary_raw)),
+            "source": name,
+            "site": site,
+            "image": "" if source.get("google") else _news_item_image(node, (body, summary_raw)),
             "published": published,
             "coins": _news_coins(text),
+            "_google": bool(source.get("google")),
         })
     return items
+
+
+GNEWS_RESOLVE_PER_BUILD = 30
+GNEWS_RETRY_SECONDS = 1800
+gnews_cache = {}
+_GNEWS_SG_RE = re.compile(r'data-n-a-sg="([^"]+)"')
+_GNEWS_TS_RE = re.compile(r'data-n-a-ts="([^"]+)"')
+
+
+def _gnews_params(gn_url):
+    """Signature and timestamp Google News needs to reveal an article's real URL."""
+    match = re.search(r"/articles/([^?/#]+)", gn_url)
+    if not match:
+        return None
+    article_id = match.group(1)
+    for base in ("https://news.google.com/articles/", "https://news.google.com/rss/articles/"):
+        try:
+            response = requests.get(base + article_id, timeout=8, headers={"User-Agent": NEWS_HEADERS["User-Agent"]})
+            if response.status_code != 200:
+                continue
+            sg, ts = _GNEWS_SG_RE.search(response.text), _GNEWS_TS_RE.search(response.text)
+            if sg and ts and ts.group(1).isdigit():
+                return {"id": article_id, "sg": sg.group(1), "ts": ts.group(1)}
+        except requests.exceptions.RequestException:
+            continue
+    return None
+
+
+def _gnews_decode(batch):
+    """Real publisher URLs for a batch of Google News articles (same order)."""
+    requests_list = [[
+        "Fbv4je",
+        '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+        f'"{p["id"]}",{p["ts"]},"{p["sg"]}"]',
+    ] for p in batch]
+    response = requests.post(
+        "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+        data={"f.req": json.dumps([requests_list])},
+        headers={"User-Agent": NEWS_HEADERS["User-Agent"], "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    rows = [row for row in json.loads(response.text.split("\n\n", 1)[1]) if isinstance(row, list) and len(row) > 2 and row[0] == "wrb.fr"]
+    urls = []
+    for row in rows:
+        try:
+            urls.append(_news_clean_url(json.loads(row[2])[1]))
+        except (TypeError, ValueError, IndexError):
+            urls.append("")
+    return urls if len(urls) == len(batch) else [""] * len(batch)
+
+
+def _resolve_google_items(items):
+    """Swap Google News links for the publisher's own link and picture.
+    Results are cached; a story that can't be resolved keeps its Google
+    News link (which still opens the article) and is retried later."""
+    now = time.time()
+    todo = []
+    for item in items:
+        cached = gnews_cache.get(item["url"])
+        if cached and (cached["url"] or now - cached["at"] < GNEWS_RETRY_SECONDS):
+            if cached["url"]:
+                item["url"], item["image"] = cached["url"], cached["image"]
+        elif len(todo) < GNEWS_RESOLVE_PER_BUILD:
+            todo.append(item)
+    if not todo:
+        return
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        params = list(pool.map(lambda it: _gnews_params(it["url"]), todo))
+    ready = [(item, p) for item, p in zip(todo, params) if p]
+    resolved = {}
+    for start in range(0, len(ready), 10):
+        chunk = ready[start:start + 10]
+        try:
+            for (item, _), real in zip(chunk, _gnews_decode([p for _, p in chunk])):
+                if real and "news.google.com" not in real:
+                    resolved[item["url"]] = real
+        except Exception as error:  # Google changed something: keep Google links
+            print(f"Google News link decode failed: {error}")
+            break
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        images = dict(zip(resolved, pool.map(_news_page_image, resolved.values())))
+    if len(gnews_cache) > 3000:
+        gnews_cache.clear()
+    for item in todo:
+        original = item["url"]
+        real = resolved.get(original, "")
+        image = images.get(original, "") if real else ""
+        gnews_cache[original] = {"url": real, "image": image, "at": now}
+        if real:
+            item["url"], item["image"] = real, image
 
 
 def build_news(lang):
@@ -1370,12 +1478,17 @@ def build_news(lang):
         items.append(item)
         if len(items) >= NEWS_LIMIT:
             break
+    google = [item for item in items[:40] if item.get("_google")]
+    if google:
+        _resolve_google_items(google)
     # Stories whose feed has no picture: take the article's own og:image.
-    missing = [item for item in items[:40] if not item["image"]]
+    missing = [item for item in items[:40] if not item["image"] and not item.get("_google")]
     if missing:
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             for item, image in zip(missing, pool.map(lambda it: _news_page_image(it["url"]), missing)):
                 item["image"] = image
+    for item in items:
+        item.pop("_google", None)
     return {"lang": lang, "items": items, "updated_at": now, "sources_ok": ok, "sources_total": len(sources)}
 
 
