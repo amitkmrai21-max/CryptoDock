@@ -958,3 +958,16 @@
   .cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
   .cd-ticket-overlay .cd-sheet-handle { display: block; width: 44px; height: 5px; margin: -6px auto 2px; cursor: grab; }
 }
+
+/* Short page notes at the bottom of a page (instead of a long line under
+   the title). */
+.cd-page-notes {
+  margin: 4px 2px 0;
+  padding: 10px 14px 10px 30px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.cd-page-notes li::marker { color: var(--purple, #a78bfa); }
