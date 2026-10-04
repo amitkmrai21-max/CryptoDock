@@ -2461,12 +2461,28 @@ setInterval(loadRrg, 300000);
       const email = session?.user?.email || "--";
       if (emailDisplay) emailDisplay.textContent = email;
       if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
+      setPaperAccount(session?.user?.email || "");
     }
 
     function showLoggedOut() {
       loggedOutGroup.hidden = false;
       loggedInGroup.hidden = true;
       setStatus("", false);
+      setPaperAccount("");
+    }
+
+    // Paper trading (paper.js) keeps a separate portfolio per email; tell it
+    // who is signed in. Remembered so the right portfolio shows on the next
+    // load before Supabase has restored the session.
+    function setPaperAccount(email) {
+      const next = (email || "").trim().toLowerCase();
+      try {
+        if (next) localStorage.setItem("cdUserEmail", next);
+        else localStorage.removeItem("cdUserEmail");
+      } catch (error) { /* ignore */ }
+      if (window.cdUserEmail === next) return;
+      window.cdUserEmail = next;
+      window.dispatchEvent(new CustomEvent("cd-user-changed", { detail: { email: next } }));
     }
 
     async function setButtonsBusy(busy) {

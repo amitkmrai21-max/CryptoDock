@@ -115,7 +115,7 @@
     const box = el("cdKeyCoins");
     if (!box) return;
     box.innerHTML = KEY_COINS.map((base) => coinsByBase.get(base)).filter(Boolean).map((coin) => `
-      <div class="cd-key-card">
+      <div class="cd-key-card" data-base="${escapeHtml(coin.base)}">
         <div class="cd-key-card-top">${avatar(coin.base)}<span>${escapeHtml(coin.base)}</span><span class="${pctClass(coin.change_percent)}" style="margin-left:auto;font-size:12.5px">${fmtPct(coin.change_percent)}</span></div>
         <div class="cd-key-price">${fmtUsd(coin.price)}</div>
         <div class="cd-key-inr">${fmtInr(coin.price)}</div>
@@ -123,7 +123,7 @@
   }
 
   function moverItem(coin, right) {
-    return `<li><span class="cd-mover-name">${avatar(coin.base)}<span>${escapeHtml(coin.base)}</span></span><span class="cd-mover-right">${right}</span></li>`;
+    return `<li data-base="${escapeHtml(coin.base)}"><span class="cd-mover-name">${avatar(coin.base)}<span>${escapeHtml(coin.base)}</span></span><span class="cd-mover-right">${right}</span></li>`;
   }
 
   function renderMovers() {
@@ -210,6 +210,7 @@
         if (Number.isFinite(data.usdt_inr)) usdtInr = data.usdt_inr;
         lastOkAt = Date.now();
         window.cdMarkets = { coins, coinsByBase, usdtInr };
+        window.dispatchEvent(new CustomEvent("cd-markets-updated"));
       }
     } catch (e) {
       // Keep showing the last prices; the badge switches to "Reconnecting…".
@@ -222,8 +223,9 @@
     return document.querySelector(".tab-panel.active")?.dataset.panel || "";
   }
 
+  // Pages that need live prices (Positions/Orders for P&L and limit fills).
   function onMarketsPage() {
-    return ["dashboard", "watchlist"].includes(activePanel());
+    return ["dashboard", "watchlist", "positions", "orders"].includes(activePanel());
   }
 
   // Poll only while a markets page is on screen and the tab is visible.
@@ -250,6 +252,12 @@
       toggleWatch(star.dataset.star);
       return;
     }
+    // Tapping a coin anywhere on the Dashboard/Watchlist opens its order ticket.
+    const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base]");
+    if (coinEl && typeof window.cdOpenTicket === "function") {
+      window.cdOpenTicket(coinEl.dataset.base);
+      return;
+    }
     const th = event.target.closest(".cd-table th[data-sort]");
     if (th && dashBody.closest("table").contains(th)) {
       const key = th.dataset.sort;
@@ -267,6 +275,9 @@
   el("cdWatchSearch")?.addEventListener("input", renderWatchlist);
   el("cdShowMore")?.addEventListener("click", () => { shown += PAGE_SIZE; renderAllCoins(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); schedule(); } });
+
+  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml };
+  window.cdRefreshMarkets = refresh;
 
   syncTopbar();
   refresh();

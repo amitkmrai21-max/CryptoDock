@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-markets-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-paper-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -86,6 +86,16 @@
           Watchlist
         </button>
 
+        <button class="nav-button app-tab" type="button" data-tab="positions">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 6V4h8v2M3 11h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Positions
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="orders">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 4h10l2 3v13H5V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 15h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Orders
+        </button>
+
         <button class="nav-button app-tab" type="button" data-tab="live-chart">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           Live Chart
@@ -111,7 +121,8 @@
           Chart Analysis
         </button>
 
-        <button class="nav-button app-tab" type="button" data-tab="virtual-trading">
+        <!-- The old BTC-only Virtual Trading page is replaced by Positions/Orders. -->
+        <button class="nav-button app-tab" type="button" data-tab="virtual-trading" hidden>
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           Virtual Trading
         </button>
@@ -497,6 +508,50 @@
             </table>
           </div>
           <p id="cdWatchEmpty" class="cd-empty" hidden>No coins yet — search above or tap ☆ on the Dashboard.</p>
+        </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="positions">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Positions</h2>
+            <p class="cd-meta">Paper trading only — virtual USDT, no real money or exchange orders.</p>
+          </div>
+          <button id="cdResetFunds" class="cd-ghost-btn" type="button">Reset funds</button>
+        </div>
+        <div class="cd-funds-grid">
+          <div class="cd-fund"><span>Available</span><strong id="cdFundAvailable">--</strong><small id="cdFundAvailableInr"></small></div>
+          <div class="cd-fund"><span>Invested</span><strong id="cdFundInvested">--</strong><small id="cdFundLocked"></small></div>
+          <div class="cd-fund"><span>Current value</span><strong id="cdFundCurrent">--</strong><small id="cdFundCurrentInr"></small></div>
+          <div class="cd-fund"><span>Total P&amp;L</span><strong id="cdFundPnl">--</strong><small id="cdFundPnlPct"></small></div>
+        </div>
+        <section class="card cd-table-card">
+          <div class="cd-table-head"><h3>Holdings <span id="cdHoldCount" class="cd-meta"></span></h3></div>
+          <div id="cdHoldList" class="cd-hold-list"></div>
+          <p id="cdHoldEmpty" class="cd-empty" hidden>No coins yet. Tap any coin on the Dashboard or Watchlist, then Buy.</p>
+        </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="orders">
+      <div class="cd-dash">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Orders</h2>
+            <p class="cd-meta">Limit orders fill when the live price reaches your price.</p>
+          </div>
+        </div>
+        <div class="cd-pills" id="cdOrderFilters">
+          <button type="button" class="cd-pill is-active" data-filter="all">All</button>
+          <button type="button" class="cd-pill" data-filter="OPEN">Open</button>
+          <button type="button" class="cd-pill" data-filter="FILLED">Executed</button>
+          <button type="button" class="cd-pill" data-filter="CANCELLED">Cancelled</button>
+        </div>
+        <section class="card cd-table-card">
+          <div id="cdOrderList" class="cd-order-list"></div>
+          <p id="cdOrderEmpty" class="cd-empty" hidden>No orders here yet.</p>
         </section>
       </div>
     </section>
@@ -1647,8 +1702,57 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v65"></script>
-  <script src="/frontend/markets.js?v=20261004-markets-1"></script>
+  <script src="/frontend/app.js?v=v20261004-paper-1"></script>
+
+  <!-- Paper trading order ticket (paper.js) -->
+  <div id="cdTicket" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket" role="dialog" aria-modal="true" aria-labelledby="cdTicketTitle">
+      <div class="cd-ticket-head">
+        <div class="cd-coin-cell"><span id="cdTicketAvatar"></span><div><strong id="cdTicketTitle">--</strong><small>/USDT · Paper trade</small></div></div>
+        <button id="cdTicketClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="cd-ticket-price">
+        <strong id="cdTicketPrice">--</strong>
+        <span id="cdTicketInr" class="cd-meta"></span>
+        <span id="cdTicketChange"></span>
+      </div>
+      <div class="cd-side-toggle">
+        <button type="button" data-side="BUY" class="is-active">Buy</button>
+        <button type="button" data-side="SELL">Sell</button>
+      </div>
+      <div class="cd-pills cd-type-toggle">
+        <button type="button" class="cd-pill is-active" data-type="MARKET">Market</button>
+        <button type="button" class="cd-pill" data-type="LIMIT">Limit</button>
+      </div>
+      <label class="cd-field" id="cdLimitField" hidden>
+        <span>Limit price (USDT)</span>
+        <input id="cdLimitPrice" type="number" inputmode="decimal" min="0" step="any" />
+      </label>
+      <label class="cd-field">
+        <span>Amount (USDT)</span>
+        <input id="cdAmount" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00" />
+      </label>
+      <label class="cd-field">
+        <span>Quantity (<span id="cdQtyUnit">coin</span>)</span>
+        <input id="cdQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0" />
+      </label>
+      <div class="cd-pills cd-pct-row">
+        <button type="button" class="cd-pill" data-pct="25">25%</button>
+        <button type="button" class="cd-pill" data-pct="50">50%</button>
+        <button type="button" class="cd-pill" data-pct="75">75%</button>
+        <button type="button" class="cd-pill" data-pct="100">Max</button>
+      </div>
+      <div class="cd-ticket-summary">
+        <div><span>Available</span><strong id="cdTicketAvail">--</strong></div>
+        <div><span>Fee (0.1%)</span><strong id="cdTicketFee">--</strong></div>
+        <div><span>Total</span><strong id="cdTicketTotal">--</strong></div>
+      </div>
+      <p id="cdTicketError" class="cd-ticket-error" hidden></p>
+      <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">Buy</button>
+    </div>
+  </div>
+  <script src="/frontend/markets.js?v=20261004-paper-1"></script>
+  <script src="/frontend/paper.js?v=20261004-paper-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
