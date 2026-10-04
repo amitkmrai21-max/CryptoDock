@@ -2229,6 +2229,16 @@ def favicon_ico():
     return FileResponse("frontend/favicon.ico")
 
 
+@app.get("/privacy")
+def privacy_page():
+    return FileResponse("frontend/legal/privacy.html", media_type="text/html")
+
+
+@app.get("/terms")
+def terms_page():
+    return FileResponse("frontend/legal/terms.html", media_type="text/html")
+
+
 @app.get("/robots.txt")
 def robots_txt():
     content = "User-agent: *\nAllow: /\n\nSitemap: https://marketdock.in/sitemap.xml\n"

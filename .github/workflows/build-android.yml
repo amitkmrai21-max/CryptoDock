@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android app
 
 on:
   push:
@@ -11,6 +11,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Each build gets a higher version so Play Store accepts it as an update.
+      VERSION_CODE: ${{ github.run_number }}
+      HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,15 +36,54 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Build debug APK
+      - name: App icon and splash from mobile-app/assets
+        working-directory: mobile-app
+        run: npx --yes @capacitor/assets@3 generate --android
+
+      - name: Set version
+        working-directory: mobile-app/android
+        run: |
+          sed -i "s/versionCode 1$/versionCode ${VERSION_CODE}/" app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"1.0.${VERSION_CODE}\"/" app/build.gradle
+          grep -n "versionCode\|versionName" app/build.gradle
+
+      - name: Build debug APK (install directly for testing)
         working-directory: mobile-app/android
         run: |
           chmod +x gradlew
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
           ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Build signed release AAB (for Play Store)
+        if: env.HAS_SIGNING_KEY == 'true'
+        working-directory: mobile-app/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/upload.jks" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          rm -f "$RUNNER_TEMP/upload.jks"
+
+      - name: No signing key yet
+        if: env.HAS_SIGNING_KEY != 'true'
+        run: echo "::warning::Add the ANDROID_KEYSTORE_* secrets to also build the signed Play Store bundle (.aab)."
+
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: cryptodock-debug-apk
           path: mobile-app/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Play Store bundle
+        if: env.HAS_SIGNING_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptodock-release-aab
+          path: mobile-app/android/app/build/outputs/bundle/release/app-release.aab

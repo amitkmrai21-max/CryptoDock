@@ -2311,7 +2311,7 @@ setInterval(loadRrg, 300000);
     settingsTestNotifBtn?.addEventListener("click", () => {
       if (typeof sendBrowserAlert === "function") {
         sendBrowserAlert(
-          "MarketDock Test Alert",
+          "CryptoDock Test Alert",
           "Browser alerts are working. This is a test notification.",
           { tag: "marketdock-settings-test" }
         );
@@ -2644,7 +2644,7 @@ setInterval(loadRrg, 300000);
 
     deleteBtn?.addEventListener("click", async () => {
       const confirmed = window.confirm(
-        "Delete your MarketDock account? This permanently removes your login and can't be undone."
+        "Delete your account? This permanently removes your login for CryptoDock and MarketDock (they share one account) and can't be undone."
       );
       if (!confirmed) return;
 
