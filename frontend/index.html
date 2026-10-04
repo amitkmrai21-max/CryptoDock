@@ -218,11 +218,11 @@
         <!-- Movers -->
         <div class="cd-mover-pair">
           <section class="cd-mover-panel is-up">
-            <div class="cd-mover-head"><span class="cd-mover-icon">↗</span><div><h3>Top Gainers</h3><small>24h · Binance</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="gainers">View All ›</button></div>
+            <div class="cd-mover-head"><span class="cd-mover-icon">↗</span><div><h3>Top Gainers</h3><small>Last 24 hours</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="gainers">View All ›</button></div>
             <ul id="cdTopGainers" class="cd-mover-list"></ul>
           </section>
           <section class="cd-mover-panel is-down">
-            <div class="cd-mover-head"><span class="cd-mover-icon">↘</span><div><h3>Top Losers</h3><small>24h · Binance</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="losers">View All ›</button></div>
+            <div class="cd-mover-head"><span class="cd-mover-icon">↘</span><div><h3>Top Losers</h3><small>Last 24 hours</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="losers">View All ›</button></div>
             <ul id="cdTopLosers" class="cd-mover-list"></ul>
           </section>
         </div>
@@ -522,7 +522,7 @@
         <div class="cd-dash-head">
           <div>
             <h2>Watchlist</h2>
-            <p class="cd-meta">Every Binance coin, live in $ and ₹. Tap a coin to Buy or Sell; tap ☆ to star it.</p>
+            <p class="cd-meta">Live prices of every coin in $ and ₹. Tap a coin to practise Buy/Sell with virtual money; tap ☆ to star it.</p>
           </div>
         </div>
         <div class="cd-pills" id="cdWatchTabs">
@@ -623,7 +623,7 @@
     <section class="tab-panel" data-panel="coin">
       <div class="cd-dash">
         <div class="cd-dash-head">
-          <div class="cd-coin-cell"><span id="cdCoinAvatar"></span><div><h2 id="cdCoinTitle">BTC</h2><p class="cd-meta">/USDT · Binance spot</p></div></div>
+          <div class="cd-coin-cell"><span id="cdCoinAvatar"></span><div><h2 id="cdCoinTitle">BTC</h2><p class="cd-meta">/USDT · Paper trading</p></div></div>
           <input id="cdCoinSearch" class="cd-search" type="search" placeholder="Search coin…" autocomplete="off" list="cdCoinList" />
           <datalist id="cdCoinList"></datalist>
         </div>
@@ -662,7 +662,7 @@
         <div class="cd-dash-head">
           <div>
             <h2>Scanner</h2>
-            <p class="cd-meta">Every Binance coin, live — updates every few seconds. Tap a coin to Buy or Sell.</p>
+            <p class="cd-meta">Every coin, live — updates every few seconds. Tap a coin to practise trading it with virtual money.</p>
           </div>
         </div>
         <div class="cd-pills" id="cdScanFilters">
@@ -743,7 +743,7 @@
     <div class="section-heading">
       <div>
         <h2>Live BTCUSDT Candlestick Chart</h2>
-        <p>Binance spot-market candles update live. Select a timeframe to inspect price structure before using the Swing Structure and Gemini AI tools.</p>
+        <p>Spot-market candles update live. Select a timeframe to inspect price structure before using the Swing Structure and Gemini AI tools.</p>
       </div>
       <span id="liveChartConnection" class="live-chart-connection live-connecting">Connecting…</span>
     </div>
@@ -841,7 +841,7 @@
       </article>
     </div>
 
-    <p id="liveChartStatus" class="live-chart-status">Loading Binance candles…</p>
+    <p id="liveChartStatus" class="live-chart-status">Loading candles…</p>
   </section>
 </section>
     <section class="tab-panel" data-panel="technical">
@@ -1857,8 +1857,8 @@
       </div>
 
       <div class="settings-group settings-group--plain">
-        <p class="settings-help">CryptoDock v1.0.0 — live prices for every Binance coin in $ and ₹, with paper trading on virtual funds. Education only — not financial advice, and no real-money trading.</p>
-        <p class="settings-help">Built with Chart.js, Lightweight Charts &amp; the TradingView widget, Supabase, Razorpay, Google Gemini and Groq AI, and Binance market data.</p>
+        <p class="settings-help">CryptoDock v1.0.0 — live prices for 400+ coins in $ and ₹, with paper trading on virtual funds. Education only — not financial advice, and no real-money trading.</p>
+        <p class="settings-help">Built with Chart.js, Lightweight Charts &amp; the TradingView widget, Supabase, Razorpay, Google Gemini and Groq AI. Market data: Binance public API. CryptoDock is not affiliated with Binance.</p>
       </div>
     </section>
 
@@ -1885,7 +1885,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=20261004-motion-1"></script>
+  <script src="/frontend/app.js?v=20261004-text-1"></script>
 
   <!-- Paper trading order ticket (paper.js) -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
@@ -1938,7 +1938,7 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261004-home-1"></script>
+  <script src="/frontend/markets.js?v=20261004-text-1"></script>
   <script src="/frontend/paper.js?v=20261004-btn-1"></script>
   <script src="/frontend/coin-tools.js?v=20261004-btn-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
@@ -1964,7 +1964,7 @@
     <div class="cd-ticket cd-sheet" role="dialog" aria-modal="true" aria-labelledby="cdSheetTitle">
       <div class="cd-sheet-handle"></div>
       <div class="cd-ticket-head">
-        <div class="cd-coin-cell"><span id="cdSheetAvatar"></span><div><strong id="cdSheetTitle">--</strong> <span class="cd-sheet-badge">BINANCE SPOT</span><small id="cdSheetPair">/USDT</small></div></div>
+        <div class="cd-coin-cell"><span id="cdSheetAvatar"></span><div><strong id="cdSheetTitle">--</strong> <span class="cd-sheet-badge">USDT · PAPER TRADE</span></div></div>
         <button id="cdSheetClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
       </div>
       <div class="cd-sheet-price-row">

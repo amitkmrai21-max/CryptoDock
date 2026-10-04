@@ -3665,7 +3665,7 @@ async function loadLiveCandlestickChart() {
 
   const setting = liveChartSettings[liveChartTimeframe] || { limit: 200 };
 
-  setLiveChartStatus("Loading latest Binance candles…", "connecting");
+  setLiveChartStatus("Loading latest candles…", "connecting");
 
   try {
     const response = await fetch(
@@ -3723,7 +3723,7 @@ async function loadLiveCandlestickChart() {
     liveCandleChart.timeScale().fitContent();
 
     setLiveChartStatus(
-      `Updated from Binance at ${new Date().toLocaleTimeString("en-IN")}.`,
+      `Updated at ${new Date().toLocaleTimeString("en-IN")}.`,
       "live"
     );
   } catch (error) {
