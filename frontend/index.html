@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20260929v80">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-alerts-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-pro-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -45,6 +45,7 @@
         <h1 id="brandTitle">Crypto<span class="brand-accent">Dock</span></h1>
       </div>
     </div>
+    <button id="cdUpgradeBtn" class="cd-upgrade-btn" type="button" hidden>👑 Upgrade</button>
   </header>
 
   
@@ -1892,7 +1893,48 @@
   <script src="/frontend/markets.js?v=20261004-alerts-1"></script>
   <script src="/frontend/paper.js?v=20261004-tools-1"></script>
   <script src="/frontend/coin-tools.js?v=20261004-alerts-1"></script>
-  <script src="/frontend/alerts.js?v=20261004-alerts-1"></script>
+  <script src="/frontend/alerts.js?v=20261004-pro-1"></script>
+  <!-- Pro: gate, trial card and plans (pro.js) -->
+  <div id="cdProGate" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdProGateTitle">
+      <span class="cd-pro-badge">👑 CRYPTODOCK PRO</span>
+      <h3 id="cdProGateTitle">Pro feature</h3>
+      <p id="cdProGateText" class="cd-meta"></p>
+      <button id="cdProGatePrimary" class="cd-submit is-buy" type="button">Continue</button>
+      <button id="cdProGateClose" class="cd-ghost-btn" type="button">Not now</button>
+    </div>
+  </div>
+
+  <div id="cdTrialCard" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
+      <span class="cd-pro-badge cd-pro-badge--green">PRO TRIAL ACTIVATED · 7 DAYS</span>
+      <h3 id="cdTrialTitle">CryptoDock Pro unlocked</h3>
+      <p id="cdTrialText" class="cd-meta">Paper trading, Scanner, Heatmap, Price Alerts, News and AI chart analysis are free for 7 days.</p>
+      <div class="cd-plan-mini">
+        <div><strong>₹99</strong><span>1 month</span></div>
+        <div><strong>₹299</strong><span>6 months</span></div>
+        <div class="is-best"><strong>₹499</strong><span>1 year</span></div>
+      </div>
+      <p class="cd-meta">No automatic payment during the trial. You can buy a plan any time from Upgrade.</p>
+      <button id="cdTrialAccept" class="cd-submit is-buy" type="button">Start my free trial →</button>
+    </div>
+  </div>
+
+  <div id="cdPlans" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket cd-pro-card" role="dialog" aria-modal="true" aria-labelledby="cdPlansTitle">
+      <div class="cd-ticket-head"><h3 id="cdPlansTitle">CryptoDock Pro plans</h3><button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
+      <p id="cdPlansStatus" class="cd-meta"></p>
+      <div class="cd-plan-list">
+        <label class="cd-plan"><input type="radio" name="cdPlan" value="Monthly Plan" /><span><strong>1 Month</strong><small>Paper trading, Scanner, Heatmap, Alerts, News, AI</small></span><b>₹99</b></label>
+        <label class="cd-plan"><input type="radio" name="cdPlan" value="Half-Yearly Plan" /><span><strong>6 Months</strong><small>₹50/month</small></span><b>₹299</b></label>
+        <label class="cd-plan is-best"><input type="radio" name="cdPlan" value="Annual Plan" checked /><span><strong>1 Year</strong><small>Best value · ₹42/month</small></span><b>₹499</b></label>
+      </div>
+      <p id="cdPlansError" class="cd-ticket-error" hidden></p>
+      <button id="cdPlansPay" class="cd-submit is-buy" type="button">Pay ₹499 securely</button>
+      <p class="cd-meta" style="text-align:center;margin:0">Secure payment by Razorpay · UPI, cards, net banking</p>
+    </div>
+  </div>
+  <script src="/frontend/pro.js?v=20261004-pro-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

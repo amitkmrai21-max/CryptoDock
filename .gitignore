@@ -1,0 +1,4 @@
+user_subscriptions.json
+user_subscriptions.json.tmp
+__pycache__/
+.env
