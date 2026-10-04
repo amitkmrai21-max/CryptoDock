@@ -1445,6 +1445,40 @@ def markets():
         raise HTTPException(status_code=502, detail=f"Could not load coin prices from Binance: {str(error)}") from error
 
 
+COIN_CANDLE_INTERVALS = {"15m", "1h", "4h", "1d", "1w"}
+COIN_CANDLES_CACHE_SECONDS = 15
+coin_candles_cache = {}
+
+
+@app.get("/api/coin/candles")
+def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300):
+    """Candles for any coin on the all-coins list (Coin Detail chart)."""
+    symbol = (symbol or "").strip().upper()
+    if interval not in COIN_CANDLE_INTERVALS:
+        raise HTTPException(status_code=400, detail="Unsupported candle interval.")
+    safe_limit = max(20, min(int(limit), 1000))
+    cache_key = f"{symbol}:{interval}:{safe_limit}"
+    now = time.time()
+    cached = coin_candles_cache.get(cache_key)
+    if cached and now - cached["updated_at"] < COIN_CANDLES_CACHE_SECONDS:
+        return cached["data"]
+    try:
+        if symbol not in get_usdt_symbols():
+            raise HTTPException(status_code=404, detail="Unknown coin.")
+        raw = get_klines(symbol, interval, safe_limit)
+    except requests.exceptions.RequestException as error:
+        if cached:
+            return cached["data"]
+        raise HTTPException(status_code=502, detail=f"Could not load candles from Binance: {str(error)}") from error
+    candles = [{"time": int(int(c[0]) / 1000), "open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4]), "volume": float(c[5])} for c in raw]
+    data = {"symbol": symbol, "interval": interval, "candles": candles, "source": "Binance", "updated_at": int(now)}
+    # Bounded: one entry per coin/interval someone actually opened.
+    if len(coin_candles_cache) > 500:
+        coin_candles_cache.clear()
+    coin_candles_cache[cache_key] = {"data": data, "updated_at": now}
+    return data
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "message": "BTC Signal Website backend running", "market_data_source": "Binance", "gemini_configured": bool(os.getenv("GEMINI_API_KEY")), "groq_configured": bool(os.getenv("GROQ_API_KEY"))}

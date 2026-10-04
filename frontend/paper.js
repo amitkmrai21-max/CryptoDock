@@ -367,6 +367,11 @@
 
   // ---------- events ----------
   el("cdTicketClose").addEventListener("click", closeTicket);
+  el("cdTicketChart")?.addEventListener("click", () => {
+    const base = ticket.base;
+    closeTicket();
+    if (base && typeof window.cdOpenCoin === "function") window.cdOpenCoin(base);
+  });
   el("cdTicket").addEventListener("click", (event) => { if (event.target.id === "cdTicket") closeTicket(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && ticket.base) closeTicket(); });
   el("cdTicketSubmit").addEventListener("click", submitTicket);
@@ -431,5 +436,13 @@
   });
 
   window.cdOpenTicket = openTicket;
+  // For Coin Detail: this account's holding in one coin, with live P&L.
+  window.cdPaperHolding = (base) => {
+    const h = state.holdings[base];
+    if (!h || h.qty <= EPSILON) return null;
+    const price = priceOf(base) ?? h.cost / h.qty;
+    const value = h.qty * price;
+    return { qty: h.qty, avg: h.cost / h.qty, value, pnl: value - h.cost, pct: h.cost ? ((value - h.cost) / h.cost) * 100 : 0 };
+  };
   renderAll();
 })();
