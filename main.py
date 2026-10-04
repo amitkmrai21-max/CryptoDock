@@ -1479,6 +1479,217 @@ def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300
     return data
 
 
+# ================= TRIAL & SUBSCRIPTION (RAZORPAY) =================
+# Same model as MarketDock: every email gets one 7-day trial (kept for good —
+# logout, account deletion or signing up again never resets it), then a paid
+# plan. CryptoDock keeps its own records, so its trial and plans are separate
+# from MarketDock's, but it charges through the same Razorpay account.
+import hashlib
+import hmac
+
+from pydantic import BaseModel
+
+APP_ID = "cryptodock"
+TRIAL_SECONDS = 7 * 86400
+USER_DB_FILE = os.getenv("CRYPTODOCK_USER_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_subscriptions.json")
+PLAN_CATALOG = {
+    "Monthly Plan": {"amount": 99, "days": 30},
+    "Half-Yearly Plan": {"amount": 299, "days": 180},
+    "Annual Plan": {"amount": 499, "days": 365},
+}
+
+
+def _load_env():
+    """Fill missing env vars from .env files. MarketDock's .env is read last so
+    CryptoDock picks up the same Razorpay keys without copying them."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for path in [os.path.join(here, ".env"), "/var/www/CryptoDock/.env", "/opt/marketdock/.env"]:
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
+                        key, value = key.strip(), value.strip().strip("\"'")
+                        if key and not os.environ.get(key):
+                            os.environ[key] = value
+        except OSError:
+            pass
+
+
+def _load_users():
+    if os.path.exists(USER_DB_FILE):
+        try:
+            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+    return {}
+
+
+def _save_users(users):
+    tmp = USER_DB_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(users, f, indent=2)
+    os.replace(tmp, USER_DB_FILE)
+
+
+def _norm_email(email):
+    return (email or "").strip().lower()
+
+
+class TrialSyncRequest(BaseModel):
+    email: str
+    user_id: str = ""
+
+
+@app.post("/api/user/sync-trial")
+def sync_user_trial(req: TrialSyncRequest):
+    email = _norm_email(req.email)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    users = _load_users()
+    user = users.get(email)
+    if not user or not user.get("created_at"):
+        user = user or {"is_paid": False}
+        user.setdefault("email", email)
+        user.setdefault("user_id", req.user_id)
+        user["created_at"] = user.get("trial_start_ts") or int(time.time())
+        users[email] = user
+        _save_users(users)
+    return subscription_status(email)
+
+
+@app.get("/api/subscription/status")
+def subscription_status(email: str = ""):
+    email = _norm_email(email)
+    if not email:
+        return {"is_paid": False, "trial_active": False, "trial_expired": False}
+    now = int(time.time())
+    user = _load_users().get(email, {})
+    valid_until_ts = user.get("valid_until_ts")
+    is_paid = bool(user.get("is_paid") and valid_until_ts and now < valid_until_ts)
+    # No record yet: the trial clock starts at the first sign-in (sync-trial).
+    trial_start_ts = user.get("created_at") or now
+    trial_end_ts = trial_start_ts + TRIAL_SECONDS
+    trial_expired = now >= trial_end_ts
+    return {
+        "email": email,
+        "is_paid": is_paid,
+        "plan": user.get("plan"),
+        "valid_until_ts": valid_until_ts,
+        "plan_expired": bool(user.get("is_paid") and valid_until_ts and now >= valid_until_ts),
+        "trial_start_ts": trial_start_ts,
+        "trial_end_ts": trial_end_ts,
+        "trial_days_remaining": max(0, math.ceil((trial_end_ts - now) / 86400)),
+        "trial_expired": trial_expired,
+        "trial_active": not is_paid and not trial_expired,
+    }
+
+
+class PaymentOrderRequest(BaseModel):
+    plan_name: str = "Annual Plan"
+    email: str = ""
+
+
+class PaymentVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    email: str = ""
+
+
+def _razorpay_keys():
+    _load_env()
+    key_id, key_secret = os.environ.get("RAZORPAY_KEY_ID"), os.environ.get("RAZORPAY_KEY_SECRET")
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=500, detail="Payments are not set up on the server yet.")
+    return key_id, key_secret
+
+
+@app.get("/api/payment/config")
+def payment_config():
+    _load_env()
+    return {"key_id": os.environ.get("RAZORPAY_KEY_ID", ""), "plans": PLAN_CATALOG}
+
+
+@app.post("/api/payment/create-order")
+def create_payment_order(req: PaymentOrderRequest):
+    key_id, key_secret = _razorpay_keys()
+    plan = PLAN_CATALOG.get(req.plan_name)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Unknown plan")
+    email = _norm_email(req.email)
+    if not email:
+        raise HTTPException(status_code=400, detail="Please sign in before buying a plan.")
+    try:
+        r = requests.post(
+            "https://api.razorpay.com/v1/orders",
+            auth=(key_id, key_secret),
+            json={
+                "amount": plan["amount"] * 100,
+                "currency": "INR",
+                "receipt": f"cd_{int(time.time())}_{plan['amount']}",
+                # "app" keeps a CryptoDock payment from unlocking MarketDock
+                # (same Razorpay account) and the other way round.
+                "notes": {"app": APP_ID, "email": email, "plan": req.plan_name},
+            },
+            timeout=10,
+        )
+    except requests.exceptions.RequestException as error:
+        raise HTTPException(status_code=502, detail="Could not reach Razorpay. Please try again.") from error
+    if r.status_code != 200:
+        raise HTTPException(status_code=502, detail="Razorpay could not create the order.")
+    order = r.json()
+    return {"order_id": order.get("id"), "amount": plan["amount"] * 100, "currency": "INR", "key_id": key_id, "plan_name": req.plan_name}
+
+
+@app.post("/api/payment/verify")
+def verify_payment(req: PaymentVerifyRequest):
+    key_id, key_secret = _razorpay_keys()
+    expected = hmac.new(key_secret.encode(), f"{req.razorpay_order_id}|{req.razorpay_payment_id}".encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, req.razorpay_signature or ""):
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    # Plan, amount and email come from Razorpay's own records, not the browser.
+    try:
+        order = requests.get(f"https://api.razorpay.com/v1/orders/{req.razorpay_order_id}", auth=(key_id, key_secret), timeout=10).json()
+        payment = requests.get(f"https://api.razorpay.com/v1/payments/{req.razorpay_payment_id}", auth=(key_id, key_secret), timeout=10).json()
+    except (requests.exceptions.RequestException, ValueError) as error:
+        raise HTTPException(status_code=502, detail="Could not confirm the payment with Razorpay") from error
+    notes = order.get("notes") if isinstance(order.get("notes"), dict) else {}
+    plan_name = notes.get("plan")
+    plan = PLAN_CATALOG.get(plan_name)
+    expected_paise = plan["amount"] * 100 if plan else None
+    if (
+        notes.get("app") != APP_ID
+        or not plan
+        or order.get("amount") != expected_paise
+        or payment.get("order_id") != req.razorpay_order_id
+        or payment.get("amount") != expected_paise
+        or payment.get("status") not in ("captured", "authorized")
+    ):
+        raise HTTPException(status_code=400, detail="Payment does not match the plan")
+    email = _norm_email(notes.get("email"))
+    if not email:
+        raise HTTPException(status_code=400, detail="Payment has no account email")
+
+    users = _load_users()
+    now = int(time.time())
+    user = users.setdefault(email, {"email": email, "created_at": now})
+    seen = user.setdefault("payment_ids", [])
+    if req.razorpay_payment_id not in seen:
+        # Renewing early adds to the time already paid for.
+        current_until = user.get("valid_until_ts") or 0
+        start = current_until if user.get("is_paid") and current_until > now else now
+        user.update(is_paid=True, plan=plan_name, amount=plan["amount"], paid_at=now, payment_id=req.razorpay_payment_id, valid_until_ts=start + plan["days"] * 86400)
+        seen.append(req.razorpay_payment_id)
+        _save_users(users)
+    return {"verified": True, "plan": plan_name, "valid_until_ts": user["valid_until_ts"]}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "message": "BTC Signal Website backend running", "market_data_source": "Binance", "gemini_configured": bool(os.getenv("GEMINI_API_KEY")), "groq_configured": bool(os.getenv("GROQ_API_KEY"))}

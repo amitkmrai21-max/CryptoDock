@@ -564,3 +564,63 @@
   .cd-alert-form .cd-submit,
   .cd-alert-form .cd-field:nth-child(3) { grid-column: 1 / -1; }
 }
+
+/* ---------- CryptoDock Pro (pro.js) ---------- */
+.cd-upgrade-btn {
+  margin-left: auto;
+  margin-right: 48px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #facc15;
+  color: #713f12;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(250, 204, 21, 0.35);
+}
+.cd-upgrade-btn[hidden] { display: none; }
+
+.cd-pro-card { text-align: center; align-items: stretch; }
+.cd-pro-card h3 { margin: 0; font-size: 20px; }
+.cd-pro-card .cd-meta { margin: 0; line-height: 1.5; }
+.cd-pro-card .cd-ticket-head h3 { font-size: 18px; }
+.cd-pro-badge {
+  align-self: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.14);
+  color: #facc15;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+.cd-pro-badge--green { background: rgba(52, 211, 153, 0.14); color: var(--green); }
+
+.cd-plan-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cd-plan-mini div { display: flex; flex-direction: column; padding: 10px 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.cd-plan-mini strong { font-size: 18px; }
+.cd-plan-mini span { color: var(--muted); font-size: 12px; }
+.cd-plan-mini .is-best { border-color: var(--green); }
+
+.cd-plan-list { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.cd-plan {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  cursor: pointer;
+}
+.cd-plan:has(input:checked) { border-color: var(--green); }
+.cd-plan input { accent-color: var(--green); width: 18px; height: 18px; }
+.cd-plan strong { display: block; }
+.cd-plan small { color: var(--muted); font-size: 12px; }
+.cd-plan b { font-size: 18px; }
+.cd-plan.is-best small { color: var(--green); font-weight: 700; }
