@@ -1,3 +1,4 @@
+import gzip
 import json
 import math
 import os
@@ -6,7 +7,7 @@ import time
 from datetime import datetime, timezone
 
 import requests
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -43,6 +44,121 @@ SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh"
 
 BINANCE_BASE_URL = "https://data-api.binance.vision"
+
+# ================= BINANCE GUARD =================
+# Every Binance call goes through binance_get(). Binance allows about 6000
+# "request weight" per minute per server IP, however many people use the
+# app — all users share the server's calls and caches. The guard tracks the
+# weight (Binance's own X-MBX-USED-WEIGHT-1M header plus our count), makes
+# the optional data (order book, coin stats, charts) refresh more slowly as
+# usage climbs, refuses optional calls before the limit, and respects 429 /
+# 418 "slow down" answers. Refused calls are served from the last cache, so
+# Binance never has a reason to warn or block the server.
+import collections
+import threading
+
+BINANCE_WEIGHT_LIMIT = 6000
+BINANCE_SOFT_SHARE = 0.60   # above this, optional calls wait for the next minute
+BINANCE_HARD_SHARE = 0.85   # above this, even the price list waits
+_binance_lock = threading.Lock()
+_binance_calls = collections.deque()  # (time, weight) of our calls in the last minute
+_binance_state = {"header_used": 0, "header_at": 0.0, "blocked_until": 0.0}
+
+
+class BinanceBusy(requests.exceptions.RequestException):
+    """Binance asked us to slow down, or we are holding back to stay under its limit."""
+
+
+def _binance_used_locked(now):
+    while _binance_calls and now - _binance_calls[0][0] > 60:
+        _binance_calls.popleft()
+    ours = sum(weight for _, weight in _binance_calls)
+    theirs = _binance_state["header_used"] if now - _binance_state["header_at"] < 60 else 0
+    return max(ours, theirs)
+
+
+def binance_usage_share():
+    with _binance_lock:
+        return _binance_used_locked(time.time()) / BINANCE_WEIGHT_LIMIT
+
+
+def binance_slowdown():
+    """Cache-time multiplier for optional data: 1x normally, up to 8x when busy."""
+    share = binance_usage_share()
+    return 1 if share < 0.35 else 2 if share < 0.5 else 4 if share < 0.6 else 8
+
+
+def binance_get(path, params=None, weight=2, essential=False, timeout=15):
+    now = time.time()
+    with _binance_lock:
+        if now < _binance_state["blocked_until"]:
+            raise BinanceBusy(f"Binance asked us to wait {int(_binance_state['blocked_until'] - now)}s")
+        cap = BINANCE_HARD_SHARE if essential else BINANCE_SOFT_SHARE
+        if _binance_used_locked(now) + weight > BINANCE_WEIGHT_LIMIT * cap:
+            raise BinanceBusy("Holding back to stay under Binance's limit")
+        _binance_calls.append((now, weight))
+    response = requests.get(f"{BINANCE_BASE_URL}{path}", params=params, timeout=timeout)
+    used = response.headers.get("X-MBX-USED-WEIGHT-1M") or response.headers.get("x-mbx-used-weight-1m")
+    with _binance_lock:
+        if used and str(used).isdigit():
+            _binance_state["header_used"], _binance_state["header_at"] = int(used), time.time()
+        if response.status_code in (418, 429):
+            try:
+                wait = int(response.headers.get("Retry-After") or 60)
+            except ValueError:
+                wait = 60
+            _binance_state["blocked_until"] = max(_binance_state["blocked_until"], time.time() + max(30, wait))
+            print(f"Binance {response.status_code}: pausing calls for {max(30, wait)}s")
+            raise BinanceBusy(f"Binance answered {response.status_code}")
+    response.raise_for_status()
+    return response.json()
+
+
+_flight_guard = threading.Lock()
+_flight_locks = {}
+_flight_failures = {}
+
+
+def cached_call(cache, key, ttl, fetch, max_entries=1000):
+    """The cached value while fresh; otherwise one caller fetches it while
+    the others wait for that result (no stampede). If the fetch fails, the
+    last value is served; with no value at all the error is raised."""
+    entry = cache.get(key)
+    if entry and time.time() - entry["at"] < ttl:
+        return entry["data"]
+    flight = (id(cache), key)
+    with _flight_guard:
+        lock = _flight_locks.get(flight)
+        if lock is None:
+            if len(_flight_locks) > 5000:
+                _flight_locks.clear()
+            lock = _flight_locks[flight] = threading.Lock()
+    with lock:
+        now = time.time()
+        entry = cache.get(key)
+        if entry and now - entry["at"] < ttl:
+            return entry["data"]
+        failed = _flight_failures.get(flight)
+        if failed and now - failed[0] < 2:
+            # Someone just tried and failed; don't hammer the source.
+            if entry:
+                return entry["data"]
+            raise failed[1]
+        try:
+            data = fetch()
+        except Exception as error:
+            if len(_flight_failures) > 5000:
+                _flight_failures.clear()
+            _flight_failures[flight] = (time.time(), error)
+            if entry:
+                return entry["data"]
+            raise
+        _flight_failures.pop(flight, None)
+        if len(cache) >= max_entries and key not in cache:
+            cache.clear()
+        cache[key] = {"data": data, "at": time.time()}
+        return data
+
 TECHNICAL_CACHE_SECONDS = 30
 TECHNICAL_DELAYED_SECONDS = 90
 
@@ -53,13 +169,7 @@ rrg_cache = {"data": {}, "updated_at": 0}
 
 
 def get_ticker(symbol="BTCUSDT"):
-    response = requests.get(
-        f"{BINANCE_BASE_URL}/api/v3/ticker/24hr",
-        params={"symbol": symbol},
-        timeout=15,
-    )
-    response.raise_for_status()
-    return response.json()
+    return binance_get("/api/v3/ticker/24hr", {"symbol": symbol}, weight=2)
 
 
 def get_btc_ticker():
@@ -67,13 +177,7 @@ def get_btc_ticker():
 
 
 def get_klines(symbol="BTCUSDT", interval="1h", limit=250):
-    response = requests.get(
-        f"{BINANCE_BASE_URL}/api/v3/klines",
-        params={"symbol": symbol, "interval": interval, "limit": limit},
-        timeout=15,
-    )
-    response.raise_for_status()
-    return response.json()
+    return binance_get("/api/v3/klines", {"symbol": symbol, "interval": interval, "limit": limit}, weight=2)
 
 
 def get_btc_klines(interval="1h", limit=250):
@@ -1060,7 +1164,21 @@ def build_market_data():
     return {"symbol": "BTCUSDT", "current_price_usdt": round_value(ticker["lastPrice"]), "price_change_24h_percent": round_value(ticker["priceChangePercent"]), "high_24h_usdt": round_value(ticker["highPrice"]), "low_24h_usdt": round_value(ticker["lowPrice"]), "quote_volume_24h_usdt": round_value(ticker["quoteVolume"]), "timeframes": {"15m": analysis_15m, "1h": analysis_1h, "4h": analysis_4h}}
 
 
+_force_refresh_at = {}
+
+
+def allow_force_refresh(name, every=10):
+    """A "Refresh" button may skip the cache at most once per `every` seconds
+    for everyone together, so repeated taps can't flood Binance."""
+    now = time.time()
+    if now - _force_refresh_at.get(name, 0) < every:
+        return False
+    _force_refresh_at[name] = now
+    return True
+
+
 def get_technical_market_data(force_refresh=False):
+    force_refresh = force_refresh and allow_force_refresh("technical")
     now = time.time()
     cache_age = now - technical_cache["updated_at"]
     if not force_refresh and technical_cache["data"] and cache_age < TECHNICAL_CACHE_SECONDS:
@@ -1558,26 +1676,25 @@ USDT_INR_CACHE_SECONDS = 300
 EXCLUDED_BASES = {"USDC", "FDUSD", "TUSD", "BUSD", "DAI", "USDP", "PAX", "USDS", "AEUR", "EUR", "GBP", "AUD", "TRY", "BRL", "EURI", "XUSD", "USD1", "BFUSD"}
 LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
 
-markets_cache = {"data": None, "updated_at": 0}
-symbols_cache = {"data": None, "updated_at": 0}
+markets_cache = {}
+symbols_cache = {}
 usdt_inr_cache = {"rate": None, "source": None, "updated_at": 0}
 
 
 def get_usdt_symbols():
-    now = time.time()
-    if symbols_cache["data"] and now - symbols_cache["updated_at"] < SYMBOLS_CACHE_SECONDS:
-        return symbols_cache["data"]
-    response = requests.get(f"{BINANCE_BASE_URL}/api/v3/exchangeInfo", params={"permissions": "SPOT"}, timeout=20)
-    response.raise_for_status()
+    return cached_call(symbols_cache, "all", SYMBOLS_CACHE_SECONDS, _fetch_usdt_symbols)
+
+
+def _fetch_usdt_symbols():
+    info = binance_get("/api/v3/exchangeInfo", {"permissions": "SPOT"}, weight=20, essential=True, timeout=20)
     symbols = {}
-    for item in response.json().get("symbols", []):
+    for item in info.get("symbols", []):
         base = item.get("baseAsset", "")
         if item.get("quoteAsset") != "USDT" or item.get("status") != "TRADING":
             continue
         if base in EXCLUDED_BASES or (len(base) > 4 and base.endswith(LEVERAGED_SUFFIXES)):
             continue
         symbols[item["symbol"]] = base
-    symbols_cache["data"], symbols_cache["updated_at"] = symbols, now
     return symbols
 
 
@@ -1586,6 +1703,21 @@ def get_usdt_inr_rate():
     now = time.time()
     if usdt_inr_cache["rate"] and now - usdt_inr_cache["updated_at"] < USDT_INR_CACHE_SECONDS:
         return usdt_inr_cache["rate"], usdt_inr_cache["source"]
+    with _usdt_inr_lock:
+        if usdt_inr_cache["rate"] and time.time() - usdt_inr_cache["updated_at"] < USDT_INR_CACHE_SECONDS:
+            return usdt_inr_cache["rate"], usdt_inr_cache["source"]
+        before = usdt_inr_cache["updated_at"]
+        rate, name = _fetch_usdt_inr_rate(now)
+        if usdt_inr_cache["updated_at"] == before:
+            # Both sources down: try again in a minute, not on every refresh.
+            usdt_inr_cache["updated_at"] = now - USDT_INR_CACHE_SECONDS + 60
+        return rate, name
+
+
+_usdt_inr_lock = threading.Lock()
+
+
+def _fetch_usdt_inr_rate(now):
     sources = [
         ("CoinGecko", "https://api.coingecko.com/api/v3/simple/price", {"ids": "tether", "vs_currencies": "inr"}, lambda d: d["tether"]["inr"]),
         ("ExchangeRate-API", "https://open.er-api.com/v6/latest/USD", None, lambda d: d["rates"]["INR"]),
@@ -1605,10 +1737,9 @@ def get_usdt_inr_rate():
 
 def build_markets():
     symbols = get_usdt_symbols()
-    response = requests.get(f"{BINANCE_BASE_URL}/api/v3/ticker/24hr", params={"type": "MINI"}, timeout=20)
-    response.raise_for_status()
+    tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
     coins = []
-    for ticker in response.json():
+    for ticker in tickers:
         base = symbols.get(ticker.get("symbol"))
         if not base:
             continue
@@ -1634,20 +1765,24 @@ def build_markets():
     return {"coins": coins, "count": len(coins), "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Binance", "updated_at": int(time.time())}
 
 
+def _build_markets_payload():
+    """The coin list, serialised and gzipped once per refresh: every user gets
+    the same bytes, so 10,000 users cost no more CPU than one."""
+    data = build_markets()
+    raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+    return {"raw": raw, "gz": gzip.compress(raw, compresslevel=6)}
+
+
 @app.get("/api/markets")
-def markets():
-    now = time.time()
-    cached = markets_cache["data"]
-    if cached and now - markets_cache["updated_at"] < MARKETS_CACHE_SECONDS:
-        return {**cached, "cached": True}
+def markets(request: Request):
     try:
-        result = build_markets()
-        markets_cache["data"], markets_cache["updated_at"] = result, now
-        return {**result, "cached": False}
+        payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
     except (requests.exceptions.RequestException, ValueError) as error:
-        if cached:
-            return {**cached, "cached": True, "warning": "Live market feed is temporarily unavailable. Showing last saved prices."}
         raise HTTPException(status_code=502, detail=f"Could not load coin prices from Binance: {str(error)}") from error
+    headers = {"Cache-Control": "public, max-age=2", "Vary": "Accept-Encoding"}
+    if "gzip" in request.headers.get("accept-encoding", "").lower():
+        return Response(content=payload["gz"], media_type="application/json", headers={**headers, "Content-Encoding": "gzip"})
+    return Response(content=payload["raw"], media_type="application/json", headers=headers)
 
 
 COIN_CANDLE_INTERVALS = {"15m", "1h", "4h", "1d", "1w"}
@@ -1662,26 +1797,18 @@ def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300
     if interval not in COIN_CANDLE_INTERVALS:
         raise HTTPException(status_code=400, detail="Unsupported candle interval.")
     safe_limit = max(20, min(int(limit), 1000))
-    cache_key = f"{symbol}:{interval}:{safe_limit}"
-    now = time.time()
-    cached = coin_candles_cache.get(cache_key)
-    if cached and now - cached["updated_at"] < COIN_CANDLES_CACHE_SECONDS:
-        return cached["data"]
-    try:
-        if symbol not in get_usdt_symbols():
-            raise HTTPException(status_code=404, detail="Unknown coin.")
+    if symbol not in get_usdt_symbols():
+        raise HTTPException(status_code=404, detail="Unknown coin.")
+
+    def fetch():
         raw = get_klines(symbol, interval, safe_limit)
+        candles = [{"time": int(int(c[0]) / 1000), "open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4]), "volume": float(c[5])} for c in raw]
+        return {"symbol": symbol, "interval": interval, "candles": candles, "source": "Binance", "updated_at": int(time.time())}
+
+    try:
+        return cached_call(coin_candles_cache, f"{symbol}:{interval}:{safe_limit}", COIN_CANDLES_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=500)
     except requests.exceptions.RequestException as error:
-        if cached:
-            return cached["data"]
-        raise HTTPException(status_code=502, detail=f"Could not load candles from Binance: {str(error)}") from error
-    candles = [{"time": int(int(c[0]) / 1000), "open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4]), "volume": float(c[5])} for c in raw]
-    data = {"symbol": symbol, "interval": interval, "candles": candles, "source": "Binance", "updated_at": int(now)}
-    # Bounded: one entry per coin/interval someone actually opened.
-    if len(coin_candles_cache) > 500:
-        coin_candles_cache.clear()
-    coin_candles_cache[cache_key] = {"data": data, "updated_at": now}
-    return data
+        raise HTTPException(status_code=503, detail=f"Candles are busy, try again shortly: {str(error)}") from error
 
 
 COIN_DEPTH_CACHE_SECONDS = 2
@@ -1692,26 +1819,18 @@ coin_depth_cache = {}
 def coin_depth(symbol: str = "BTCUSDT"):
     """Top 5 bids and asks from Binance's order book (coin sheet's Market Depth)."""
     symbol = (symbol or "").strip().upper()
-    now = time.time()
-    cached = coin_depth_cache.get(symbol)
-    if cached and now - cached["updated_at"] < COIN_DEPTH_CACHE_SECONDS:
-        return cached["data"]
+    if symbol not in get_usdt_symbols():
+        raise HTTPException(status_code=404, detail="Unknown coin.")
+
+    def fetch():
+        book = binance_get("/api/v3/depth", {"symbol": symbol, "limit": 5}, weight=5, timeout=10)
+        side = lambda rows: [{"price": float(p), "qty": float(q)} for p, q in rows[:5]]
+        return {"symbol": symbol, "bids": side(book.get("bids", [])), "asks": side(book.get("asks", [])), "updated_at": int(time.time())}
+
     try:
-        if symbol not in get_usdt_symbols():
-            raise HTTPException(status_code=404, detail="Unknown coin.")
-        response = requests.get(f"{BINANCE_BASE_URL}/api/v3/depth", params={"symbol": symbol, "limit": 5}, timeout=10)
-        response.raise_for_status()
-        book = response.json()
+        return cached_call(coin_depth_cache, symbol, COIN_DEPTH_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=500)
     except requests.exceptions.RequestException as error:
-        if cached:
-            return cached["data"]
-        raise HTTPException(status_code=502, detail=f"Could not load the order book: {str(error)}") from error
-    side = lambda rows: [{"price": float(p), "qty": float(q)} for p, q in rows[:5]]
-    data = {"symbol": symbol, "bids": side(book.get("bids", [])), "asks": side(book.get("asks", [])), "updated_at": int(now)}
-    if len(coin_depth_cache) > 500:
-        coin_depth_cache.clear()
-    coin_depth_cache[symbol] = {"data": data, "updated_at": now}
-    return data
+        raise HTTPException(status_code=503, detail=f"Order book is busy, try again shortly: {str(error)}") from error
 
 
 COIN_STATS_CACHE_SECONDS = 3
@@ -1722,48 +1841,38 @@ coin_perf_cache = {}
 
 def _coin_performance(symbol):
     """7-day and 30-day change and high/low from daily candles (cached 5 min)."""
-    now = time.time()
-    cached = coin_perf_cache.get(symbol)
-    if cached and now - cached["updated_at"] < COIN_PERF_CACHE_SECONDS:
-        return cached["data"]
-    response = requests.get(f"{BINANCE_BASE_URL}/api/v3/klines", params={"symbol": symbol, "interval": "1d", "limit": 31}, timeout=10)
-    response.raise_for_status()
-    candles = [{"open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4])} for c in response.json()]
-    data = {}
-    for days in (7, 30):
-        window = candles[-days:]
-        if len(candles) > days:
-            # Change from the close `days` days ago to the latest close.
-            base_close = candles[-days - 1]["close"]
-        else:
-            base_close = window[0]["open"] if window else 0
-        last = window[-1]["close"] if window else 0
-        data[f"d{days}"] = {
-            "change_percent": round((last - base_close) / base_close * 100, 2) if base_close else None,
-            "high": max((c["high"] for c in window), default=None),
-            "low": min((c["low"] for c in window), default=None),
-            "days": len(window),
-        }
-    if len(coin_perf_cache) > 500:
-        coin_perf_cache.clear()
-    coin_perf_cache[symbol] = {"data": data, "updated_at": now}
-    return data
+    def fetch():
+        raw = binance_get("/api/v3/klines", {"symbol": symbol, "interval": "1d", "limit": 31}, weight=2, timeout=10)
+        candles = [{"open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4])} for c in raw]
+        data = {}
+        for days in (7, 30):
+            window = candles[-days:]
+            if len(candles) > days:
+                # Change from the close `days` days ago to the latest close.
+                base_close = candles[-days - 1]["close"]
+            else:
+                base_close = window[0]["open"] if window else 0
+            last = window[-1]["close"] if window else 0
+            data[f"d{days}"] = {
+                "change_percent": round((last - base_close) / base_close * 100, 2) if base_close else None,
+                "high": max((c["high"] for c in window), default=None),
+                "low": min((c["low"] for c in window), default=None),
+                "days": len(window),
+            }
+        return data
+
+    return cached_call(coin_perf_cache, symbol, COIN_PERF_CACHE_SECONDS, fetch, max_entries=500)
 
 
 @app.get("/api/coin/stats")
 def coin_stats(symbol: str = "BTCUSDT"):
     """Full 24h statistics for one coin plus 7D / 30D performance (Scanner's coin stats sheet)."""
     symbol = (symbol or "").strip().upper()
-    now = time.time()
-    cached = coin_stats_cache.get(symbol)
-    if cached and now - cached["updated_at"] < COIN_STATS_CACHE_SECONDS:
-        return cached["data"]
-    try:
-        if symbol not in get_usdt_symbols():
-            raise HTTPException(status_code=404, detail="Unknown coin.")
-        response = requests.get(f"{BINANCE_BASE_URL}/api/v3/ticker/24hr", params={"symbol": symbol}, timeout=10)
-        response.raise_for_status()
-        t = response.json()
+    if symbol not in get_usdt_symbols():
+        raise HTTPException(status_code=404, detail="Unknown coin.")
+
+    def fetch():
+        t = binance_get("/api/v3/ticker/24hr", {"symbol": symbol}, weight=2, timeout=10)
         num = lambda key: float(t.get(key) or 0)
         data = {
             "symbol": symbol,
@@ -1779,20 +1888,18 @@ def coin_stats(symbol: str = "BTCUSDT"):
             "trades": int(t.get("count") or 0),
             "bid": num("bidPrice"),
             "ask": num("askPrice"),
-            "updated_at": int(now),
+            "updated_at": int(time.time()),
         }
-    except requests.exceptions.RequestException as error:
-        if cached:
-            return cached["data"]
-        raise HTTPException(status_code=502, detail=f"Could not load coin stats: {str(error)}") from error
+        try:
+            data["performance"] = _coin_performance(symbol)
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError):
+            data["performance"] = (coin_perf_cache.get(symbol) or {}).get("data")
+        return data
+
     try:
-        data["performance"] = _coin_performance(symbol)
-    except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError):
-        data["performance"] = (coin_perf_cache.get(symbol) or {}).get("data")
-    if len(coin_stats_cache) > 500:
-        coin_stats_cache.clear()
-    coin_stats_cache[symbol] = {"data": data, "updated_at": now}
-    return data
+        return cached_call(coin_stats_cache, symbol, COIN_STATS_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=500)
+    except requests.exceptions.RequestException as error:
+        raise HTTPException(status_code=503, detail=f"Coin stats are busy, try again shortly: {str(error)}") from error
 
 
 # ================= TRIAL & SUBSCRIPTION (RAZORPAY) =================
@@ -1834,22 +1941,91 @@ def _load_env():
             pass
 
 
-def _load_users():
-    if os.path.exists(USER_DB_FILE):
+# The trial / plan records live in one JSON file. Every change is a
+# read-modify-write, so changes are serialised by a lock (a thread lock plus
+# a file lock, in case the server runs several workers); the file is written
+# to a unique temp file and swapped in atomically, with the previous version
+# kept as .bak. An unreadable file is never treated as "no users" — that
+# would let the next save wipe every trial and payment — the .bak is used,
+# or the request fails until someone looks at it.
+import contextlib
+import copy
+import shutil
+
+try:
+    import fcntl
+except ImportError:  # not on Linux; the thread lock still applies
+    fcntl = None
+
+_users_lock = threading.RLock()
+_users_cache = {"stamp": None, "data": None}
+
+
+@contextlib.contextmanager
+def users_write_lock():
+    with _users_lock:
+        handle = None
         try:
-            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return data if isinstance(data, dict) else {}
-        except (OSError, ValueError):
-            return {}
-    return {}
+            if fcntl:
+                handle = open(USER_DB_FILE + ".lock", "a")
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+        finally:
+            if handle:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                handle.close()
+
+
+def _read_users_file(path):
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError("user records are not a JSON object")
+    return data
+
+
+def _load_users():
+    """All records (read-only for callers; writers deep-copy under the lock)."""
+    backup = USER_DB_FILE + ".bak"
+    if not os.path.exists(USER_DB_FILE):
+        return _read_users_file(backup) if os.path.exists(backup) else {}
+    info = os.stat(USER_DB_FILE)
+    stamp = (info.st_mtime_ns, info.st_size)
+    if _users_cache["stamp"] == stamp:
+        return _users_cache["data"]
+    try:
+        data = _read_users_file(USER_DB_FILE)
+    except (OSError, ValueError) as error:
+        print(f"User records unreadable ({error}); using the backup copy.")
+        try:
+            data = _read_users_file(backup)
+        except (OSError, ValueError) as backup_error:
+            print(f"User records backup unreadable too: {backup_error}")
+            raise HTTPException(status_code=503, detail="Account records are temporarily unavailable. Please try again in a minute.") from error
+        return data
+    _users_cache["stamp"], _users_cache["data"] = stamp, data
+    return data
+
+
+def _load_users_for_update():
+    return copy.deepcopy(_load_users())
 
 
 def _save_users(users):
-    tmp = USER_DB_FILE + ".tmp"
+    tmp = f"{USER_DB_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    if os.path.exists(USER_DB_FILE):
+        try:
+            _read_users_file(USER_DB_FILE)
+            shutil.copyfile(USER_DB_FILE, USER_DB_FILE + ".bak")
+        except (OSError, ValueError):
+            pass  # never back up a broken file over a good backup
     os.replace(tmp, USER_DB_FILE)
+    info = os.stat(USER_DB_FILE)
+    _users_cache["stamp"], _users_cache["data"] = (info.st_mtime_ns, info.st_size), users
 
 
 def _norm_email(email):
@@ -1866,15 +2042,18 @@ def sync_user_trial(req: TrialSyncRequest):
     email = _norm_email(req.email)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-    users = _load_users()
-    user = users.get(email)
-    if not user or not user.get("created_at"):
-        user = user or {"is_paid": False}
-        user.setdefault("email", email)
-        user.setdefault("user_id", req.user_id)
-        user["created_at"] = user.get("trial_start_ts") or int(time.time())
-        users[email] = user
-        _save_users(users)
+    existing = _load_users().get(email)
+    if not existing or not existing.get("created_at"):
+        with users_write_lock():
+            users = _load_users_for_update()
+            user = users.get(email)
+            if not user or not user.get("created_at"):
+                user = user or {"is_paid": False}
+                user.setdefault("email", email)
+                user.setdefault("user_id", req.user_id)
+                user["created_at"] = user.get("trial_start_ts") or int(time.time())
+                users[email] = user
+                _save_users(users)
     return subscription_status(email)
 
 
@@ -1991,17 +2170,18 @@ def verify_payment(req: PaymentVerifyRequest):
     if not email:
         raise HTTPException(status_code=400, detail="Payment has no account email")
 
-    users = _load_users()
-    now = int(time.time())
-    user = users.setdefault(email, {"email": email, "created_at": now})
-    seen = user.setdefault("payment_ids", [])
-    if req.razorpay_payment_id not in seen:
-        # Renewing early adds to the time already paid for.
-        current_until = user.get("valid_until_ts") or 0
-        start = current_until if user.get("is_paid") and current_until > now else now
-        user.update(is_paid=True, plan=plan_name, amount=plan["amount"], paid_at=now, payment_id=req.razorpay_payment_id, valid_until_ts=start + plan["days"] * 86400)
-        seen.append(req.razorpay_payment_id)
-        _save_users(users)
+    with users_write_lock():
+        users = _load_users_for_update()
+        now = int(time.time())
+        user = users.setdefault(email, {"email": email, "created_at": now})
+        seen = user.setdefault("payment_ids", [])
+        if req.razorpay_payment_id not in seen:
+            # Renewing early adds to the time already paid for.
+            current_until = user.get("valid_until_ts") or 0
+            start = current_until if user.get("is_paid") and current_until > now else now
+            user.update(is_paid=True, plan=plan_name, amount=plan["amount"], paid_at=now, payment_id=req.razorpay_payment_id, valid_until_ts=start + plan["days"] * 86400)
+            seen.append(req.razorpay_payment_id)
+            _save_users(users)
     return {"verified": True, "plan": plan_name, "valid_until_ts": user["valid_until_ts"]}
 
 
@@ -2012,6 +2192,7 @@ def health():
 
 @app.get("/api/btc/price")
 def btc_price(force_refresh: bool = False):
+    force_refresh = force_refresh and allow_force_refresh("btc-price")
     now = time.time()
     cache_age = now - price_cache["updated_at"]
     if not force_refresh and price_cache["data"] and cache_age < 15:
