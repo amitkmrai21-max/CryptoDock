@@ -2060,6 +2060,27 @@ def _try(fn):
         return None
 
 
+def _rrg_warmer():
+    """Keeps the default RRG views computed in the background, so opening the
+    page answers from cache instead of waiting for 20 coins' candles."""
+    time.sleep(5)
+    last = {}
+    while True:
+        for tf, every in (("1h", 50), ("1m", 540), ("1y", 3000)):
+            if time.time() - last.get(tf, 0) >= every:
+                last[tf] = time.time()
+                try:
+                    rrg_rotation(tf, "")
+                except Exception as error:
+                    print(f"RRG warm-up ({tf}) skipped: {error}")
+        time.sleep(10)
+
+
+@app.on_event("startup")
+def _start_rrg_warmer():
+    threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
+
+
 @app.get("/api/rrg/rotation")
 def rrg_rotation(tf: str = "1h", coins: str = ""):
     """Rotation of the top 20 coins plus up to 10 searched coins."""
@@ -2073,7 +2094,7 @@ def rrg_rotation(tf: str = "1h", coins: str = ""):
     extra = extra[:RRG_MAX_COINS - RRG_TOP_N]
     key = f"{tf}:{','.join(sorted(extra))}"
     try:
-        return cached_call(rrg_result_cache, key, min(30, RRG_TIMEFRAMES[tf]["ttl"]), lambda: build_rrg_rotation(tf, extra), max_entries=200)
+        return cached_call(rrg_result_cache, key, RRG_TIMEFRAMES[tf]["ttl"], lambda: build_rrg_rotation(tf, extra), max_entries=200)
     except requests.exceptions.RequestException as error:
         raise HTTPException(status_code=503, detail=f"RRG data is busy, try again shortly: {str(error)}") from error
 
