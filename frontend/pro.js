@@ -1,8 +1,8 @@
 // CryptoDock Pro: every email gets one 7-day trial (the server remembers it
 // for good), then a plan — ₹99 / 1 month, ₹299 / 6 months, ₹499 / 1 year,
 // paid through Razorpay. Pro: paper trading (order ticket, Positions,
-// Orders), Heatmap, Price Alerts and Pro Charts. The Scanner and News are
-// free for every signed-in user.
+// Orders), Heatmap, Price Alerts, RRG and News. Coin Detail, the Scanner
+// and Chart Analysis are free for every signed-in user.
 // Everything else stays free. The owner's email always has access.
 (function cryptoPro() {
   const OWNER_EMAIL = "amitkmrai21@gmail.com";
@@ -12,7 +12,8 @@
     orders: "Paper Trading",
     heatmap: "Heatmap",
     alerts: "Price Alerts",
-    "chart-analysis": "Pro Charts",
+    rrg: "RRG",
+    news: "News",
   };
   const PLAN_PRICES = { "Monthly Plan": 99, "Half-Yearly Plan": 299, "Annual Plan": 499 };
 
@@ -104,12 +105,12 @@
       primary.onclick = () => hide("cdProGate");
     } else if (acc.reason === "plan-expired") {
       title.textContent = "Your CryptoDock Pro plan has expired";
-      text.textContent = `${feature} needs an active plan. Renew to unlock paper trading, Heatmap, Alerts and Pro Charts again.`;
+      text.textContent = `${feature} needs an active plan. Renew to unlock paper trading, Heatmap, Alerts, RRG and News again.`;
       primary.textContent = "Renew plan";
       primary.onclick = () => { hide("cdProGate"); openPlans(); };
     } else {
       title.textContent = "Your 7-day free trial has ended";
-      text.textContent = `${feature} needs a CryptoDock Pro plan — from ₹99/month. Choose a plan to unlock paper trading, Heatmap, Alerts and Pro Charts.`;
+      text.textContent = `${feature} needs a CryptoDock Pro plan — from ₹99/month. Choose a plan to unlock paper trading, Heatmap, Alerts, RRG and News.`;
       primary.textContent = "View plans";
       primary.onclick = () => { hide("cdProGate"); openPlans(); };
     }
@@ -123,7 +124,7 @@
   }
   let pendingResume = null;
   function showTrialCard(acc, resume) {
-    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: unlimited paper trading, Heatmap, Price Alerts and Pro Charts.`;
+    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: unlimited paper trading, Heatmap, Price Alerts, RRG and News.`;
     pendingResume = resume;
     show("cdTrialCard");
   }

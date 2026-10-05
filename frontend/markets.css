@@ -1703,3 +1703,4 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
   .cd-cdet-bar-row > span { min-width: 64px; }
 }
 .cd-cdet-more #cdCoinStar { margin-left: auto; }
+.cdp-feats span:last-child:nth-child(odd) { grid-column: 1 / -1; justify-content: center; }
