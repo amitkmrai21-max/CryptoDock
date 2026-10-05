@@ -483,7 +483,7 @@
   // The "Refresh Technical" bar belongs to the old BTC chart tools only.
   function syncTopbar() {
     const bar = document.querySelector(".btc-topbar");
-    if (bar) bar.hidden = !["live-chart", "technical", "tools"].includes(activePanel());
+    if (bar) bar.hidden = activePanel() !== "technical"; // "Refresh Technical" belongs to the Technical page only
   }
 
   // ---------- events ----------

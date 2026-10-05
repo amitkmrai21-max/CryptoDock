@@ -1806,7 +1806,8 @@ def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300
         return {"symbol": symbol, "interval": interval, "candles": candles, "source": "Binance", "updated_at": int(time.time())}
 
     try:
-        return cached_call(coin_candles_cache, f"{symbol}:{interval}:{safe_limit}", COIN_CANDLES_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=500)
+        ttl = (300 if interval in ("1d", "1w") else COIN_CANDLES_CACHE_SECONDS) * binance_slowdown()
+        return cached_call(coin_candles_cache, f"{symbol}:{interval}:{safe_limit}", ttl, fetch, max_entries=500)
     except requests.exceptions.RequestException as error:
         raise HTTPException(status_code=503, detail=f"Candles are busy, try again shortly: {str(error)}") from error
 
@@ -2060,6 +2061,94 @@ def _try(fn):
         return None
 
 
+# ---------- Tools: market gauges (refreshed hourly, shared by every user) ----------
+MARKET_GAUGE_CACHE_SECONDS = 3600
+market_gauge_cache = {}
+_GAUGE_HEADERS = {"User-Agent": "CryptoDock/1.0 (+https://crypto.marketdock.in)", "Accept": "application/json"}
+
+
+def _fetch_fear_greed():
+    response = requests.get("https://api.alternative.me/fng/", params={"limit": 2}, headers=_GAUGE_HEADERS, timeout=10)
+    response.raise_for_status()
+    rows = response.json().get("data") or []
+    if not rows:
+        raise ValueError("Fear & Greed returned no data")
+
+    def row(item):
+        return {"value": int(item["value"]), "label": item["value_classification"], "time": int(item["timestamp"])}
+
+    return {"now": row(rows[0]), "yesterday": row(rows[1]) if len(rows) > 1 else None, "source": "alternative.me", "updated_at": int(time.time())}
+
+
+@app.get("/api/market/fear-greed")
+def market_fear_greed():
+    try:
+        return cached_call(market_gauge_cache, "fng", MARKET_GAUGE_CACHE_SECONDS, _fetch_fear_greed)
+    except (requests.exceptions.RequestException, ValueError, KeyError) as error:
+        raise HTTPException(status_code=503, detail=f"Fear & Greed is not available right now: {error}") from error
+
+
+def _fetch_dominance():
+    response = requests.get("https://api.coingecko.com/api/v3/global", headers=_GAUGE_HEADERS, timeout=10)
+    response.raise_for_status()
+    data = response.json()["data"]
+    share = data.get("market_cap_percentage") or {}
+    return {
+        "btc": round(float(share.get("btc") or 0), 2),
+        "eth": round(float(share.get("eth") or 0), 2),
+        "total_market_cap_usd": (data.get("total_market_cap") or {}).get("usd"),
+        "market_cap_change_24h": data.get("market_cap_change_percentage_24h_usd"),
+        "source": "CoinGecko",
+    }
+
+
+def _is_stable_like(base):
+    return base in EXCLUDED_BASES or "USD" in base or base in {"EURI", "XAUT", "PAXG"}
+
+
+def _fetch_altseason():
+    """Share of the 50 most traded altcoins that did better than BTC over 30 days."""
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins") or []
+    alts = [c["base"] for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
+            if c.get("base") != "BTC" and not _is_stable_like(c.get("base", ""))][:50]
+    btc = (_coin_performance("BTCUSDT").get("d30") or {}).get("change_percent")
+    if btc is None:
+        raise ValueError("No BTC 30-day change")
+    beat = counted = 0
+    for base in alts:
+        try:
+            change = (_coin_performance(base + "USDT").get("d30") or {}).get("change_percent")
+        except requests.exceptions.RequestException:
+            continue
+        if change is None:
+            continue
+        counted += 1
+        beat += change > btc
+    if counted < 20:
+        raise ValueError("Not enough coins to compare yet")
+    index = round(beat / counted * 100)
+    label = "Altcoin season" if index >= 75 else "Bitcoin season" if index <= 25 else "Mixed — no clear season"
+    return {"index": index, "label": label, "beat": beat, "counted": counted, "btc_30d": btc, "updated_at": int(time.time())}
+
+
+@app.get("/api/market/global")
+def market_global():
+    """BTC / ETH dominance (CoinGecko) and our Altcoin Season Index; either part can be missing."""
+    out = {"dominance": None, "altseason": None}
+    try:
+        out["dominance"] = cached_call(market_gauge_cache, "dominance", MARKET_GAUGE_CACHE_SECONDS, _fetch_dominance)
+    except (requests.exceptions.RequestException, ValueError, KeyError, TypeError) as error:
+        print(f"Dominance unavailable: {error}")
+    try:
+        out["altseason"] = cached_call(market_gauge_cache, "altseason", MARKET_GAUGE_CACHE_SECONDS, _fetch_altseason)
+    except (requests.exceptions.RequestException, ValueError, KeyError, TypeError) as error:
+        print(f"Altcoin season unavailable: {error}")
+    if not out["dominance"] and not out["altseason"]:
+        raise HTTPException(status_code=503, detail="Market data is not available right now.")
+    return out
+
+
 def _rrg_warmer():
     """Keeps the default RRG views computed in the background, so opening the
     page answers from cache instead of waiting for 20 coins' candles."""
@@ -2073,6 +2162,14 @@ def _rrg_warmer():
                     rrg_rotation(tf, "")
                 except Exception as error:
                     print(f"RRG warm-up ({tf}) skipped: {error}")
+        # Tools gauges, so the first visitor each hour doesn't wait for them.
+        if time.time() - last.get("gauges", 0) >= MARKET_GAUGE_CACHE_SECONDS - 120:
+            last["gauges"] = time.time()
+            for warm in (market_fear_greed, market_global):
+                try:
+                    warm()
+                except Exception as error:
+                    print(f"Tools warm-up skipped: {error}")
         time.sleep(10)
 
 
