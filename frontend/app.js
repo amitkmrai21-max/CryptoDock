@@ -601,75 +601,6 @@ function setDataHealthBadge(health = {}) {
   badge.textContent = `Data: ${status}${status === "LIVE" ? "" : ageText}`; badge.className = `data-health-badge health-${status.toLowerCase()}`;
 }
 
-function getDynamicGeminiAlignment(technicalData) {
-  const lastAi = getLastAiSignal();
-  const technicalSignal = String(
-    technicalData?.signal || "HOLD"
-  ).toUpperCase();
-
-  if (!lastAi?.signal) {
-    return {
-      state: "WAIT",
-      reason: "No recent Gemini AI plan is available. Run Gemini AI Analysis for a fresh comparison.",
-      riskFlag: null
-    };
-  }
-
-  const aiSignal = String(lastAi.signal || "HOLD").toUpperCase();
-  const aiBuy = isBuyLike(aiSignal);
-  const aiSell = isSellLike(aiSignal);
-  const technicalBuy = isBuyLike(technicalSignal);
-  const technicalSell = isSellLike(technicalSignal);
-  const aiNoTrade = aiSignal.includes("HOLD");
-  const technicalNoTrade = technicalSignal.includes("HOLD");
-
-  if ((aiBuy && technicalBuy) || (aiSell && technicalSell)) {
-    return {
-      state: "PASS",
-      reason: `Gemini ${aiSignal} and live technical ${technicalSignal} are aligned.`,
-      riskFlag: null
-    };
-  }
-
-  if ((aiBuy && technicalSell) || (aiSell && technicalBuy)) {
-    return {
-      state: "FAIL",
-      reason: `Gemini ${aiSignal} conflicts with live technical ${technicalSignal}. Do not force an entry.`,
-      riskFlag: "Gemini AI conflicts with live technical direction"
-    };
-  }
-
-  if (aiNoTrade && technicalNoTrade) {
-    return {
-      state: "PASS",
-      reason: "Gemini AI and live technical analysis both indicate caution / no trade.",
-      riskFlag: null
-    };
-  }
-
-  if (technicalNoTrade) {
-    return {
-      state: "WAIT",
-      reason: `Gemini ${aiSignal} is not confirmed because live technical status is ${technicalSignal}.`,
-      riskFlag: null
-    };
-  }
-
-  if (aiNoTrade) {
-    return {
-      state: "WAIT",
-      reason: `Live technical shows ${technicalSignal}, but Gemini AI remains cautious (${aiSignal}).`,
-      riskFlag: null
-    };
-  }
-
-  return {
-    state: "WAIT",
-    reason: `Gemini ${aiSignal} and live technical ${technicalSignal} need further confirmation.`,
-    riskFlag: null
-  };
-}
-
 function calculateDynamicSetupDecision(setup, items, flags) {
   const passed = items.filter((item) => item.state === "PASS").length;
   const waiting = items.filter((item) => item.state === "WAIT").length;
@@ -677,46 +608,25 @@ function calculateDynamicSetupDecision(setup, items, flags) {
 
   const direction = String(setup?.direction || "NEUTRAL").toUpperCase();
 
-  const hasGeminiConflict = flags.includes(
-    "Gemini AI conflicts with live technical direction"
-  );
-
+  // Describes how many readings agree — never a call to act.
   let grade = "C";
-  let executionState = "WAIT FOR CONFIRMATION";
-  let decisionReason =
-    "The setup is mixed. Wait for stronger trend, momentum and volume confirmation.";
+  let executionState = "WEAK ALIGNMENT";
+  let decisionReason = "Only some readings agree, so the overall picture is weak.";
 
-  if (hasGeminiConflict || failed >= 4) {
+  if (failed >= 4 || (direction === "NEUTRAL" && failed >= 3)) {
     grade = "D";
-    executionState = "AVOID";
-
-    decisionReason = hasGeminiConflict
-      ? "Gemini AI and live technical direction conflict. Avoid forcing a practice entry."
-      : "Too many checklist conditions are failing. Avoid forcing a practice entry.";
+    executionState = "MIXED";
+    decisionReason =
+      "Live readings are mixed or several checklist items fail. There is no clear technical picture right now.";
   } else if (passed >= 7 && failed === 0) {
     grade = "A";
-    executionState = "READY";
-
+    executionState = "ALIGNED";
     decisionReason =
-      "Most technical conditions and Gemini alignment are supportive. Wait for the stated trigger and define invalidation.";
+      "Most technical readings point the same way. This describes current conditions only, not what price will do next.";
   } else if (passed >= 5 && failed <= 1) {
     grade = "B";
-    executionState = "WAIT FOR TRIGGER";
-
-    decisionReason =
-      "The setup is developing well, but a price trigger or one more confirmation is still needed.";
-  } else if (passed >= 3 && failed <= 2) {
-    grade = "C";
-    executionState = "WAIT FOR CONFIRMATION";
-
-    decisionReason =
-      "Some conditions are supportive, but the setup is not sufficiently aligned yet.";
-  } else if (direction === "NEUTRAL" && failed >= 3) {
-    grade = "D";
-    executionState = "AVOID";
-
-    decisionReason =
-      "The market is mixed and several checklist conditions are failing. Wait for clearer alignment.";
+    executionState = "DEVELOPING";
+    decisionReason = "Many readings point the same way, but some are still unconfirmed.";
   }
 
   return {
@@ -735,29 +645,6 @@ function renderSetupQuality(data) {
   const originalItems = Array.isArray(setup.items) ? setup.items : [];
   const items = originalItems.map((item) => ({ ...item }));
   const flags = Array.isArray(setup.risk_flags) ? [...setup.risk_flags] : [];
-
-  const alignment = getDynamicGeminiAlignment(data);
-
-  const alignmentItem = {
-    key: "ai_alignment",
-    label: "Gemini AI vs live technical alignment",
-    state: alignment.state,
-    reason: alignment.reason
-  };
-
-  const alignmentIndex = items.findIndex(
-    (item) => item?.key === "ai_alignment"
-  );
-
-  if (alignmentIndex >= 0) {
-    items[alignmentIndex] = alignmentItem;
-  } else {
-    items.push(alignmentItem);
-  }
-
-  if (alignment.riskFlag && !flags.includes(alignment.riskFlag)) {
-    flags.push(alignment.riskFlag);
-  }
 
   const dynamic = calculateDynamicSetupDecision(setup, items, flags);
 
@@ -879,7 +766,7 @@ function renderSwingFailureStructure(data) {
   setText(
     "swingFinalConclusion",
     structure.final_conclusion ||
-      "WAIT — no final trade signal until break, retest, and confirmation."
+      "NEUTRAL — no confirmed structure break yet."
   );
 
   const filterData = structure.filter_checklist || {};

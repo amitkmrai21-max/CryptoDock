@@ -2018,20 +2018,24 @@ canvas {
   text-align: center;
 }
 
-.setup-state-ready {
+.setup-state-ready,
+.setup-state-aligned {
   border-color: transparent;
   color: #14532d;
   background: #86efac;
 }
 
 .setup-state-wait-for-trigger,
-.setup-state-wait-low-quality {
+.setup-state-wait-low-quality,
+.setup-state-developing,
+.setup-state-weak-alignment {
   border-color: transparent;
   color: #78350f;
   background: #fde68a;
 }
 
-.setup-state-avoid {
+.setup-state-avoid,
+.setup-state-mixed {
   border-color: transparent;
   color: #7f1d1d;
   background: #fca5a5;
