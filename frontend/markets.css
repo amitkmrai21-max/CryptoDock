@@ -1677,3 +1677,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-cdet-side.is-buy { background: rgba(52, 211, 153, 0.15); color: var(--green); }
 .cd-cdet-side.is-sell { background: rgba(248, 113, 113, 0.15); color: var(--red); }
 .cd-cdet .cd-coin-price-row span:last-child { font-weight: 600; }
+/* Coin Detail: smaller BUY / SELL */
+.cd-cdet .cd-coin-actions { max-width: 380px; gap: 8px; }
+.cd-cdet .cd-coin-actions .cd-submit { padding: 9px; font-size: 14px; border-radius: 10px; }
