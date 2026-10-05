@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-wl-5">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-cdet-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -498,33 +498,45 @@
     </section>
 
     <section class="tab-panel" data-panel="coin">
-      <div class="cd-dash">
+      <div class="cd-dash cd-cdet">
+        <div class="cd-cdet-search">
+          <input id="cdCoinSearch" type="search" placeholder="Search any coin (e.g. SOL, PEPE)…" autocomplete="off" />
+          <div id="cdCoinSuggest" class="cd-rrg-suggest" hidden></div>
+          <datalist id="cdCoinList"></datalist>
+        </div>
+        <div class="cd-cdet-quick" id="cdCoinQuick"></div>
         <div class="cd-dash-head">
           <div class="cd-coin-cell"><span id="cdCoinAvatar"></span><div><h2 id="cdCoinTitle">BTC</h2><p class="cd-meta">/USDT · Paper trading</p></div></div>
-          <input id="cdCoinSearch" class="cd-search" type="search" placeholder="Search coin…" autocomplete="off" list="cdCoinList" />
-          <datalist id="cdCoinList"></datalist>
         </div>
         <div class="cd-coin-price-row">
           <strong id="cdCoinPrice">--</strong>
-          <span id="cdCoinInr" class="cd-meta"></span>
           <span id="cdCoinChange"></span>
+          <span id="cdCoinInr" class="cd-meta"></span>
         </div>
-        <div class="cd-funds-grid">
-          <div class="cd-fund"><span>24h High</span><strong id="cdCoinHigh">--</strong></div>
-          <div class="cd-fund"><span>24h Low</span><strong id="cdCoinLow">--</strong></div>
-          <div class="cd-fund"><span>24h Volume</span><strong id="cdCoinVolume">--</strong></div>
-          <div class="cd-fund"><span>My holding</span><strong id="cdCoinHolding">--</strong><small id="cdCoinHoldingPnl"></small></div>
-        </div>
-        <section class="card cd-table-card">
-          <div class="cd-pills" id="cdCoinIntervals">
-            <button type="button" class="cd-pill" data-interval="15m">15m</button>
-            <button type="button" class="cd-pill is-active" data-interval="1h">1H</button>
-            <button type="button" class="cd-pill" data-interval="4h">4H</button>
-            <button type="button" class="cd-pill" data-interval="1d">1D</button>
-            <button type="button" class="cd-pill" data-interval="1w">1W</button>
-          </div>
-          <div id="cdCoinChart" class="cd-coin-chart"></div>
-          <p id="cdCoinChartStatus" class="cd-empty" hidden></p>
+        <button type="button" class="cd-cdet-tv" id="cdCoinTv">
+          <span class="cd-cdet-tv-ico">📈</span>
+          <span><b>Open Full Chart</b><small>on TradingView · all indicators &amp; tools</small></span>
+          <span class="cd-cdet-tv-go">↗</span>
+        </button>
+        <section class="card cd-cdet-card">
+          <h3>PERFORMANCE</h3>
+          <div class="cd-cdet-perf" id="cdCoinPerf"></div>
+        </section>
+        <section class="card cd-cdet-card">
+          <h3>MOMENTUM <span>updates live</span></h3>
+          <div class="cd-cdet-mom" id="cdCoinMom"></div>
+        </section>
+        <section class="card cd-cdet-card">
+          <h3>24H RANGE <span id="cdCoinRangeNote"></span></h3>
+          <div class="cd-cdet-range" id="cdCoinRange"></div>
+        </section>
+        <section class="card cd-cdet-card">
+          <h3>RRG POSITION <span>vs top 20 coins · 1H</span></h3>
+          <div class="cd-cdet-rrg" id="cdCoinRrg"></div>
+        </section>
+        <section class="card cd-cdet-card">
+          <h3>MY PAPER TRADING <span>virtual USDT</span></h3>
+          <div id="cdCoinPaper"></div>
         </section>
         <div class="cd-coin-actions">
           <button id="cdCoinBuy" class="cd-submit is-buy" type="button">BUY</button>
@@ -1649,8 +1661,8 @@
     </div>
   </div>
   <script src="/frontend/markets.js?v=20261004-news-1"></script>
-  <script src="/frontend/paper.js?v=20261005-tv-1"></script>
-  <script src="/frontend/coin-tools.js?v=20261004-mom-1"></script>
+  <script src="/frontend/paper.js?v=20261005-cdet-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261005-cdet-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
 

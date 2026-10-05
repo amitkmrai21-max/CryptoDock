@@ -1616,3 +1616,64 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 @media (max-width: 760px) {
   #btcModeRoot .cd-page-notes.cd-notes-list { padding: 7px 6px 7px 19px; }
 }
+
+/* ---------- Coin Detail (no chart: search, quick coins, cards) ---------- */
+.cd-cdet { gap: 12px; }
+.cd-cdet-search { position: relative; }
+.cd-cdet-search input { width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
+.cd-cdet-search input:focus { outline: none; border-color: #8b5cf6; }
+.cd-cdet-search .cd-avatar { width: 26px; height: 26px; font-size: 9px; flex: none; }
+.cd-cdet-quick { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.cd-cdet-quick::-webkit-scrollbar { display: none; }
+.cd-cdet-quick .cd-pill { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 5px 12px 5px 5px; font-weight: 800; }
+.cd-cdet-quick .cd-avatar { width: 22px; height: 22px; font-size: 8px; }
+.cd-cdet .cd-dash-head { margin-top: 2px; }
+.cd-cdet-tv { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; border-radius: 14px; border: 1px solid rgba(139, 92, 246, 0.55); background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(34, 211, 238, 0.14)); color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.cd-cdet-tv b { display: block; font-size: 15.5px; }
+.cd-cdet-tv small { display: block; color: var(--text-soft, #c4b5fd); font-size: 11px; font-weight: 600; }
+.cd-cdet-tv-ico { font-size: 24px; }
+.cd-cdet-tv-go { margin-left: auto; font-size: 18px; font-weight: 800; }
+.cd-cdet-card { padding: 13px 14px; }
+.cd-cdet-card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 0 10px; font-size: 12px; letter-spacing: 0.8px; color: var(--text-soft, #c4b5fd); }
+.cd-cdet-card h3 span { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0; text-align: right; }
+.cd-cdet-perf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cd-cdet-perf div { padding: 10px 6px; border-radius: 12px; background: var(--surface-soft); border: 1px solid var(--border); text-align: center; }
+.cd-cdet-perf div.is-up { background: rgba(52, 211, 153, 0.1); border-color: rgba(52, 211, 153, 0.25); }
+.cd-cdet-perf div.is-down { background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.25); }
+.cd-cdet-perf span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 11px; }
+.cd-cdet-perf b { font-family: var(--cd-num-font); font-size: 17px; }
+.cd-cdet-mom { display: flex; align-items: center; gap: 14px; }
+.cd-cdet-gauge { width: 150px; flex: none; }
+.cd-cdet-mom ul { margin: 8px 0 0; padding-left: 16px; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.cd-cdet-bar-row { display: flex; align-items: center; gap: 10px; font-family: var(--cd-num-font); font-size: 12.5px; }
+.cd-cdet-bar { position: relative; flex: 1; height: 8px; border-radius: 9px; background: linear-gradient(90deg, #f87171, #fbbf24 55%, #34d399); }
+.cd-cdet-bar i { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #fff; border: 3px solid var(--bg, #0c0a14); box-shadow: 0 0 0 1px #fff; }
+.cd-cdet-range .cd-meta { margin: 8px 0 0; font-size: 11.5px; }
+.cd-cdet-rrg { display: flex; align-items: center; gap: 14px; }
+.cd-cdet-rrg p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.cd-cdet-rrg strong { display: block; margin-bottom: 2px; font-size: 16px; }
+.cd-cdet-rrg strong.is-leading { color: #22c55e; }
+.cd-cdet-rrg strong.is-weakening { color: #eab308; }
+.cd-cdet-rrg strong.is-lagging { color: #ef4444; }
+.cd-cdet-rrg strong.is-improving { color: #60a5fa; }
+.cd-cdet-quad { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 64px; height: 64px; flex: none; }
+.cd-cdet-quad div { border-radius: 6px; opacity: 0.3; }
+.cd-cdet-quad .is-leading { background: #22c55e; }
+.cd-cdet-quad .is-weakening { background: #eab308; }
+.cd-cdet-quad .is-lagging { background: #ef4444; }
+.cd-cdet-quad .is-improving { background: #3b82f6; }
+.cd-cdet-quad .is-on { opacity: 1; outline: 2px solid #fff; }
+.cd-cdet-link { margin-top: 6px; padding: 0; border: 0; background: none; color: #a78bfa; font: inherit; font-weight: 800; cursor: pointer; }
+.cd-cdet-hold { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cd-cdet-hold div { padding: 9px 11px; border-radius: 12px; background: var(--surface-soft); }
+.cd-cdet-hold span { display: block; color: var(--muted); font-size: 11px; }
+.cd-cdet-hold b { font-family: var(--cd-num-font); font-size: 14.5px; }
+#cdCoinPaper > .cd-meta { margin: 0; }
+.cd-cdet-trades { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 12px; }
+.cd-cdet-trades th { padding: 5px 2px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 600; text-align: left; }
+.cd-cdet-trades td { padding: 7px 2px; border-bottom: 1px solid rgba(38, 33, 56, 0.6); font-family: var(--cd-num-font); }
+.cd-cdet-trades .cd-num { text-align: right; }
+.cd-cdet-side { padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 800; }
+.cd-cdet-side.is-buy { background: rgba(52, 211, 153, 0.15); color: var(--green); }
+.cd-cdet-side.is-sell { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+.cd-cdet .cd-coin-price-row span:last-child { font-weight: 600; }

@@ -1,9 +1,10 @@
-// Coin Detail (candle chart for any coin + Buy/Sell), Scanner (live filters
+// Coin Detail (performance, momentum, range, RRG and paper trades for any
+// coin + Buy/Sell; the chart opens on TradingView), Scanner (live filters
 // across every coin) and Heatmap (24h change of the most traded coins).
-// Prices come from markets.js; candles from /api/coin/candles.
+// Prices come from markets.js.
 (function cryptoCoinTools() {
   const el = (id) => document.getElementById(id);
-  if (!el("cdCoinChart")) return;
+  if (!el("cdCoinTitle")) return;
 
   const F = () => window.cdFormat || {};
   const coins = () => (window.cdMarkets && window.cdMarkets.coins) || [];
@@ -12,108 +13,166 @@
   const goTo = (tab) => document.querySelector(`.app-tab[data-tab="${tab}"]`)?.click();
   const money = (v) => "$" + Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const MIN_VOLUME = 1000000;
-  const CANDLE_REFRESH_MS = 30000;
 
   // ---------- Coin Detail ----------
+  // No chart here (the chart opens on TradingView): performance, momentum,
+  // 24h range, RRG position and this account's paper trades, all from data
+  // the app already has or the server already caches.
+  const QUICK_COINS = ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE"];
+  const STATS_TTL_MS = 60 * 1000;
+  const RRG_TTL_MS = 60 * 1000;
   let coinBase = "BTC";
   try { coinBase = sessionStorage.getItem("cdCoinBase") || "BTC"; } catch (e) { /* ignore */ }
-  let interval = "1h";
-  let chart = null;
-  let series = null;
-  let lastCandle = null;
-  let loadedKey = "";
-  let lastCandleFetch = 0;
-  let loadSeq = 0;
+  const statsCache = new Map(); // base -> { at, data }
+  let rrg = { at: 0, coins: null, loading: false };
+  const esc = (v) => (F().escapeHtml ? F().escapeHtml(String(v ?? "")) : String(v ?? ""));
+  const usd = (v) => (F().fmtUsd ? F().fmtUsd(v) : money(v));
+  const pct = (v) => (F().fmtPct ? F().fmtPct(v) : (v > 0 ? "+" : "") + Number(v).toFixed(2) + "%");
+  const tone = (v) => (v > 0 ? "cd-up" : v < 0 ? "cd-down" : "cd-flat");
 
-  function pricePrecision(price) {
-    if (price >= 1000) return 2;
-    if (price >= 1) return 4;
-    if (price >= 0.01) return 6;
-    return 8;
-  }
-
-  function ensureChart() {
-    if (chart || typeof LightweightCharts === "undefined") return;
-    const colours = typeof getChartThemeColors === "function" ? getChartThemeColors() : { bg: "#0c0a14", text: "#c4b5fd", grid: "rgba(38,33,56,0.72)", border: "rgba(139,92,246,0.34)" };
-    chart = LightweightCharts.createChart(el("cdCoinChart"), {
-      autoSize: true,
-      layout: { background: { color: colours.bg }, textColor: colours.text },
-      grid: { vertLines: { color: colours.grid }, horzLines: { color: colours.grid } },
-      rightPriceScale: { borderColor: colours.border },
-      timeScale: { borderColor: colours.border, timeVisible: true, secondsVisible: false },
-      crosshair: { mode: 0 },
-    });
-    if (typeof registerThemedChart === "function") registerThemedChart(chart);
-    series = chart.addCandlestickSeries({ upColor: "#34d399", downColor: "#f87171", borderVisible: false, wickUpColor: "#34d399", wickDownColor: "#f87171" });
-  }
-
-  function setChartStatus(text) {
-    const node = el("cdCoinChartStatus");
-    node.textContent = text || "";
-    node.hidden = !text;
-  }
-
-  let inflightKey = "";
-
-  async function loadCandles(force = false) {
-    const key = `${coinBase}:${interval}`;
-    if (key === inflightKey) return; // already on its way
-    if (!force && key === loadedKey && Date.now() - lastCandleFetch < CANDLE_REFRESH_MS) return;
-    ensureChart();
-    if (!series) { setChartStatus("Chart library didn't load. Please refresh."); return; }
-    const seq = ++loadSeq;
-    inflightKey = key;
-    if (key !== loadedKey) setChartStatus("Loading chart…");
+  async function loadStats(base) {
+    const hit = statsCache.get(base);
+    if (hit && (hit.loading || Date.now() - hit.at < STATS_TTL_MS)) return;
+    statsCache.set(base, { ...(hit || {}), loading: true });
     try {
-      const res = await fetch(`/api/coin/candles?symbol=${encodeURIComponent(coinBase + "USDT")}&interval=${interval}&limit=300`, { cache: "no-store" });
+      const res = await fetch(`/api/coin/stats?symbol=${encodeURIComponent(base + "USDT")}`, { cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
-      if (seq !== loadSeq) return; // a newer coin/interval was picked meanwhile
-      const candles = Array.isArray(data.candles) ? data.candles : [];
-      const precision = pricePrecision(candles.length ? candles[candles.length - 1].close : 1);
-      series.applyOptions({ priceFormat: { type: "price", precision, minMove: 1 / 10 ** precision } });
-      series.setData(candles.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
-      lastCandle = candles.length ? { ...candles[candles.length - 1] } : null;
-      if (key !== loadedKey) chart.timeScale().fitContent();
-      loadedKey = key;
-      lastCandleFetch = Date.now();
-      setChartStatus(candles.length ? "" : "No chart data for this coin yet.");
+      statsCache.set(base, { at: Date.now(), data: await res.json() });
     } catch (e) {
-      if (seq === loadSeq && key !== loadedKey) setChartStatus("Couldn't load the chart. It will retry in a moment.");
-    } finally {
-      if (seq === loadSeq) inflightKey = "";
+      // Keep any older numbers; try again in 15s.
+      statsCache.set(base, { ...(hit || {}), at: Date.now() - STATS_TTL_MS + 15000, loading: false });
     }
+    if (base === coinBase && activePanel() === "coin") renderPerf();
   }
 
-  // Move the latest candle with the live price between candle refreshes.
-  function tickLastCandle(price) {
-    if (!series || !lastCandle || !Number.isFinite(price)) return;
-    lastCandle.close = price;
-    lastCandle.high = Math.max(lastCandle.high, price);
-    lastCandle.low = Math.min(lastCandle.low, price);
-    try { series.update({ time: lastCandle.time, open: lastCandle.open, high: lastCandle.high, low: lastCandle.low, close: lastCandle.close }); } catch (e) { /* ignore */ }
+  async function loadRrg() {
+    if (rrg.loading || Date.now() - rrg.at < RRG_TTL_MS) return;
+    rrg.loading = true;
+    try {
+      const res = await fetch("/api/rrg/rotation?tf=1h", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const body = await res.json();
+      rrg = { at: Date.now(), coins: body.coins || [], loading: false };
+    } catch (e) {
+      rrg = { ...rrg, at: Date.now() - RRG_TTL_MS + 15000, loading: false };
+    }
+    if (activePanel() === "coin") renderRrg();
   }
 
-  function renderCoinHeader() {
+  function renderQuick() {
+    el("cdCoinQuick").innerHTML = QUICK_COINS.map((b) =>
+      `<button type="button" class="cd-pill${b === coinBase ? " is-active" : ""}" data-coin-quick="${b}">${F().avatar ? F().avatar(b) : ""}${b}</button>`).join("");
+  }
+
+  function renderHead(coin) {
     const f = F();
-    const coin = coinOf(coinBase);
     el("cdCoinTitle").textContent = coinBase;
     el("cdCoinAvatar").innerHTML = f.avatar ? f.avatar(coinBase) : "";
-    el("cdCoinPrice").textContent = coin && f.fmtUsd ? f.fmtUsd(coin.price) : "$--";
+    el("cdCoinPrice").textContent = coin ? usd(coin.price) : "$--";
     el("cdCoinInr").textContent = coin && f.fmtInr ? f.fmtInr(coin.price) : "";
     const change = el("cdCoinChange");
-    change.textContent = coin && f.fmtPct ? f.fmtPct(coin.change_percent) : "";
-    change.className = coin && f.pctClass ? f.pctClass(coin.change_percent) : "";
-    el("cdCoinHigh").textContent = coin && f.fmtUsd ? f.fmtUsd(coin.high) : "--";
-    el("cdCoinLow").textContent = coin && f.fmtUsd ? f.fmtUsd(coin.low) : "--";
-    el("cdCoinVolume").textContent = coin && f.fmtVolume ? f.fmtVolume(coin.volume_usdt) : "--";
+    change.textContent = coin ? `${coin.change_percent > 0 ? "▲" : coin.change_percent < 0 ? "▼" : ""} ${pct(coin.change_percent)}` : "";
+    change.className = coin ? tone(coin.change_percent) : "";
+  }
+
+  function renderPerf() {
+    const coin = coinOf(coinBase);
+    const perf = statsCache.get(coinBase)?.data?.performance || {};
+    const box = (label, v) => {
+      const ok = Number.isFinite(v);
+      return `<div class="${ok ? (v >= 0 ? "is-up" : "is-down") : ""}"><span>${label}</span><b class="${ok ? tone(v) : ""}">${ok ? pct(v) : "--"}</b></div>`;
+    };
+    el("cdCoinPerf").innerHTML = box("24 Hours", coin ? coin.change_percent : NaN) +
+      box("7 Days", perf.d7 ? perf.d7.change_percent ?? NaN : NaN) +
+      box("30 Days", perf.d30 ? perf.d30.change_percent ?? NaN : NaN);
+  }
+
+  function rangePos(coin) {
+    const span = coin.high - coin.low;
+    return span > 0 ? Math.max(0, Math.min(1, (coin.price - coin.low) / span)) : 0.5;
+  }
+
+  function renderMomentum(coin) {
+    if (!coin || !Number.isFinite(coin.momentum)) { el("cdCoinMom").innerHTML = '<p class="cd-meta">Loading…</p>'; return; }
+    const score = coin.momentum;
+    const a = Math.PI * (1 - score / 100); // 0 → left, 100 → right
+    const nx = 85 + 58 * Math.cos(a), ny = 88 - 58 * Math.sin(a);
+    const where = Math.round(rangePos(coin) * 100);
+    el("cdCoinMom").innerHTML = `
+      <svg class="cd-cdet-gauge" viewBox="0 0 170 100" aria-hidden="true">
+        <defs><linearGradient id="cdGaugeGrad" x1="0" x2="1"><stop offset="0" stop-color="#f87171"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs>
+        <path d="M15 88 A70 70 0 0 1 155 88" fill="none" stroke="url(#cdGaugeGrad)" stroke-width="14" stroke-linecap="round"/>
+        <line x1="85" y1="88" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="85" cy="88" r="6" fill="#fff"/>
+      </svg>
+      <div>${F().momPill ? F().momPill(coin) : ""}
+        <ul><li>24h move: <b class="${tone(coin.change_percent)}">${pct(coin.change_percent)}</b></li><li>Price at ${where}% of today's range</li></ul>
+      </div>`;
+  }
+
+  function renderRange(coin) {
+    if (!coin) { el("cdCoinRange").innerHTML = ""; el("cdCoinRangeNote").textContent = ""; return; }
+    const pos = rangePos(coin);
+    el("cdCoinRangeNote").textContent = `Volume ${F().fmtVolume ? F().fmtVolume(coin.volume_usdt) : "--"}`;
+    el("cdCoinRange").innerHTML = `
+      <div class="cd-cdet-bar-row"><span>${usd(coin.low)}</span><div class="cd-cdet-bar"><i style="left:${(pos * 100).toFixed(1)}%"></i></div><span>${usd(coin.high)}</span></div>
+      <p class="cd-meta">Price is ${Math.round(pos * 100)}% of the way from today's low to today's high.</p>`;
+  }
+
+  const RRG_TEXT = {
+    leading: ["Leading", "↗", "Stronger than the market and still gaining strength."],
+    weakening: ["Weakening", "↘", "Still stronger than the market, but its momentum is fading."],
+    lagging: ["Lagging", "↙", "Weaker than the market and still losing momentum."],
+    improving: ["Improving", "↖", "Weaker than the market, but its momentum is picking up."],
+  };
+
+  function renderRrg() {
+    const box = el("cdCoinRrg");
+    if (!rrg.coins) { box.innerHTML = '<p class="cd-meta">Loading…</p>'; return; }
+    const c = rrg.coins.find((x) => x.base === coinBase);
+    const quad = (q) => `<div class="is-${q}${c && c.quadrant === q ? " is-on" : ""}"></div>`;
+    const grid = `<div class="cd-cdet-quad">${quad("improving")}${quad("leading")}${quad("lagging")}${quad("weakening")}</div>`;
+    if (!c) {
+      box.innerHTML = `${grid}<p class="cd-meta">${esc(coinBase)} is not in the top 20 coins. Add it on the RRG page to see where it stands.<br><button type="button" class="cd-cdet-link" data-coin-go="rrg">Open RRG →</button></p>`;
+      return;
+    }
+    const [name, arrow, text] = RRG_TEXT[c.quadrant] || ["--", "", ""];
+    box.innerHTML = `${grid}<p><strong class="is-${c.quadrant}">${name} ${arrow}</strong>${text}<br><span class="cd-meta">RS-Ratio ${Number(c.ratio).toFixed(2)} · RS-Momentum ${Number(c.momentum).toFixed(2)}</span></p>`;
+  }
+
+  function renderPaper() {
     const held = typeof window.cdPaperHolding === "function" ? window.cdPaperHolding(coinBase) : null;
-    el("cdCoinHolding").textContent = held ? `${Number(held.qty).toLocaleString("en-US", { maximumFractionDigits: 8 })} ${coinBase}` : "None";
-    const pnl = el("cdCoinHoldingPnl");
-    pnl.textContent = held ? `${held.pnl >= 0 ? "+" : "-"}${money(Math.abs(held.pnl))} (${held.pct >= 0 ? "+" : ""}${held.pct.toFixed(2)}%)` : "";
-    pnl.className = held && f.pctClass ? f.pctClass(held.pnl) : "";
+    const trades = typeof window.cdPaperTrades === "function" ? window.cdPaperTrades(coinBase, 3) : [];
+    const qty = (q) => Number(q).toLocaleString("en-US", { maximumFractionDigits: 6 });
+    const when = (ts) => new Date(ts).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false });
+    const top = held
+      ? `<div class="cd-cdet-hold">
+          <div><span>Holding</span><b>${qty(held.qty)} ${esc(coinBase)}</b></div>
+          <div><span>Avg. buy price</span><b>${usd(held.avg)}</b></div>
+          <div><span>Value now</span><b>${money(held.value)}</b></div>
+          <div><span>Profit / Loss</span><b class="${tone(held.pnl)}">${held.pnl >= 0 ? "+" : "-"}${money(Math.abs(held.pnl))} (${held.pct >= 0 ? "+" : ""}${held.pct.toFixed(2)}%)</b></div>
+        </div>`
+      : `<p class="cd-meta">You don't hold any ${esc(coinBase)} yet. Tap BUY to start paper trading it.</p>`;
+    const table = trades.length
+      ? `<table class="cd-cdet-trades"><thead><tr><th>Last trades</th><th></th><th class="cd-num">Qty</th><th class="cd-num">Price</th></tr></thead><tbody>${trades.map((t) =>
+          `<tr><td>${esc(when(t.at))}</td><td><span class="cd-cdet-side is-${t.side === "BUY" ? "buy" : "sell"}">${t.side}</span></td><td class="cd-num">${qty(t.qty)}</td><td class="cd-num">${usd(t.price)}</td></tr>`).join("")}</tbody></table>`
+      : "";
+    el("cdCoinPaper").innerHTML = top + table;
     el("cdCoinSell").disabled = !held;
     el("cdCoinSell").style.opacity = held ? "" : "0.5";
+  }
+
+  function renderCoin() {
+    const coin = coinOf(coinBase);
+    renderQuick();
+    renderHead(coin);
+    renderPerf();
+    renderMomentum(coin);
+    renderRange(coin);
+    renderRrg();
+    renderPaper();
+    loadStats(coinBase);
+    loadRrg();
   }
 
   function openCoin(base) {
@@ -121,9 +180,7 @@
     coinBase = base.toUpperCase();
     try { sessionStorage.setItem("cdCoinBase", coinBase); } catch (e) { /* ignore */ }
     if (activePanel() !== "coin") goTo("coin");
-    renderCoinHeader();
-    // The chart sizes itself from its container, so draw once the page shows.
-    requestAnimationFrame(() => loadCandles(true));
+    renderCoin();
   }
 
   // Shared with the Alerts page's coin field.
@@ -133,13 +190,34 @@
     list.innerHTML = coins().map((c) => `<option value="${c.base}"></option>`).join("");
   }
 
-  function pickSearchedCoin() {
-    const query = el("cdCoinSearch").value.trim().toUpperCase().replace(/USDT$/, "");
-    if (!query) return;
-    if (coinOf(query)) {
-      el("cdCoinSearch").value = "";
-      openCoin(query);
-    }
+  // Search: matches as you type; tap one to open it.
+  function suggestions(q) {
+    const query = q.trim().toUpperCase().replace(/\/?USDT$/, "");
+    if (!query) return [];
+    const starts = [], has = [];
+    coins().forEach((c) => {
+      if (c.base.startsWith(query)) starts.push(c);
+      else if (c.base.includes(query)) has.push(c);
+    });
+    return starts.concat(has).slice(0, 8);
+  }
+
+  function renderSuggest() {
+    const box = el("cdCoinSuggest");
+    const list = suggestions(el("cdCoinSearch").value);
+    if (!el("cdCoinSearch").value.trim()) { box.hidden = true; return; }
+    box.innerHTML = list.length
+      ? list.map((c) => `<button type="button" data-coin-pick="${esc(c.base)}">${F().avatar ? F().avatar(c.base) : ""}<span>${esc(c.base)}<small>/USDT</small></span><em class="${tone(c.change_percent)}">${usd(c.price)} · ${pct(c.change_percent)}</em></button>`).join("")
+      : '<p class="cd-meta" style="margin:6px 8px">No coin found.</p>';
+    box.hidden = false;
+  }
+
+  function pickCoin(base) {
+    el("cdCoinSearch").value = "";
+    el("cdCoinSuggest").hidden = true;
+    el("cdCoinSearch").blur();
+    openCoin(base);
+    el("cdCoinTitle").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   // ---------- Scanner ----------
@@ -200,10 +278,7 @@
     const panel = activePanel();
     if (panel === "coin") {
       fillCoinList();
-      renderCoinHeader();
-      const coin = coinOf(coinBase);
-      if (coin) tickLastCandle(coin.price);
-      loadCandles(false); // refetches every 30s for new candles
+      renderCoin();
     } else if (panel === "scanner") renderScanner();
     else if (panel === "heatmap") renderHeatmap();
   }
@@ -213,13 +288,13 @@
   document.addEventListener("click", (event) => {
     const tile = event.target.closest("[data-coin]");
     if (tile) { openCoin(tile.dataset.coin); return; }
-    const iv = event.target.closest("#cdCoinIntervals [data-interval]");
-    if (iv) {
-      interval = iv.dataset.interval;
-      document.querySelectorAll("#cdCoinIntervals [data-interval]").forEach((b) => b.classList.toggle("is-active", b === iv));
-      loadCandles(true);
-      return;
-    }
+    const quick = event.target.closest("[data-coin-quick]");
+    if (quick) { openCoin(quick.dataset.coinQuick); return; }
+    const pick = event.target.closest("[data-coin-pick]");
+    if (pick) { pickCoin(pick.dataset.coinPick); return; }
+    const go = event.target.closest("[data-coin-go]");
+    if (go) { goTo(go.dataset.coinGo); return; }
+    if (!event.target.closest(".cd-cdet-search") && el("cdCoinSuggest")) el("cdCoinSuggest").hidden = true;
     const sc = event.target.closest("#cdScanFilters [data-scan]");
     if (sc) {
       scan = sc.dataset.scan;
@@ -238,13 +313,22 @@
   });
 
   el("cdScanLiquid")?.addEventListener("change", renderScanner);
-  el("cdCoinSearch").addEventListener("change", pickSearchedCoin);
-  el("cdCoinSearch").addEventListener("keydown", (event) => { if (event.key === "Enter") pickSearchedCoin(); });
+  el("cdCoinSearch").addEventListener("input", renderSuggest);
+  el("cdCoinSearch").addEventListener("focus", renderSuggest);
+  el("cdCoinSearch").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") { const first = suggestions(el("cdCoinSearch").value)[0]; if (first) pickCoin(first.base); }
+    else if (event.key === "Escape") el("cdCoinSuggest").hidden = true;
+  });
+  el("cdCoinTv").addEventListener("click", () => window.cdOpenTradingView && window.cdOpenTradingView(coinBase));
   el("cdCoinBuy").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "BUY"));
   el("cdCoinSell").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "SELL"));
   el("cdCoinAlert")?.addEventListener("click", () => window.cdNewAlert && window.cdNewAlert(coinBase));
 
   window.cdOpenCoin = openCoin;
   window.cdFillCoinList = fillCoinList;
-  if (activePanel() === "coin") requestAnimationFrame(() => { renderCoinHeader(); loadCandles(true); });
+  if (activePanel() === "coin") renderCoin();
+  // Also when the app reopens straight onto Coin Detail (no click).
+  const panel = el("cdCoinTitle").closest(".tab-panel");
+  if (panel) new MutationObserver(() => { if (panel.classList.contains("active")) { fillCoinList(); renderCoin(); } })
+    .observe(panel, { attributes: true, attributeFilter: ["class"] });
 })();
