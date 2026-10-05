@@ -3,7 +3,7 @@
 // If it still doesn't fit — e.g. a long AI disclaimer — it wraps instead.
 (function cryptoFitLine() {
   const MIN_PX = 8.5;
-  const boxes = () => document.querySelectorAll("#btcModeRoot .cd-page-notes:not(.cd-notes-list), #btcModeRoot .disclaimer-card");
+  const boxes = () => document.querySelectorAll("#btcModeRoot .cd-page-notes, #btcModeRoot .disclaimer-card");
 
   function fit(box) {
     if (!box.clientWidth) return; // hidden page; fitted when it shows
