@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261005-nochart-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-trial-2">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-sub-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -176,6 +176,11 @@
         <button class="nav-button app-tab" type="button" data-tab="virtual-trading" hidden>
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           Virtual Trading
+        </button>
+
+        <button class="nav-button cd-nav-upgrade" id="cdNavUpgrade" type="button">
+          <span class="nav-icon">👑</span>
+          Upgrade
         </button>
 
         <button class="nav-button website-settings-nav" data-open-settings type="button">
@@ -1833,6 +1838,20 @@
         <div id="cdProStatusDates" class="cdp-state-dates"></div>
         <div class="cdp-state-bar" id="cdProStatusBarWrap" hidden><i id="cdProStatusBar"></i></div>
       </div>
+      <div class="cdp-days" id="cdProDays">
+        <div><span>Total days</span><b id="cdProDaysTotal">--</b></div>
+        <div><span>Days used</span><b id="cdProDaysUsed">--</b></div>
+        <div class="is-left"><span>Days left</span><b id="cdProDaysLeft">--</b></div>
+      </div>
+      <div class="cdp-next" id="cdProNext">
+        <p class="cdp-feat-head" id="cdProNextHead">NEXT PRICE</p>
+        <div class="cdp-next-list">
+          <button type="button" data-next-plan="Monthly Plan"><span>Monthly</span><b>₹99</b><small>30 days</small></button>
+          <button type="button" data-next-plan="Half-Yearly Plan"><span>Half-Yearly</span><b>₹299</b><small>180 days</small></button>
+          <button type="button" data-next-plan="Annual Plan"><span>Annual</span><b>₹499</b><small>365 days</small></button>
+        </div>
+        <p class="cdp-next-note" id="cdProNextNote"></p>
+      </div>
       <p class="cdp-feat-head">INCLUDED IN CRYPTODOCK PRO</p>
       <div class="cdp-feat-grid">
         <div><i>💹</i><b>Paper trading</b><small>Buy &amp; sell any coin with virtual USDT</small></div>
@@ -1848,7 +1867,7 @@
       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
-  <script src="/frontend/tabbar.js?v=20261004-tabs-2"></script>
+  <script src="/frontend/tabbar.js?v=20261005-sub-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261005-tv-2"></script>
   <script src="/frontend/coin-stats.js?v=20261005-tv-2"></script>
   <script src="/frontend/sheet-motion.js?v=20261004-back-1"></script>
@@ -1856,7 +1875,7 @@
   <script src="/frontend/news.js?v=20261005-news-2"></script>
   <script src="/frontend/welcome.js?v=20261004-welcome-1"></script>
   <script src="/frontend/fit-line.js?v=20261005-list-2"></script>
-  <script src="/frontend/pro.js?v=20261005-trial-3"></script>
+  <script src="/frontend/pro.js?v=20261005-sub-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
