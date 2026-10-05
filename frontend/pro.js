@@ -236,12 +236,10 @@
     showGate(acc, "CryptoDock Pro");
   }
 
-  // ---------- Upgrade button: owner always; users when there is something to start or buy ----------
+  // ---------- Upgrade button: only when there's something to buy ----------
   function renderUpgrade() {
     const acc = access();
-    // The owner always sees Upgrade (to check the Pro card); everyone else
-    // only when there's something to start or buy.
-    el("cdUpgradeBtn").hidden = acc.reason === "paid" || acc.reason === "trial";
+    el("cdUpgradeBtn").hidden = acc.reason === "owner" || acc.reason === "paid" || acc.reason === "trial";
     const mine = el("cdMyPlanState");
     if (mine) {
       mine.textContent = { owner: "Owner · active", paid: "Active", trial: `Trial · ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left`, fresh: "Free trial available", expired: "Trial ended", "plan-expired": "Plan expired", checking: "Checking…" }[acc.reason] || "--";
@@ -264,8 +262,7 @@
     primary.className = "cdp-primary";
     if (acc.reason === "owner") {
       tone = "ok"; icon = "👑"; title = "Owner access · ACTIVE ✓"; sub = "Every Pro feature, always on."; dates = "No plan needed for this account.";
-      note = "You have full access to CryptoDock Pro. Users see their own trial or plan here.";
-      primary.textContent = "See the plans users get →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
+      note = "You have full access to CryptoDock Pro."; primary.textContent = "Close"; primary.onclick = () => hide("cdProStatus");
     } else if (acc.reason === "paid") {
       const left = Math.max(0, Math.ceil((status.valid_until_ts - now) / 86400));
       const plan = status.plan || "Plan";
