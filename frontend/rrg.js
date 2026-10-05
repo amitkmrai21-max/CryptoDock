@@ -356,6 +356,9 @@
     const f = F();
     const coins = visibleCoins();
     el("cdRrgReset").hidden = !(extra.length || hidden.size);
+    const allOn = data.coins.every((c) => !hidden.has(c.base));
+    el("cdRrgAll").setAttribute("aria-pressed", String(allOn));
+    el("cdRrgAll").querySelector(".cd-rrg-eye").classList.toggle("is-on", allOn);
     // quadrant summary
     const groups = { leading: [], weakening: [], lagging: [], improving: [] };
     coins.forEach((c) => groups[c.quadrant].push(c.base));
@@ -574,6 +577,18 @@
       store.set("cdRrgHidden", [...hidden]);
       if (data) data.coins = data.coins.filter((c) => c.base !== base);
       if (highlight === base) highlight = null;
+      hideTip();
+      renderAll();
+      return;
+    }
+    // Select all: on shows every coin; off hides them all, then single
+    // coins can be switched back on one by one.
+    if (e.target.closest("#cdRrgAll")) {
+      if (!data) return;
+      const allOn = data.coins.every((c) => !hidden.has(c.base));
+      data.coins.forEach((c) => (allOn ? hidden.add(c.base) : hidden.delete(c.base)));
+      store.set("cdRrgHidden", [...hidden]);
+      highlight = null;
       hideTip();
       renderAll();
       return;
