@@ -170,15 +170,27 @@
       </div>`).join("");
   }
 
-  // Ticker strip: the most traded coins.
+  // Ticker strip: the most traded coins, sliding slowly on a loop like the
+  // Indian market ticker. The list is drawn twice and the track moves by
+  // half its width, so the loop is seamless. The track element stays put
+  // between price updates, so the slide never jumps back to the start.
+  const TICKER_PX_PER_SEC = 32;
   function renderTicker() {
     const box = el("cdTicker");
     if (!box) return;
-    box.innerHTML = coins.slice(0, TICKER_SIZE).map((coin) => `
+    let track = box.querySelector(".cd-ticker-track");
+    if (!track) {
+      box.innerHTML = '<div class="cd-ticker-track"></div>';
+      track = box.firstElementChild;
+    }
+    const items = coins.slice(0, TICKER_SIZE).map((coin) => `
       <button type="button" class="cd-tick" data-base="${escapeHtml(coin.base)}">
         ${avatar(coin.base)}
         <span class="cd-tick-text"><strong>${escapeHtml(coin.base)}</strong><span>${fmtUsd(coin.price)} <em class="${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</em></span></span>
       </button>`).join("");
+    track.innerHTML = items + items.replace(/<button /g, '<button tabindex="-1" aria-hidden="true" ');
+    const half = track.scrollWidth / 2;
+    if (half > 0) track.style.animationDuration = `${Math.max(12, Math.round(half / TICKER_PX_PER_SEC))}s`;
   }
 
   // BTC / ETH cards with a 24h sparkline (hourly closes, refreshed every
