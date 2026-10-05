@@ -1574,5 +1574,21 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
   .cd-rrg-play { order: 0; }
   .cd-rrg-when { order: 2; flex: 1; min-width: 0; }
   .cd-rrg-speeds { order: 3; }
-  .cd-rrg-table th:nth-child(4), .cd-rrg-table td:nth-child(4) { display: none; }
+  .cd-rrg-table th:nth-child(4), .cd-rrg-table td:nth-child(4),
+  .cd-rrg-table th:nth-child(5), .cd-rrg-table td:nth-child(5) { display: none; }
+  .cd-rrg-table .cd-rrg-q { font-size: 9px; padding: 2px 5px; }
+  .cd-rrg-eye { width: 34px; }
+  .cd-rrg-eye.is-on i { transform: translateX(12px); }
 }
+
+/* RRG coin list: show / hide switch and remove (replaces the chip row) */
+.cd-rrg-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cd-rrg-list-head h3 { margin: 0; font-size: 15px; }
+.cd-rrg-reset[hidden] { display: none; }
+.cd-rrg-act { width: 1%; white-space: nowrap; text-align: right; }
+.cd-rrg-eye { position: relative; width: 38px; height: 22px; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.12); cursor: pointer; vertical-align: middle; }
+.cd-rrg-eye i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #9ca3af; transition: transform 0.15s ease, background 0.15s ease; }
+.cd-rrg-eye.is-on { background: rgba(139, 92, 246, 0.55); }
+.cd-rrg-eye.is-on i { transform: translateX(16px); background: #fff; }
+.cd-rrg-del { margin-left: 6px; width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 50%; background: none; color: var(--muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; vertical-align: middle; }
+.cd-rrg-table tbody tr.is-off td:not(.cd-rrg-act) { opacity: 0.4; }
