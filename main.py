@@ -1,3 +1,4 @@
+import asyncio
 import gzip
 import json
 import math
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 import requests
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="CryptoDock - BTC & Crypto Intelligence")
@@ -163,6 +164,63 @@ TECHNICAL_CACHE_SECONDS = 30
 TECHNICAL_DELAYED_SECONDS = 90
 
 price_cache = {"data": None, "updated_at": 0}
+
+# ==========================================
+# BROADCAST PUB-SUB ENGINE (1:N Fanout)
+# Single upstream to Binance -> 10,000+ app clients
+# ==========================================
+class MarketBroadcastHub:
+    def __init__(self):
+        self._subscribers = set()
+        self._lock = threading.Lock()
+        self.last_payload = None
+
+    def subscribe(self):
+        q = asyncio.Queue(maxsize=15)
+        with self._lock:
+            self._subscribers.add(q)
+        return q
+
+    def unsubscribe(self, q):
+        with self._lock:
+            self._subscribers.discard(q)
+
+    def publish(self, data):
+        self.last_payload = data
+        with self._lock:
+            subs = list(self._subscribers)
+        for q in subs:
+            try:
+                if q.full():
+                    try:
+                        q.get_nowait()
+                    except (asyncio.QueueEmpty, Exception):
+                        pass
+                q.put_nowait(data)
+            except Exception:
+                pass
+
+    @property
+    def subscriber_count(self):
+        with self._lock:
+            return len(self._subscribers)
+
+market_hub = MarketBroadcastHub()
+
+def _market_broadcast_loop():
+    """Single persistent background loop: requests Binance once every 2 seconds."""
+    time.sleep(3)  # initial boot delay
+    while True:
+        try:
+            now = time.time()
+            data = _fetch_btc_price(now)
+            if data:
+                market_hub.publish(data)
+        except Exception as err:
+            # Respect guard backoffs quietly
+            time.sleep(1)
+        time.sleep(2.0)
+
 chart_cache = {"data": {}, "updated_at": 0}
 technical_cache = {"data": None, "updated_at": 0}
 rrg_cache = {"data": {}, "updated_at": 0}
@@ -2186,7 +2244,11 @@ def _rrg_warmer():
 
 
 @app.on_event("startup")
-def _start_rrg_warmer():
+def _start_broadcast_and_rrg():
+    threading.Thread(target=_market_broadcast_loop, name="market-broadcast-loop", daemon=True).start()
+    threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
+
+def _old_rrg_warmer_skip():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
 
 
@@ -2528,6 +2590,56 @@ def health():
 
 _btc_price_lock = threading.Lock()
 
+
+
+@app.get("/api/stream/live")
+async def live_market_stream(request: Request):
+    """
+    Broadcast Pub-Sub SSE Stream:
+    Connected clients receive real-time push events whenever Binance updates.
+    Even with 10,000+ app users, Binance receives ONLY ONE call every 2 seconds.
+    """
+    async def event_generator():
+        q = market_hub.subscribe()
+        try:
+            # Send immediate snapshot on connect
+            init_data = market_hub.last_payload or price_cache.get("data")
+            if init_data:
+                yield f"data: {json.dumps(init_data)}\n\n"
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=12.0)
+                    yield f"data: {json.dumps(data)}\n\n"
+                except asyncio.TimeoutError:
+                    # Heartbeat comment to keep proxies and mobile WebViews alive
+                    yield ": keep-alive\n\n"
+        finally:
+            market_hub.unsubscribe(q)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+@app.get("/api/stream/stats")
+def stream_stats():
+    """Diagnostic info showing pub-sub broadcast health."""
+    return {
+        "pubsub_subscribers_connected": market_hub.subscriber_count,
+        "upstream_interval_seconds": 2.0,
+        "upstream_requests_per_minute": 30,
+        "binance_weight_usage_per_minute": 60,
+        "binance_weight_limit": 6000,
+        "binance_load_percentage": "1.0%",
+        "last_broadcast_at": int(price_cache.get("updated_at") or 0),
+    }
 
 @app.get("/api/btc/price")
 def btc_price(force_refresh: bool = False):
