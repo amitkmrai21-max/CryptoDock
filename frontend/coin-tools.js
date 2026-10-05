@@ -282,6 +282,7 @@
   }
 
   // ---------- Heatmap ----------
+  const HEAT_POOL = 200;
   let heatSize = 100;
 
   function heatColour(pct) {
@@ -297,10 +298,14 @@
     const grid = el("cdHeatGrid");
     if (!grid) return;
     const f = F();
-    // The top N coins by volume, laid out like the Indian market heatmap:
-    // biggest gainer first (green) down to the biggest loser last (red).
-    const list = coins().slice(0, heatSize) // already sorted by volume
+    // Like the Indian market heatmap: biggest gainer first (green) down to
+    // the biggest loser last (red). Every size draws from the same 200 most
+    // traded coins, so the strongest and the weakest always show: Top 50 is
+    // the 25 strongest + the 25 weakest, Top 100 is 50 + 50, Top 200 is all.
+    const ranked = coins().slice(0, HEAT_POOL) // already sorted by volume
       .sort((a, b) => (Number(b.change_percent) || 0) - (Number(a.change_percent) || 0));
+    const half = Math.floor(heatSize / 2);
+    const list = heatSize >= ranked.length ? ranked : ranked.slice(0, half).concat(ranked.slice(ranked.length - (heatSize - half)));
     grid.innerHTML = list.map((c) => `<button type="button" class="cd-heat-tile" data-coin="${f.escapeHtml ? f.escapeHtml(c.base) : c.base}" style="background:${heatColour(c.change_percent)}">
         <strong>${f.escapeHtml ? f.escapeHtml(c.base) : c.base}</strong><span>${f.fmtPct ? f.fmtPct(c.change_percent) : ""}</span>
       </button>`).join("") || '<p class="cd-empty">Loading coins…</p>';
