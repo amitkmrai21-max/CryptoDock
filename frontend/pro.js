@@ -123,7 +123,7 @@
   }
   let pendingResume = null;
   function showTrialCard(acc, resume) {
-    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: paper trading, Heatmap, Price Alerts and Pro Charts.`;
+    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: unlimited paper trading, Heatmap, Price Alerts and Pro Charts.`;
     pendingResume = resume;
     show("cdTrialCard");
   }
@@ -133,6 +133,28 @@
     const resume = pendingResume;
     pendingResume = null;
     if (resume) resume();
+  });
+
+  // Plan tiles on the trial card and the Pro card: tap to choose a plan.
+  // The choice carries over to the Choose-your-plan sheet (its radios).
+  const PLAN_LABEL = { "Monthly Plan": "Monthly", "Half-Yearly Plan": "Half-Yearly", "Annual Plan": "Annual" };
+  function choosePlan(name) {
+    if (!PLAN_PRICES[name]) return;
+    document.querySelectorAll(".cdp-prices [data-plan]").forEach((b) => b.classList.toggle("is-sel", b.dataset.plan === name));
+    const radio = document.querySelector(`input[name="cdPlan"][value="${name}"]`);
+    if (radio) radio.checked = true;
+    el("cdTrialBuy").textContent = `Buy ${PLAN_LABEL[name]} plan now · ₹${PLAN_PRICES[name]}`;
+    renderPlans();
+  }
+  document.addEventListener("click", (e) => {
+    const tile = e.target.closest(".cdp-prices [data-plan]");
+    if (tile) choosePlan(tile.dataset.plan);
+  });
+  el("cdTrialBuy").addEventListener("click", () => {
+    try { localStorage.setItem(welcomeKey(), "1"); } catch (e) { /* ignore */ }
+    pendingResume = null;
+    hide("cdTrialCard");
+    openPlans();
   });
 
   // Runs `action` if Pro is open for this user; otherwise shows why not.
@@ -284,7 +306,7 @@
     el("cdProGateExtra").hidden = true;
     el("cdProGateTitle").textContent = "Welcome to CryptoDock Pro";
     el("cdProGateText").textContent = text;
-    el("cdProGatePrimary").textContent = "Start trading";
+    el("cdProGatePrimary").textContent = "Start paper trading";
     el("cdProGatePrimary").onclick = () => hide("cdProGate");
     show("cdProGate");
   }
@@ -293,7 +315,7 @@
   el("cdUpgradeBtn").addEventListener("click", openPlans);
   el("cdPlansClose").addEventListener("click", () => hide("cdPlans"));
   el("cdPlansPay").addEventListener("click", pay);
-  document.querySelectorAll('input[name="cdPlan"]').forEach((r) => r.addEventListener("change", renderPlans));
+  document.querySelectorAll('input[name="cdPlan"]').forEach((r) => r.addEventListener("change", () => choosePlan(r.value)));
   el("cdProGateClose").addEventListener("click", () => hide("cdProGate"));
   ["cdProGate", "cdPlans"].forEach((id) => el(id).addEventListener("click", (e) => { if (e.target.id === id) hide(id); }));
   // The trial card closes the same way (tap outside, Back); the Pro page

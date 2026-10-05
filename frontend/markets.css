@@ -1419,15 +1419,18 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 }
 .cdp-feats i { font-style: normal; font-size: 15px; }
 .cdp-prices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.cdp-prices > div {
+.cdp-prices > div, .cdp-prices > button {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
   padding: 10px 4px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
 }
+.cdp-prices > button { font: inherit; color: var(--text); cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease; }
+.cdp-prices > button:active { transform: scale(0.97); }
 .cdp-prices b { font-family: var(--cd-num-font); font-size: 18px; font-weight: 800; }
 .cdp-prices small { color: var(--muted); font-size: 11px; }
 .cdp-prices .cdp-up { font-size: 9.5px; font-weight: 800; letter-spacing: 0.5px; }
-.cdp-prices .is-best { border: 1.5px solid #22c55e; background: rgba(34, 197, 94, 0.1); }
-.cdp-prices .is-best b, .cdp-prices .is-best .cdp-up { color: #4ade80; }
+.cdp-prices .is-sel { border: 1.5px solid #22c55e; background: rgba(34, 197, 94, 0.1); }
+.cdp-prices .is-sel b, .cdp-prices .is-sel .cdp-up { color: #4ade80; }
+.cdp-paper-note { margin: -2px 0 0; padding: 7px 10px; border-radius: 10px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); color: #fcd34d; font-size: 12px; font-weight: 700; text-align: center; }
 .cdp-prices em {
   position: absolute; top: -8px; left: 50%; transform: translateX(-50%); white-space: nowrap;
   padding: 1px 7px; border-radius: 6px; background: #16a34a; color: #fff; font-style: normal; font-size: 8.5px; font-weight: 800; letter-spacing: 0.4px;
