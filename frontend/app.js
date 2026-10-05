@@ -1,3 +1,40 @@
+
+// ===== Technical Section Gating (Locked for everyone except amitkmrai21@gmail.com) =====
+const CD_TECH_ADMIN_EMAIL = "amitkmrai21@gmail.com";
+
+function cdCanAccessTechnical() {
+  const email = (window.cdUserEmail || (function() {
+    try { return localStorage.getItem("cdUserEmail") || ""; } catch (e) { return ""; }
+  })()).trim().toLowerCase();
+  return email === CD_TECH_ADMIN_EMAIL;
+}
+window.cdCanAccessTechnical = cdCanAccessTechnical;
+
+function syncTechnicalAccess() {
+  const canAccess = cdCanAccessTechnical();
+  const lockedView = document.getElementById("cdTechnicalLocked");
+  const realContent = document.getElementById("cdTechnicalContent");
+  const lockBadge = document.getElementById("cdNavTechLockBadge");
+
+  if (lockedView) lockedView.hidden = canAccess;
+  if (realContent) realContent.hidden = !canAccess;
+  if (lockBadge) lockBadge.hidden = canAccess;
+
+  const backBtn = document.getElementById("cdTechBackToDashBtn");
+  if (backBtn && !backBtn.dataset.bound) {
+    backBtn.dataset.bound = "true";
+    backBtn.addEventListener("click", () => {
+      const dashTab = document.querySelector('.sidebar .app-tab[data-tab="dashboard"]');
+      if (dashTab) dashTab.click();
+    });
+  }
+}
+window.syncTechnicalAccess = syncTechnicalAccess;
+
+window.addEventListener("cd-user-changed", syncTechnicalAccess);
+window.addEventListener("cd-auth-state", syncTechnicalAccess);
+document.addEventListener("DOMContentLoaded", syncTechnicalAccess);
+
 let liveCandleChart = null;
 let liveCandleSeries = null;
 let liveCandleRawData = [];
