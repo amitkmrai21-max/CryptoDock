@@ -1704,3 +1704,15 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 }
 .cd-cdet-more #cdCoinStar { margin-left: auto; }
 .cdp-feats span:last-child:nth-child(odd) { grid-column: 1 / -1; justify-content: center; }
+/* Heatmap head: Top 50 / 100 / 200 stay in one row beside the title */
+.cd-dash-head:has(#cdHeatSize) { align-items: center; }
+#cdHeatSize { flex-wrap: nowrap; gap: 6px; }
+@media (max-width: 760px) {
+  #cdHeatSize { width: auto; }
+  #cdHeatSize .cd-pill { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
+}
+@media (max-width: 400px) {
+  [data-panel="heatmap"] .cd-dash-head h2 { font-size: 19px; }
+  #cdHeatSize { gap: 5px; }
+  #cdHeatSize .cd-pill { padding: 5px 8px; font-size: 12px; }
+}
