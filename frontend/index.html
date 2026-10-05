@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20261005-nomtf-1">
+  <link rel="stylesheet" href="/frontend/style.css?v=20261005-tech-gate-v1">
   <link rel="stylesheet" href="/frontend/markets.css?v=20261005-silent-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -152,9 +152,9 @@
           Alerts
         </button>
 
-        <button class="nav-button app-tab" type="button" data-tab="technical">
+        <button class="nav-button app-tab" id="cdNavTechnical" type="button" data-tab="technical">
           <span class="nav-icon">T</span>
-          Technical
+          <span class="cd-nav-tech-label">Technical</span><span class="cd-nav-lock-badge" id="cdNavTechLockBadge" hidden>🔒 Soon</span>
         </button>
 
         <button class="nav-button app-tab" type="button" data-tab="rrg">
@@ -690,6 +690,29 @@
     </section>
 
     <section class="tab-panel" data-panel="technical">
+      <!-- Locked / Under Maintenance View for non-admin users -->
+      <div id="cdTechnicalLocked" class="cd-tech-locked-view" hidden>
+        <div class="cd-tech-locked-card">
+          <div class="cd-tech-locked-icon">🔒</div>
+          <span class="cd-tech-locked-badge">Under Maintenance</span>
+          <h2 class="cd-tech-locked-title">Technical Analysis</h2>
+          <div class="cd-tech-coming-soon-pill">Coming Soon</div>
+          <p class="cd-tech-locked-desc">
+            Technical indicators, multi-timeframe scoring, and automated pattern engines are currently undergoing scheduled maintenance &amp; refinement.
+          </p>
+          <div class="cd-tech-locked-features">
+            <div class="cd-tech-feat-item">✨ Multi-Timeframe Alignment (15m · 1h · 4h)</div>
+            <div class="cd-tech-feat-item">⚡ Advanced RSI, MACD &amp; Momentum Models</div>
+            <div class="cd-tech-feat-item">🎯 Dynamic Support &amp; Resistance Structures</div>
+          </div>
+          <button type="button" class="cd-tech-back-btn" id="cdTechBackToDashBtn">
+            ← Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      <!-- Real Technical Content (authorized users only) -->
+      <div id="cdTechnicalContent">
       <p class="cd-tech-disclaimer">📘 <b>Educational technical analysis of BTC</b> — indicators like RSI, MACD, volume and support / resistance, calculated automatically. It describes the market; it is <b>not</b> investment advice or a recommendation to buy or sell. CryptoDock is paper trading only.</p>
       <div id="customizableSections" class="customizable-sections">
         <section class="market-insights-layout layout-editable" data-layout-id="market-insights">
@@ -954,6 +977,8 @@
         </section>
 
 
+      </div>
+    
       </div>
     </section>
 
@@ -1401,7 +1426,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=20261005-nomtf-1"></script>
+  <script src="/frontend/app.js?v=20261005-tech-gate-v1"></script>
 
   <!-- Paper trading order ticket (paper.js) -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
