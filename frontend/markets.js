@@ -223,7 +223,7 @@
       const diff = coin.price - prev;
       const points = sparks[base] ? sparks[base].concat(coin.price) : null;
       box.innerHTML = `
-        <div class="cd-feature-top">${avatar(base)}<strong>${base}</strong><span class="cd-feature-live">● Live</span></div>
+        <div class="cd-feature-top">${avatar(base)}<strong>${base}</strong></div>
         <div class="cd-feature-price-row"><span class="cd-feature-price">${fmtUsd(coin.price)}</span><span class="cd-feature-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</span></div>
         <div class="cd-feature-sub"><span>${fmtInr(coin.price)}</span><span class="${pctClass(diff)}">${diff >= 0 ? "+" : "-"}$${Math.abs(diff).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: Math.abs(diff) < 1 ? 6 : 2 })}</span></div>
         ${sparkSvg(points, coin.change_percent >= 0)}`;
@@ -397,10 +397,10 @@
   function renderMeta() {
     const meta = el("cdMarketMeta");
     if (meta) {
-      // The page-wide Live badge already shows the feed state; only say
+      // The Live marker on the header line already shows the feed state; only say
       // something here when these prices have stopped updating.
       const stale = lastOkAt && Date.now() - lastOkAt > POLL_MS * 4 ? " · Reconnecting…" : "";
-      meta.textContent = `${coins.length} coins live · 1 USDT = ${usdtInr ? "₹" + usdtInr.toFixed(2) : "₹--"}${stale}`;
+      meta.textContent = `${coins.length} coins · 1 USDT = ${usdtInr ? "₹" + usdtInr.toFixed(2) : "₹--"}${stale}`;
     }
   }
 
