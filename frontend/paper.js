@@ -444,5 +444,10 @@
     const value = h.qty * price;
     return { qty: h.qty, avg: h.cost / h.qty, value, pnl: value - h.cost, pct: h.cost ? ((value - h.cost) / h.cost) * 100 : 0 };
   };
+  // For Coin Detail: this coin's latest filled paper trades, newest first.
+  window.cdPaperTrades = (base, limit = 3) => state.orders
+    .filter((o) => o.base === base && o.status === "FILLED")
+    .slice(0, limit)
+    .map((o) => ({ side: o.side, qty: o.qty, price: o.fillPrice, at: o.filledAt || o.createdAt }));
   renderAll();
 })();
