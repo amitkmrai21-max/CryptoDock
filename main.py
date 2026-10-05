@@ -1177,12 +1177,25 @@ def allow_force_refresh(name, every=10):
     return True
 
 
+_technical_lock = threading.Lock()
+
+
 def get_technical_market_data(force_refresh=False):
     force_refresh = force_refresh and allow_force_refresh("technical")
     now = time.time()
     cache_age = now - technical_cache["updated_at"]
     if not force_refresh and technical_cache["data"] and cache_age < TECHNICAL_CACHE_SECONDS:
         return technical_cache["data"], True, cache_age, None
+    # One rebuild at a time: requests arriving meanwhile wait and reuse it.
+    with _technical_lock:
+        now = time.time()
+        cache_age = now - technical_cache["updated_at"]
+        if technical_cache["data"] and cache_age < TECHNICAL_CACHE_SECONDS:
+            return technical_cache["data"], True, cache_age, None
+        return _rebuild_technical_market_data(now)
+
+
+def _rebuild_technical_market_data(now):
     try:
         market_data = build_market_data()
         technical_cache["data"], technical_cache["updated_at"] = market_data, now
@@ -2514,6 +2527,9 @@ def health():
     return {"status": "ok", "message": "CryptoDock backend running", "market_data_source": "Binance"}
 
 
+_btc_price_lock = threading.Lock()
+
+
 @app.get("/api/btc/price")
 def btc_price(force_refresh: bool = False):
     force_refresh = force_refresh and allow_force_refresh("btc-price")
@@ -2521,6 +2537,15 @@ def btc_price(force_refresh: bool = False):
     cache_age = now - price_cache["updated_at"]
     if not force_refresh and price_cache["data"] and cache_age < 15:
         return {**price_cache["data"], "cached": True, "cache_age_seconds": round(cache_age, 1)}
+    with _btc_price_lock:  # one Binance fetch at a time; the rest reuse it
+        now = time.time()
+        cache_age = now - price_cache["updated_at"]
+        if price_cache["data"] and cache_age < 15:
+            return {**price_cache["data"], "cached": True, "cache_age_seconds": round(cache_age, 1)}
+        return _fetch_btc_price(now)
+
+
+def _fetch_btc_price(now):
     try:
         ticker = get_btc_ticker()
         current_price = float(ticker["lastPrice"])
