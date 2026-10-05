@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261005-nochart-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-sub-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-tools-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -165,6 +165,11 @@
         <button class="nav-button app-tab" type="button" data-tab="news">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7 8h10M7 12h10M7 16h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           News
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="tools">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="3" width="16" height="18" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M8 18h2M12 18h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Tools
         </button>
 
         <!-- The old BTC-only Virtual Trading page is replaced by Positions/Orders. -->
@@ -1025,6 +1030,21 @@
       </div>
     </section>
 
+    <section class="tab-panel" data-panel="tools">
+      <div class="cd-dash cd-tools">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Tools</h2>
+            <p class="cd-meta">Calculators &amp; market gauges for paper trading · live prices</p>
+          </div>
+        </div>
+        <div class="cd-tool-tiles" id="cdToolTiles"></div>
+        <section class="card cd-tool-card" id="cdToolCard"></section>
+        <datalist id="cdToolCoins"></datalist>
+        <ul class="cd-page-notes"><li>For learning only</li><li>Not financial or tax advice</li></ul>
+      </div>
+    </section>
+
     <section class="tab-panel" data-panel="news">
       <div class="cd-dash cd-news-page">
         <div class="cd-dash-head">
@@ -1507,9 +1527,10 @@
       <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261005-ticker-1"></script>
+  <script src="/frontend/markets.js?v=20261005-tools-1"></script>
   <script src="/frontend/paper.js?v=20261005-cdet-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
+  <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
 
