@@ -2436,10 +2436,16 @@ def btc_candles(interval: str = "15m", limit: int = 200):
     if interval not in allowed_intervals:
         raise HTTPException(status_code=400, detail="Unsupported candle interval.")
     safe_limit = max(20, min(limit, 1000))
-    try:
+
+    def fetch():
         raw_candles = get_btc_klines(interval=interval, limit=safe_limit)
         candles = [{"time": int(int(candle[0]) / 1000), "open": float(candle[1]), "high": float(candle[2]), "low": float(candle[3]), "close": float(candle[4]), "volume": float(candle[5])} for candle in raw_candles]
         return {"symbol": "BTCUSDT", "interval": interval, "candles": candles, "source": "Binance", "updated_at": int(time.time())}
+
+    # One Binance call per interval every 15s, however many people (or old
+    # app versions) are asking.
+    try:
+        return cached_call(coin_candles_cache, f"BTCUSDT:{interval}:{safe_limit}", COIN_CANDLES_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=500)
     except requests.exceptions.RequestException as error:
         raise HTTPException(status_code=502, detail=f"Could not load Binance candles: {str(error)}") from error
 

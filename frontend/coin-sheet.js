@@ -107,12 +107,33 @@
     action(current);
   }
 
+  // Charts open on TradingView itself (its app when installed, else
+  // tradingview.com), like the Indian market: every indicator and drawing
+  // tool, and no chart traffic on our server or Binance however many users.
+  // On Android an intent:// link opens the TradingView app and falls back to
+  // the website; the CryptoDock app's MainActivity handles that link.
+  const TRADINGVIEW_ANDROID_PACKAGE = "com.tradingview.tradingviewapp";
+  function openTradingView(coinBase) {
+    if (!coinBase) return;
+    const path = `www.tradingview.com/chart/?symbol=${encodeURIComponent(`BINANCE:${coinBase}USDT`)}`;
+    const webUrl = `https://${path}`;
+    if (!/Android/i.test(navigator.userAgent || "")) {
+      window.open(webUrl, "_blank", "noopener");
+      return;
+    }
+    const intentUrl = `intent://${path}#Intent;scheme=https;package=${TRADINGVIEW_ANDROID_PACKAGE};` +
+      `S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    if (window.Capacitor?.isNativePlatform?.()) window.location.href = intentUrl;
+    else window.open(intentUrl, "_blank", "noopener");
+  }
+  window.cdOpenTradingView = openTradingView;
+
   el("cdSheetClose").addEventListener("click", close);
   el("cdSheet").addEventListener("click", (event) => { if (event.target.id === "cdSheet") close(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && base) close(); });
   el("cdSheetBuy").addEventListener("click", () => then((b) => window.cdOpenTicket && window.cdOpenTicket(b, "BUY")));
   el("cdSheetSell").addEventListener("click", () => then((b) => window.cdOpenTicket && window.cdOpenTicket(b, "SELL")));
-  el("cdSheetChart").addEventListener("click", () => then((b) => window.cdOpenCoin && window.cdOpenCoin(b)));
+  el("cdSheetChart").addEventListener("click", () => then((b) => openTradingView(b)));
   el("cdSheetAlert").addEventListener("click", () => then((b) => window.cdNewAlert && window.cdNewAlert(b)));
   el("cdSheetStar").addEventListener("click", () => { if (window.cdToggleWatch && base) { window.cdToggleWatch(base); render(); } });
 
