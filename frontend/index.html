@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20261005-nochart-1">
+  <link rel="stylesheet" href="/frontend/style.css?v=20261005-neutral-2">
   <link rel="stylesheet" href="/frontend/markets.css?v=20261005-neutral-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -735,7 +735,7 @@
             <div class="section-heading">
               <div>
                 <h2>Trend &amp; Indicator Snapshot</h2>
-                <p>Trend direction and immediate entry signal can differ.</p>
+                <p>Longer-term trend and the short-term reading can differ.</p>
               </div>
             </div>
 
@@ -954,8 +954,8 @@
         <section class="card setup-quality-card layout-editable" data-layout-id="setup-quality">
           <div class="section-heading">
             <div>
-              <h2>Setup Quality Checklist</h2>
-              <p>Educational checklist based on current live technical conditions. It does not place trades or guarantee outcomes.</p>
+              <h2>Technical Alignment Checklist</h2>
+              <p>Educational checklist based on current live technical conditions. It does not predict prices or guarantee outcomes.</p>
             </div>
 
             <span id="setupExecutionState" class="setup-execution-badge setup-state-loading">Loading...</span>
@@ -963,13 +963,13 @@
 
           <div class="setup-quality-overview">
             <article class="setup-grade-panel">
-              <span class="technical-label">Setup Grade</span>
+              <span class="technical-label">Alignment Grade</span>
               <strong id="setupGrade">--</strong>
               <p id="setupScore">-- / 9 checks passed</p>
             </article>
 
             <article class="setup-decision-panel">
-              <span class="technical-label">Checklist Decision</span>
+              <span class="technical-label">Overall Read</span>
               <strong id="setupDirection">--</strong>
               <p id="setupDecisionReason">Waiting for live technical checklist data...</p>
             </article>
@@ -986,8 +986,8 @@
           </div>
 
           <p class="setup-quality-note">
-            READY still means wait for the stated trigger and use only the virtual
-            paper-trading simulator. This dashboard is educational, not financial advice.
+            Grades only describe how many technical readings agree right now. They are not
+            a prediction or a recommendation to buy or sell. Educational only, not financial advice.
           </p>
         </section>
 
@@ -1439,7 +1439,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=20261005-poll-1"></script>
+  <script src="/frontend/app.js?v=20261005-neutral-2"></script>
 
   <!-- Paper trading order ticket (paper.js) -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
@@ -1496,7 +1496,7 @@
   <script src="/frontend/paper.js?v=20261005-cdet-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
-  <script src="/frontend/neutral-terms.js?v=20261005-neutral-1"></script>
+  <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
 

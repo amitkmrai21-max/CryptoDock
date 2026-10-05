@@ -560,7 +560,7 @@ def calculate_swing_failure_structure(candles, atr_value, swing_left_right=3, vo
         }
 
     if not pivot_highs or not pivot_lows:
-        return build_filter_result("NEUTRAL", "NO TRADE", "STRUCTURE TRACKING", None, None, None, current_price, None, None, "HOLD — waiting for confirmed 15m swing pivots.", "No confirmed local swing high and low are available yet.", "LOW", [], ["Confirmed local swing high/low"], [], "No confirmed swing structure yet")
+        return build_filter_result("NEUTRAL", "NO TRADE", "STRUCTURE TRACKING", None, None, None, current_price, None, None, "NEUTRAL — waiting for confirmed 15m swing pivots.", "No confirmed local swing high and low are available yet.", "LOW", [], ["Confirmed local swing high/low"], [], "No confirmed swing structure yet")
 
     active_high_index = pivot_highs[-1]
     active_low_index = pivot_lows[-1]
@@ -588,7 +588,7 @@ def calculate_swing_failure_structure(candles, atr_value, swing_left_right=3, vo
         except ValueError:
             adx_value_for_confidence = 0
         hold_confidence = calculate_multi_factor_confidence(adx_value_for_confidence, rsi_value, macd_state, effective_volume_ratio, current_price, break_level, protected_level)
-        return build_filter_result(direction, signal, "INSIDE STRUCTURE", active_high, active_low, protected_level, break_level, protected_level, active_low if direction == "BULLISH" else active_high, f"HOLD — price is inside the active 15m swing range. No final trade; wait for a confirmed break and retest.", "No current swing level has a body-close break beyond the 0.15 ATR buffer.", "LOW", [], ["0.15 ATR body-close break", "Break volume >= 0.40x", "Second 15m direction close", "Retest confirmation"], [], "No confirmed break yet", hold_confidence=hold_confidence)
+        return build_filter_result(direction, signal, "INSIDE STRUCTURE", active_high, active_low, protected_level, break_level, protected_level, active_low if direction == "BULLISH" else active_high, "NEUTRAL — price is inside the active 15m swing range. No confirmed break yet.", "No current swing level has a body-close break beyond the 0.15 ATR buffer.", "LOW", [], ["0.15 ATR body-close break", "Break volume >= 0.40x", "Second 15m direction close", "Retest confirmation"], [], "No confirmed break yet", hold_confidence=hold_confidence)
 
     newest_is_bullish = bullish_break_index is not None and (bearish_break_index is None or bullish_break_index > bearish_break_index)
     if newest_is_bullish:
@@ -655,7 +655,7 @@ def calculate_swing_failure_structure(candles, atr_value, swing_left_right=3, vo
         waiting.append("Retest confirmation candle")
 
     if failed_break:
-        return build_filter_result(direction, watch_signal, "BREAK FAILED / BACK INSIDE", active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"{watch_signal} — break moved back inside the prior swing range. Do not enter; wait for a fresh break and retest.", "Price body-close accepted back inside the old swing structure.", "LOW", passed, waiting, failed, "Break failed; price returned inside")
+        return build_filter_result(direction, watch_signal, "BREAK FAILED / BACK INSIDE", active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"{watch_signal} — break moved back inside the prior swing range, so it is not confirmed.", "Price body-close accepted back inside the old swing structure.", "LOW", passed, waiting, failed, "Break failed; price returned inside")
     supporting_checks = [volume_ok, second_close_ok, trend_1h_ok, trend_4h_ok, momentum_ok]
     supporting_passed = sum(1 for check in supporting_checks if check)
     retest_path_ok = retest_seen and final_confirmation and supporting_passed >= 3
@@ -668,9 +668,9 @@ def calculate_swing_failure_structure(candles, atr_value, swing_left_right=3, vo
         quality_label = "HIGH" if supporting_passed == len(supporting_checks) else "MEDIUM"
         supporting_summary = f"{supporting_passed}/{len(supporting_checks)} supporting filters aligned (volume, second close, 1h trend, 4h trend, momentum)"
         path_summary = "retest and confirmation candle are present" if retest_path_ok else "breakout is continuing without a pullback yet"
-        return build_filter_result(direction, final_signal, f"{final_signal} CONFIRMED — {quality_label} QUALITY", active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"{final_signal} — confirmed 15m break, {path_summary}, with {supporting_summary}.", f"Core price-action confirmed ({path_summary}); {supporting_summary}.", quality_label, passed, waiting, failed, "Bullish break + support retest hold" if direction == "BULLISH" else "Bearish break + resistance retest rejection", confirmation_close_price)
+        return build_filter_result(direction, final_signal, f"{direction} STRUCTURE BREAK — {quality_label} ALIGNMENT", active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"{direction} — confirmed 15m structure break, {path_summary}, with {supporting_summary}.", f"Core price-action confirmed ({path_summary}); {supporting_summary}.", quality_label, passed, waiting, failed, "Bullish break + support retest hold" if direction == "BULLISH" else "Bearish break + resistance retest rejection", confirmation_close_price)
     status = f"{direction} BREAK / FILTERS PENDING" if not failed else f"{direction} BREAK / FILTER FAILED"
-    return build_filter_result(direction, watch_signal, status, active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"HOLD — a structure break exists, but final {final_signal} is blocked until every fakeout filter passes. Review failed/pending filters below.", "Break is not yet high quality enough for a final signal.", "MEDIUM" if len(failed) <= 1 else "LOW", passed, waiting, failed, "Bullish break awaiting filters" if direction == "BULLISH" else "Bearish break awaiting filters")
+    return build_filter_result(direction, watch_signal, status, active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"NEUTRAL — a {direction.lower()} structure break exists, but it is not confirmed until every fakeout filter passes. See failed/pending filters below.", "Break is not yet confirmed by all filters.", "MEDIUM" if len(failed) <= 1 else "LOW", passed, waiting, failed, "Bullish break awaiting filters" if direction == "BULLISH" else "Bearish break awaiting filters")
 
 
 def calculate_market_indicators(candles, interval):
@@ -842,7 +842,7 @@ def calculate_market_regime(market_data):
     bullish_count = sum("bull" in trend for trend in trends)
     bearish_count = sum("bear" in trend for trend in trends)
     if average_atr_percent >= 2.2 or average_bb_width >= 8:
-        label, detail = "High Volatility", "Price swings are elevated; use wider invalidation and reduce trade frequency."
+        label, detail = "High Volatility", "Price swings are elevated; moves are larger and less predictable than usual."
     elif average_adx >= 25 and (bullish_count >= 2 or bearish_count >= 2):
         label, detail = "Trending", "Directional trend conditions are present across multiple timeframes."
     elif average_adx < 18 and average_atr_percent < 0.8:
@@ -989,7 +989,7 @@ def technical_main_signal(market_data):
         else "Bearish technical bias" if direction == "BEARISH"
         else "Neutral / mixed technical bias"
     )
-    setup_status = sfs.get("break_status") or "Mixed technical setup — wait"
+    setup_status = sfs.get("break_status") or "Mixed technical readings"
     reason = sfs.get("final_conclusion") or sfs.get("reason") or "Technical fallback: waiting for a clearer confirmed structure."
 
     # Macro-trend fallback: if the strict short-term structure-break filters never
@@ -1004,7 +1004,7 @@ def technical_main_signal(market_data):
         confidence = max(45, min(65, round(45 + abs(float(macro_trend.get("percent_change", 0))) * 4)))
         risk = "MEDIUM"
         market_bias = "Bullish technical bias" if direction == "BULLISH" else "Bearish technical bias"
-        setup_status = f"MACRO TREND {final_signal} — sustained move over recent hours"
+        setup_status = f"MACRO TREND {direction} — sustained move over recent hours"
         reason = macro_trend.get("reason", reason)
 
     levels = None
@@ -1019,20 +1019,20 @@ def technical_main_signal(market_data):
         if not (buy_ok or sell_ok):
             levels = None
             final_signal = "HOLD"
-            reason = "Candidate levels failed validation ordering, so no confirmed setup was accepted."
-            setup_status = "Mixed technical setup — wait"
+            reason = "Level ordering did not validate, so no confirmed structure is shown."
+            setup_status = "Mixed technical readings"
             risk = "HIGH"
 
     if levels:
-        entry_idea = f"Educational candidate entry: ${levels['entry_price']:,.2f}"
-        stop_loss_idea = f"Educational candidate invalidation: ${levels['stop_loss_price']:,.2f}"
+        entry_idea = f"Reference level: ${levels['entry_price']:,.2f}"
+        stop_loss_idea = f"Invalidation level: ${levels['stop_loss_price']:,.2f}"
         target_1, target_2 = f"${levels['target_1_price']:,.2f}", f"${levels['target_2_price']:,.2f}"
         confirmation_needed = "No extra confirmation required by the current engine rules."
         entry_price, stop_loss_price = levels["entry_price"], levels["stop_loss_price"]
         target_1_price, target_2_price = levels["target_1_price"], levels["target_2_price"]
     else:
-        entry_idea = "No educational entry idea while technical signals are mixed."
-        stop_loss_idea = "No trade is preferred until a clearer setup appears."
+        entry_idea = "No clear structure while technical readings are mixed."
+        stop_loss_idea = "No clear invalidation level while readings are mixed."
         target_1, target_2 = "--", "--"
         entry_price = stop_loss_price = target_1_price = target_2_price = 0
         pending = waiting_filters + failed_filters
@@ -1092,10 +1092,10 @@ def build_setup_quality(market_data, technical_result):
     if regime_label == "Trending":
         add("market_regime", "Market regime suitability", "PASS", f"Trending regime with average ADX {average_adx:.1f} supports directional setups.")
     elif regime_label == "High Volatility":
-        add("market_regime", "Market regime suitability", "WAIT", "High volatility can create opportunity, but needs reduced size and wider invalidation.")
+        add("market_regime", "Market regime suitability", "WAIT", "Volatility is high, so price swings are larger and readings change faster.")
         flags.append("High volatility")
     else:
-        add("market_regime", "Market regime suitability", "WAIT", f"{regime_label} conditions need extra confirmation before a directional practice trade.")
+        add("market_regime", "Market regime suitability", "WAIT", f"{regime_label} conditions give weaker directional readings.")
     rsi_values = [float(m15.get("rsi_14", 50)), float(m1h.get("rsi_14", 50)), float(m4h.get("rsi_14", 50))]
     momentum_values = [float(m15.get("momentum_percent", 0)), float(m1h.get("momentum_percent", 0)), float(m4h.get("momentum_percent", 0))]
     momentum_ok = (direction == "BUY" and sum(50 <= value <= 72 for value in rsi_values) >= 2 and sum(value >= 0 for value in momentum_values) >= 2) or (direction == "SELL" and sum(28 <= value <= 50 for value in rsi_values) >= 2 and sum(value <= 0 for value in momentum_values) >= 2)
@@ -1129,18 +1129,18 @@ def build_setup_quality(market_data, technical_result):
     if direction != "NEUTRAL" and not level_ok:
         flags.append("Limited room to key level")
     risk_reward_ok = direction != "NEUTRAL" and level_ok and float(m15.get("atr_percent", 0)) > 0
-    add("risk_reward", "Risk/reward feasibility", "PASS" if risk_reward_ok else "WAIT", "A measurable invalidation and enough target room are available." if risk_reward_ok else "Wait for a clearer trigger, invalidation, and target distance before any practice trade.")
+    add("risk_reward", "Room to next levels", "PASS" if risk_reward_ok else "WAIT", "Price has measurable room to the next key level." if risk_reward_ok else "Price is close to a key level or the direction is unclear.")
     passed = sum(item["state"] == "PASS" for item in items)
     waiting = sum(item["state"] == "WAIT" for item in items)
     failed = sum(item["state"] == "FAIL" for item in items)
     if direction == "NEUTRAL" or failed >= 2:
-        grade, execution_state, decision_reason = "D", "AVOID", "Live conditions are mixed or have major checklist failures. Avoid forcing a practice entry."
+        grade, execution_state, decision_reason = "D", "MIXED", "Live readings are mixed or several checklist items fail. There is no clear technical picture right now."
     elif passed >= 7 and failed == 0:
-        grade, execution_state, decision_reason = "A", "READY", "Most technical conditions are aligned. Still wait for the stated trigger and define invalidation."
+        grade, execution_state, decision_reason = "A", "ALIGNED", "Most technical readings point the same way. This describes current conditions only, not what price will do next."
     elif passed >= 5 and failed <= 1:
-        grade, execution_state, decision_reason = "B", "WAIT FOR TRIGGER", "The setup is developing, but a trigger or additional confirmation is still needed."
+        grade, execution_state, decision_reason = "B", "DEVELOPING", "Many readings point the same way, but some are still unconfirmed."
     else:
-        grade, execution_state, decision_reason = "C", "WAIT / LOW QUALITY", "Checklist quality is incomplete. Wait for better alignment rather than forcing a trade."
+        grade, execution_state, decision_reason = "C", "WEAK ALIGNMENT", "Only some readings agree, so the overall picture is weak."
     return {"grade": grade, "execution_state": execution_state, "direction": direction, "score": {"passed": passed, "waiting": waiting, "failed": failed, "total": len(items)}, "decision_reason": decision_reason, "risk_flags": flags, "items": items}
 
 
