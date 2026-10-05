@@ -780,7 +780,7 @@ body { font-variant-numeric: tabular-nums; }
 .cd-ticker:hover .cd-ticker-track, .cd-ticker:active .cd-ticker-track { animation-play-state: paused; }
 @keyframes cdTickerSlide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .cd-ticker { overflow-x: auto; } .cd-ticker-track { animation: none; } }
-.cd-tick { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-right: 1px solid var(--border); background: none; color: var(--text); font: inherit; cursor: pointer; flex-shrink: 0; }
+.cd-tick { position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; flex-shrink: 0; }
 .cd-tick .cd-avatar { width: 26px; height: 26px; }
 .cd-tick-text { display: flex; flex-direction: column; text-align: left; line-height: 1.25; }
 .cd-tick-text strong { font-size: 12.5px; }
@@ -1749,3 +1749,12 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .topbar #topMarketStatus .market-status-dot { animation: none; } }
 .cd-rrg-live[hidden] { display: none; }
+
+/* Ticker: the line between coins softly fades lighter and darker */
+.cd-tick::after {
+  content: ""; position: absolute; right: 0; top: 12%; bottom: 12%; width: 1.5px; border-radius: 2px;
+  background: linear-gradient(180deg, transparent, #a78bfa 30%, #a78bfa 70%, transparent);
+  animation: cdTickLine 2.4s ease-in-out infinite;
+}
+@keyframes cdTickLine { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.85; } }
+@media (prefers-reduced-motion: reduce) { .cd-tick::after { animation: none; opacity: 0.4; } }
