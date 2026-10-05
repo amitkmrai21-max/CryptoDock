@@ -1,5 +1,4 @@
-// Phone navigation like a native app: Home, Watchlist (every coin, with
-// its All / Starred tabs), Scanner, Portfolio and More — More opens a sheet
+// Phone navigation like a native app: Home, Watchlist, Position, Scanner and More — More opens a sheet
 // with every other page and Settings. It drives the same sidebar buttons, so page switching and
 // Pro rules stay in one place. Shown only on narrow screens (markets.css).
 (function cryptoTabBar() {
@@ -8,7 +7,7 @@
   const grid = document.getElementById("cdMoreGrid");
   if (!bar || !sheet || !grid) return;
 
-  const MAIN_PAGES = ["dashboard", "watchlist", "scanner", "positions"];
+  const MAIN_PAGES = ["dashboard", "watchlist", "positions", "scanner"];
   const sidebarTab = (page) => document.querySelector(`.sidebar .app-tab[data-tab="${page}"]`);
   const activePanel = () => document.querySelector(".tab-panel.active")?.dataset.panel || "dashboard";
 
@@ -65,7 +64,7 @@
     if (which === "home") go("dashboard");
     else if (which === "watch") go("watchlist");
     else if (which === "scanner") go("scanner");
-    else if (which === "portfolio") go("positions");
+    else if (which === "portfolio" || which === "position") go("positions");
     else openMore();
   });
 
