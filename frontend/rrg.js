@@ -2,7 +2,7 @@
 // against an equal-weight top-20 index (GET /api/rrg/rotation). Drawn on a
 // canvas: four quadrants, a fading tail per coin and its head. ▶ replays the
 // rotation; coins glide along their own path (positions are interpolated
-// between candles), with 0.5x–4x speed and a timeline to scrub.
+// between candles), with 0.25x–4x speed and a timeline to scrub.
 (function cryptoRrg() {
   const el = (id) => document.getElementById(id);
   const canvas = el("cdRrgCanvas");
@@ -39,6 +39,7 @@
   let speed = 1;
   let highlight = null;
   let lastTs = 0;
+  let drawDt = 0; // seconds since the last frame while playing (0 = jump straight there)
   let timer = null;
   let loading = false;
   let geom = null;
@@ -140,6 +141,21 @@
     return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   }
 
+  // Smooth position between candles (a Catmull-Rom curve through the
+  // points), so the arrow glides through each candle without a sharp turn.
+  function smoothAt(points, f) {
+    const n = points.length;
+    if (n < 2) return points[0] || null;
+    f = Math.max(0, Math.min(n - 1, f));
+    const i = Math.min(n - 2, Math.floor(f));
+    const p1 = points[i], p2 = points[i + 1];
+    if (!p1 || !p2) return pointAt(points, f);
+    const p0 = points[i - 1] || p1, p3 = points[i + 2] || p2;
+    const t = f - i, t2 = t * t, t3 = t2 * t;
+    const c = (a, b, d, e) => 0.5 * (2 * b + (d - a) * t + (2 * a - 5 * b + 4 * d - e) * t2 + (3 * b - a - 3 * d + e) * t3);
+    return [c(p0[0], p1[0], p2[0], p3[0]), c(p0[1], p1[1], p2[1], p3[1])];
+  }
+
   function quadOf(p) {
     if (p[0] >= 100 && p[1] >= 100) return "leading";
     if (p[0] >= 100) return "weakening";
@@ -209,37 +225,59 @@
     for (const coin of order) {
       const dim = highlight && highlight !== coin.base;
       const color = colorFor(coin.base);
-      const i = Math.floor(frame);
-      const start = Math.max(0, i - tail + 1);
-      const path = [];
-      for (let k = start; k <= i; k++) if (coin.points[k]) path.push(coin.points[k]);
-      const head = pointAt(coin.points, frame);
+      coin._head = null;
+      if (coin._first === undefined) coin._first = coin.points.findIndex((p) => p);
+      if (coin._first < 0 || frame < coin._first) continue;
+      const head = smoothAt(coin.points, frame);
       if (!head) continue;
-      if (frame > i) path.push(head);
-      ctx.globalAlpha = dim ? 0.16 : 1;
-      // tail: older segments fade out
-      ctx.lineCap = "round"; ctx.lineJoin = "round";
-      for (let k = 1; k < path.length; k++) {
-        ctx.strokeStyle = color;
-        ctx.globalAlpha = (dim ? 0.16 : 1) * (0.18 + 0.82 * (k / path.length));
-        ctx.lineWidth = coin.base === highlight ? 3.2 : 2.2;
+      // tail: the last few candles as one smooth curve that slides along
+      // with the arrow (no segment drops off at once); older parts fade out
+      const span = tail - 1;
+      const from0 = Math.max(coin._first, frame - span);
+      const steps = Math.max(1, Math.ceil((frame - from0) / 0.08));
+      const base = dim ? 0.16 : 1;
+      ctx.lineCap = "butt"; ctx.lineJoin = "round"; // butt: the short pieces don't overlap into beads
+      ctx.strokeStyle = color;
+      ctx.lineWidth = coin.base === highlight ? 3.2 : 2.2;
+      let prev = smoothAt(coin.points, from0);
+      for (let k = 1; k <= steps && prev; k++) {
+        const f = from0 + ((frame - from0) * k) / steps;
+        const cur = smoothAt(coin.points, f);
+        if (!cur) break;
+        ctx.globalAlpha = base * (0.1 + 0.9 * (1 - (frame - f) / span));
         ctx.beginPath();
-        ctx.moveTo(X(path[k - 1][0]), Y(path[k - 1][1]));
-        ctx.lineTo(X(path[k][0]), Y(path[k][1]));
+        ctx.moveTo(X(prev[0]), Y(prev[1]));
+        ctx.lineTo(X(cur[0]), Y(cur[1]));
         ctx.stroke();
+        prev = cur;
       }
-      for (let k = 0; k < path.length - 1; k++) {
-        ctx.globalAlpha = (dim ? 0.16 : 1) * (0.25 + 0.6 * (k / path.length));
-        ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(X(path[k][0]), Y(path[k][1]), 2.2, 0, Math.PI * 2); ctx.fill();
+      // a small dot on each candle inside the tail, fading with age
+      ctx.fillStyle = color;
+      for (let k = Math.ceil(from0); k < frame - 0.15; k++) {
+        const p = coin.points[k];
+        if (!p) continue;
+        ctx.globalAlpha = base * 0.85 * (1 - (frame - k) / span);
+        ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), 2.2, 0, Math.PI * 2); ctx.fill();
       }
-      // head: an arrow pointing the way the coin is moving
+      // head: an arrow along the curve's direction (keeps its last
+      // direction while the coin is standing still)
       ctx.globalAlpha = dim ? 0.25 : 1;
       const hxp = X(head[0]), hyp = Y(head[1]);
-      let from = path.length >= 2 ? path[path.length - 2] : pointAt(coin.points, Math.max(0, frame - 1));
-      let dx = from ? hxp - X(from[0]) : 1, dy = from ? hyp - Y(from[1]) : 0;
-      if (Math.hypot(dx, dy) < 0.5) { dx = 1; dy = 0; }
-      const len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+      const back = smoothAt(coin.points, Math.max(coin._first, frame - 0.12));
+      const ahead = frame - 0.12 < coin._first ? smoothAt(coin.points, Math.min(lastFrame(), frame + 0.12)) : null;
+      let dx = 0, dy = 0;
+      if (ahead) { dx = X(ahead[0]) - hxp; dy = Y(ahead[1]) - hyp; }
+      else if (back) { dx = hxp - X(back[0]); dy = hyp - Y(back[1]); }
+      let ang = Math.hypot(dx, dy) < 0.05 ? (coin._ang ?? 0) : Math.atan2(dy, dx);
+      // While playing, the arrow turns gently toward its new direction
+      // instead of snapping round at a sharp corner.
+      if (drawDt && coin._ang !== undefined) {
+        let turn = ang - coin._ang;
+        turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+        ang = coin._ang + turn * (1 - Math.exp(-drawDt * 7 * Math.max(1, speed)));
+      }
+      coin._ang = ang;
+      const ux = Math.cos(ang), uy = Math.sin(ang);
       const big = coin.base === highlight;
       const al = big ? 20 : (small ? 14 : 16), aw = big ? 15 : (small ? 11 : 12);
       const bx = hxp - ux * al, by = hyp - uy * al;
@@ -369,7 +407,9 @@
     const dt = lastTs ? Math.min(0.1, (ts - lastTs) / 1000) : 0;
     lastTs = ts;
     frame = Math.min(lastFrame(), frame + dt * FRAMES_PER_SEC * speed);
+    drawDt = dt;
     draw();
+    drawDt = 0;
     renderPlayer();
     if (frame >= lastFrame()) { playing = false; renderAll(); schedule(); return; }
     requestAnimationFrame(tick);
