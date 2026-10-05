@@ -1606,7 +1606,13 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-head-acts { margin-left: auto; }
 .cd-rrg-head-acts .cd-rrg-reset { white-space: nowrap; }
 
-/* Watchlist notes: one card, one point per line */
-#btcModeRoot .cd-page-notes.cd-notes-list { list-style: disc; white-space: normal; text-align: left; padding: 8px 14px 8px 30px; line-height: 1.75; font-size: 12.5px; }
+/* Watchlist notes: one card, two points, each kept on one line
+   (fit-line.js shrinks the font until both fit) */
+#btcModeRoot .cd-page-notes.cd-notes-list { list-style: disc; white-space: nowrap; overflow: hidden; text-align: left; padding: 8px 12px 8px 28px; line-height: 1.75; font-size: 12.5px; }
+#btcModeRoot .cd-page-notes.cd-notes-list.is-wrapped { white-space: normal; }
+#btcModeRoot .cd-page-notes.cd-notes-list b { color: var(--purple, #a78bfa); font-weight: 800; }
 #btcModeRoot .cd-page-notes.cd-notes-list li { display: list-item; }
 #btcModeRoot .cd-page-notes.cd-notes-list li + li::before { content: none; }
+@media (max-width: 760px) {
+  #btcModeRoot .cd-page-notes.cd-notes-list { padding: 7px 6px 7px 19px; }
+}
