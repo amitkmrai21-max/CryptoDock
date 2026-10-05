@@ -55,9 +55,31 @@ jobs:
           PY
           grep -n "auth-callback\|launchMode" app/src/main/AndroidManifest.xml
 
+      - name: MainActivity that opens TradingView links (intent://)
+        working-directory: mobile-app
+        run: |
+          cp native/MainActivity.java android/app/src/main/java/com/cryptodock/app/MainActivity.java
+          grep -n "openIntentUrl" android/app/src/main/java/com/cryptodock/app/MainActivity.java | head -1
+
       - name: App icon and splash from mobile-app/assets
         working-directory: mobile-app
         run: npx --yes @capacitor/assets@3 generate --android
+
+      - name: White launch screen behind the logo (Android 12+ splash)
+        working-directory: mobile-app/android
+        run: |
+          python3 - <<'PY'
+          path = "app/src/main/res/values/styles.xml"
+          text = open(path).read()
+          if "windowSplashScreenBackground" not in text:
+              old = '<item name="android:background">@drawable/splash</item>'
+              text = text.replace(old, old + """
+                  <item name="windowSplashScreenBackground">#FFFFFF</item>
+                  <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+                  <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>""", 1)
+              open(path, "w").write(text)
+          PY
+          grep -n "Splash" app/src/main/res/values/styles.xml
 
       - name: Set version
         working-directory: mobile-app/android

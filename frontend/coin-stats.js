@@ -155,7 +155,7 @@
   el("cdStatsClose").addEventListener("click", close);
   el("cdStats").addEventListener("click", (event) => { if (event.target.id === "cdStats") close(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && base) close(); });
-  el("cdStatsChart").addEventListener("click", () => then((b) => window.cdOpenCoin && window.cdOpenCoin(b)));
+  el("cdStatsChart").addEventListener("click", () => then((b) => window.cdOpenTradingView && window.cdOpenTradingView(b)));
   el("cdStatsAlert").addEventListener("click", () => then((b) => window.cdNewAlert && window.cdNewAlert(b)));
   el("cdStatsStar").addEventListener("click", () => { if (window.cdToggleWatch && base) { window.cdToggleWatch(base); render(); } });
 

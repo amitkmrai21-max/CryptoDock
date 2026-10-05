@@ -370,7 +370,7 @@
   el("cdTicketChart")?.addEventListener("click", () => {
     const base = ticket.base;
     closeTicket();
-    if (base && typeof window.cdOpenCoin === "function") window.cdOpenCoin(base);
+    if (base && typeof window.cdOpenTradingView === "function") window.cdOpenTradingView(base);
   });
   el("cdTicket").addEventListener("click", (event) => { if (event.target.id === "cdTicket") closeTicket(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && ticket.base) closeTicket(); });
