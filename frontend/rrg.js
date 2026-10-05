@@ -11,7 +11,7 @@
   const ctx = canvas.getContext("2d");
 
   const TF_REFRESH_MS = { "1h": 60e3, "1m": 600e3, "1y": 3600e3 };
-  const TAIL = { "1h": 10, "1m": 8, "1y": 10 };
+  const TAIL_POINTS = 4; // each coin's trail: its last 4 points
   const FRAMES_PER_SEC = 2.2; // at 1x
   const MAX_EXTRA = 10;
   const QUADS = {
@@ -194,7 +194,7 @@
 
     if (!data) return;
     const coins = visibleCoins();
-    const tail = TAIL[data.timeframe] || 10;
+    const tail = TAIL_POINTS;
     const order = coins.slice().sort((a, b) => (a.base === highlight) - (b.base === highlight));
     const labels = [];
     for (const coin of order) {
@@ -224,13 +224,27 @@
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.arc(X(path[k][0]), Y(path[k][1]), 2.2, 0, Math.PI * 2); ctx.fill();
       }
-      // head + label
+      // head: an arrow pointing the way the coin is moving
       ctx.globalAlpha = dim ? 0.25 : 1;
       const hxp = X(head[0]), hyp = Y(head[1]);
+      let from = path.length >= 2 ? path[path.length - 2] : pointAt(coin.points, Math.max(0, frame - 1));
+      let dx = from ? hxp - X(from[0]) : 1, dy = from ? hyp - Y(from[1]) : 0;
+      if (Math.hypot(dx, dy) < 0.5) { dx = 1; dy = 0; }
+      const len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+      const big = coin.base === highlight;
+      const al = big ? 20 : (small ? 14 : 16), aw = big ? 15 : (small ? 11 : 12);
+      const bx = hxp - ux * al, by = hyp - uy * al;
       ctx.fillStyle = color;
       ctx.strokeStyle = "#0b0a14";
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(hxp, hyp, coin.base === highlight ? 8 : 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.lineWidth = 1.6;
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(hxp, hyp);
+      ctx.lineTo(bx - uy * aw / 2, by + ux * aw / 2);
+      ctx.lineTo(bx + uy * aw / 2, by - ux * aw / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
       coin._head = [hxp, hyp, head];
       labels.push({ coin, x: hxp, y: hyp, color, dim });
     }
@@ -294,11 +308,7 @@
     if (!data) return;
     const f = F();
     const coins = visibleCoins();
-    // chips
-    const chips = data.coins.map((c) => `<span class="cd-rrg-chip${hidden.has(c.base) ? " is-off" : ""}${highlight === c.base ? " is-hl" : ""}" data-rrg-coin="${esc(c.base)}">
-        <i style="background:${colorFor(c.base)}"></i>${esc(c.base)}<button type="button" data-rrg-x="${esc(c.base)}" aria-label="${hidden.has(c.base) ? "Show" : "Hide"} ${esc(c.base)}">${hidden.has(c.base) ? "+" : "×"}</button></span>`).join("");
-    const changed = extra.length || hidden.size;
-    el("cdRrgChips").innerHTML = chips + (changed ? '<button type="button" class="cd-rrg-reset" id="cdRrgReset">↺ Top 20</button>' : "");
+    el("cdRrgReset").hidden = !(extra.length || hidden.size);
     // quadrant summary
     const groups = { leading: [], weakening: [], lagging: [], improving: [] };
     coins.forEach((c) => groups[c.quadrant].push(c.base));
@@ -306,15 +316,20 @@
         <span>${QUADS[q].label}</span><b>${groups[q].length}</b><small>${esc(groups[q].slice(0, 6).join(" · ")) || "—"}${groups[q].length > 6 ? " …" : ""}</small></div>`).join("");
     // table
     const rank = { leading: 0, weakening: 1, improving: 2, lagging: 3 };
-    el("cdRrgBody").innerHTML = coins.slice().sort((a, b) => rank[a.quadrant] - rank[b.quadrant] || b.ratio - a.ratio).map((c) => {
+    // Every coin is listed — hidden ones dimmed — with its show / hide
+    // switch, and × for coins added by search.
+    el("cdRrgBody").innerHTML = data.coins.slice().sort((a, b) => hidden.has(a.base) - hidden.has(b.base) || rank[a.quadrant] - rank[b.quadrant] || b.ratio - a.ratio).map((c) => {
       const h = heading(c.points);
-      return `<tr data-rrg-row="${esc(c.base)}" class="${highlight === c.base ? "is-hl" : ""}">
+      const off = hidden.has(c.base);
+      const added = extra.includes(c.base);
+      return `<tr data-rrg-row="${esc(c.base)}" class="${highlight === c.base ? "is-hl" : ""}${off ? " is-off" : ""}">
         <td><span class="cd-rrg-dot" style="background:${colorFor(c.base)}"></span><strong>${esc(c.base)}</strong></td>
         <td><span class="cd-rrg-q is-${c.quadrant}">${QUADS[c.quadrant].label}</span></td>
         <td class="cd-num">${c.ratio.toFixed(2)}</td>
         <td class="cd-num">${c.momentum.toFixed(2)}</td>
         <td class="cd-num ${h.cls}">${h.arrow}</td>
         <td class="cd-num ${f.pctClass ? f.pctClass(c.change_percent) : ""}">${c.change_percent != null && f.fmtPct ? f.fmtPct(c.change_percent) : "--"}</td>
+        <td class="cd-rrg-act"><button type="button" class="cd-rrg-eye${off ? "" : " is-on"}" data-rrg-x="${esc(c.base)}" aria-label="${off ? "Show" : "Hide"} ${esc(c.base)} on the chart"><i></i></button>${added ? `<button type="button" class="cd-rrg-del" data-rrg-del="${esc(c.base)}" aria-label="Remove ${esc(c.base)}">×</button>` : ""}</td>
       </tr>`;
     }).join("");
     el("cdRrgMeta").textContent = `${coins.length} coins vs ${data.benchmark} · ${data.label} · updated ${new Date(data.updated_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
@@ -492,15 +507,23 @@
   document.addEventListener("click", (e) => {
     const x = e.target.closest("[data-rrg-x]");
     if (x) {
-      e.stopPropagation();
       const base = x.dataset.rrgX;
-      if (extra.includes(base) && !hidden.has(base)) {
-        extra = extra.filter((b) => b !== base);
-        store.set("cdRrgExtra", extra);
-        if (data) data.coins = data.coins.filter((c) => c.base !== base);
-      } else if (hidden.has(base)) hidden.delete(base);
+      if (hidden.has(base)) hidden.delete(base);
       else hidden.add(base);
       store.set("cdRrgHidden", [...hidden]);
+      if (highlight === base) highlight = null;
+      hideTip();
+      renderAll();
+      return;
+    }
+    const del = e.target.closest("[data-rrg-del]");
+    if (del) {
+      const base = del.dataset.rrgDel;
+      extra = extra.filter((b) => b !== base);
+      hidden.delete(base);
+      store.set("cdRrgExtra", extra);
+      store.set("cdRrgHidden", [...hidden]);
+      if (data) data.coins = data.coins.filter((c) => c.base !== base);
       if (highlight === base) highlight = null;
       hideTip();
       renderAll();
@@ -513,11 +536,11 @@
       load();
       return;
     }
-    const chip = e.target.closest("[data-rrg-coin]");
-    if (chip && !hidden.has(chip.dataset.rrgCoin)) { setHighlight(highlight === chip.dataset.rrgCoin ? null : chip.dataset.rrgCoin, true); return; }
     const row = e.target.closest("[data-rrg-row]");
     if (row) {
-      setHighlight(highlight === row.dataset.rrgRow ? null : row.dataset.rrgRow, true);
+      const base = row.dataset.rrgRow;
+      if (hidden.has(base)) { hidden.delete(base); store.set("cdRrgHidden", [...hidden]); highlight = null; }
+      setHighlight(highlight === base ? null : base, true);
       stage.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   });
