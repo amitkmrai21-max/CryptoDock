@@ -11389,3 +11389,101 @@ body[data-theme="light"] #im-stock-options .oc-main {
 #im-stock-options .oc-tradable:active {
   background: rgba(76, 141, 255, 0.18);
 }
+
+/* ===== Technical Gating / Under Maintenance Card ===== */
+.cd-tech-locked-view {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+}
+.cd-tech-locked-card {
+  max-width: 540px;
+  width: 100%;
+  background: var(--bg-card, rgba(20, 24, 38, 0.95));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+}
+.cd-tech-locked-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+.cd-tech-locked-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  margin-bottom: 0.75rem;
+}
+.cd-tech-locked-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0.25rem 0 0.5rem 0;
+  color: var(--text-heading, #ffffff);
+}
+.cd-tech-coming-soon-pill {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 0.25rem 0.8rem;
+  border-radius: 6px;
+  margin-bottom: 1.25rem;
+}
+.cd-tech-locked-desc {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 1.5rem;
+}
+.cd-tech-locked-features {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.75rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.cd-tech-feat-item {
+  font-size: 0.85rem;
+  color: var(--text-primary, #e2e8f0);
+}
+.cd-tech-back-btn {
+  background: var(--accent-color, #3b82f6);
+  color: #ffffff;
+  border: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.cd-tech-back-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+.cd-nav-lock-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.2);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  margin-left: 0.35rem;
+}
