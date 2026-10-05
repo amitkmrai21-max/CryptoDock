@@ -1978,18 +1978,33 @@ setupLiveCandlestickChart();
 renderSavedProviderPlanIfAny("GEMINI");
 renderSavedProviderPlanIfAny("GROQ");
 
-refreshAllData();
+// The BTC price / chart / technical feeds only serve the Technical page now,
+// so they poll only while that page is open and the app is in front —
+// not for every open app all the time.
+const technicalPageOpen = () => !document.hidden && document.querySelector(".tab-panel.active")?.dataset.panel === "technical";
+if (technicalPageOpen()) refreshAllData();
 
-setInterval(loadPrice, 30000);
-setInterval(loadChart, 60000);
-setInterval(loadBtcSparkline, 60000);
+setInterval(() => { if (technicalPageOpen()) loadPrice(); }, 30000);
+setInterval(() => { if (technicalPageOpen()) loadChart(); }, 60000);
+setInterval(() => { if (technicalPageOpen()) loadBtcSparkline(); }, 60000);
 
 setInterval(() => {
+  if (!technicalPageOpen()) return;
   if (typeof window.isAiPlanLocked === "function" && window.isAiPlanLocked()) return;
   refreshTechnicalAnalysis("Automatic technical refresh.");
 }, 10000);
 
-setInterval(loadRrg, 300000);
+// Opening the Technical page (by tap, or the app reopening on it) loads it at once.
+(function watchTechnicalPage() {
+  const panel = document.querySelector('.tab-panel[data-panel="technical"]');
+  if (!panel) return;
+  let wasOpen = panel.classList.contains("active");
+  new MutationObserver(() => {
+    const open = panel.classList.contains("active");
+    if (open && !wasOpen) refreshAllData();
+    wasOpen = open;
+  }).observe(panel, { attributes: true, attributeFilter: ["class"] });
+})();
 /* ===== Dashboard tabs and settings ===== */
 (() => {
   const STORAGE_KEY = "btcAiSignalDashboardPreferences";
