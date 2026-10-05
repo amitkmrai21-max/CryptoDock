@@ -59,7 +59,7 @@
   async function load() {
     if (loading) return;
     loading = true;
-    setStatus(data ? "" : "Loading rotation…");
+    setStatus(data ? "" : "Loading the top 20 coins…");
     const wanted = tf;
     try {
       const res = await fetch(`/api/rrg/rotation?tf=${tf}&coins=${encodeURIComponent(extra.join(","))}`, { cache: "no-store" });
@@ -78,12 +78,21 @@
       frame = Math.min(frame, lastFrame());
       setStatus("");
       renderAll();
+      retries = 0;
     } catch (error) {
-      setStatus(data ? "" : `Could not load the rotation (${error.message}). Retrying…`);
+      setStatus(data ? "" : `Still loading the rotation… (${error.message})`);
+      // First load failed: try again soon rather than after a full refresh period.
+      if (!data && retries < 6 && onPage()) {
+        retries += 1;
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(load, 2500 * retries);
+      }
     } finally {
       loading = false;
     }
   }
+  let retries = 0;
+  let retryTimer = null;
 
   function schedule() {
     clearTimeout(timer);
@@ -557,5 +566,18 @@
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && onPage()) { load(); schedule(); } });
   if (window.ResizeObserver) new ResizeObserver(() => { if (onPage()) resize(); }).observe(stage);
   else window.addEventListener("resize", resize);
+  // The page can also become active without a click — e.g. the app reopens
+  // on the last page used — so watch the panel itself.
+  const panel = canvas.closest(".tab-panel");
+  if (panel) {
+    let wasActive = panel.classList.contains("active");
+    new MutationObserver(() => {
+      const active = panel.classList.contains("active");
+      if (active === wasActive) return;
+      wasActive = active;
+      if (active) open();
+      else { clearTimeout(timer); playing = false; }
+    }).observe(panel, { attributes: true, attributeFilter: ["class"] });
+  }
   if (onPage()) open();
 })();

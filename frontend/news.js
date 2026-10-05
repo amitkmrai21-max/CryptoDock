@@ -205,6 +205,18 @@
     if (!onNewsPage()) return;
     list.querySelectorAll("time[data-ts]").forEach((t) => { t.textContent = ago(Number(t.dataset.ts) || 0); });
   }, 60 * 1000);
+  // Also when the app reopens straight onto the News page (no click).
+  const panel = list.closest(".tab-panel");
+  if (panel) {
+    let wasActive = panel.classList.contains("active");
+    new MutationObserver(() => {
+      const active = panel.classList.contains("active");
+      if (active === wasActive) return;
+      wasActive = active;
+      if (active) open();
+      else clearTimeout(timer);
+    }).observe(panel, { attributes: true, attributeFilter: ["class"] });
+  }
   if (onNewsPage()) open();
   window.cdOpenNews = open;
 })();
