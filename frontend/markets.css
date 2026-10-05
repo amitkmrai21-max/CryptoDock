@@ -770,10 +770,17 @@ body { font-variant-numeric: tabular-nums; }
 
 /* Ticker */
 .cd-ticker-card { display: flex; align-items: center; gap: 4px; padding: 8px 6px 8px 10px; }
-.cd-ticker { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
-.cd-ticker::-webkit-scrollbar { display: none; }
+.cd-ticker {
+  flex: 1; min-width: 0; overflow: hidden;
+  /* soft fade at both edges instead of a hard cut while items slide */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+.cd-ticker-track { display: flex; width: max-content; animation: cdTickerSlide 30s linear infinite; }
+.cd-ticker:hover .cd-ticker-track, .cd-ticker:active .cd-ticker-track { animation-play-state: paused; }
+@keyframes cdTickerSlide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .cd-ticker { overflow-x: auto; } .cd-ticker-track { animation: none; } }
 .cd-tick { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-right: 1px solid var(--border); background: none; color: var(--text); font: inherit; cursor: pointer; flex-shrink: 0; }
-.cd-tick:last-child { border-right: 0; }
 .cd-tick .cd-avatar { width: 26px; height: 26px; }
 .cd-tick-text { display: flex; flex-direction: column; text-align: left; line-height: 1.25; }
 .cd-tick-text strong { font-size: 12.5px; }
