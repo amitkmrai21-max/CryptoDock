@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-cdet-4">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-plans-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1773,7 +1773,7 @@
     <div class="cd-ticket cdp-card" role="dialog" aria-modal="true" aria-labelledby="cdProGateTitle">
       <div class="cd-sheet-handle"></div>
       <div class="cdp-crown" aria-hidden="true">👑</div>
-      <span class="cdp-badge">CRYPTODOCK PRO</span>
+      <span class="cdp-badge">CRYPTODOCK PRO · PAPER TRADING</span>
       <h3 id="cdProGateTitle" class="cdp-title">Pro feature</h3>
       <p id="cdProGateText" class="cdp-text"></p>
       <div id="cdProGateExtra" class="cdp-extra">
@@ -1784,9 +1784,9 @@
           <span><i>📊</i>Pro Charts</span>
         </div>
         <div class="cdp-prices">
-          <div><b>₹99</b><small>1 month</small></div>
-          <div><b>₹299</b><small>6 months</small></div>
-          <div class="is-best"><em>BEST VALUE</em><b>₹499</b><small>1 year</small></div>
+          <button type="button" data-plan="Monthly Plan"><b>₹99</b><small>1 month</small></button>
+          <button type="button" data-plan="Half-Yearly Plan"><b>₹299</b><small>6 months</small></button>
+          <button type="button" data-plan="Annual Plan" class="is-best is-sel"><em>BEST VALUE</em><b>₹499</b><small>1 year</small></button>
         </div>
       </div>
       <button id="cdProGatePrimary" class="cdp-primary" type="button">Continue</button>
@@ -1798,19 +1798,21 @@
   <div id="cdTrialCard" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket cdp-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
       <div class="cd-sheet-handle"></div>
-      <span class="cdp-badge cdp-badge--green"><i class="cdp-dot"></i>PRO TRIAL ACTIVATED · 7 DAYS</span>
+      <span class="cdp-badge cdp-badge--green"><i class="cdp-dot"></i>PAPER TRADING PRO · 7-DAY TRIAL</span>
       <h3 id="cdTrialTitle" class="cdp-title">CryptoDock Pro activated</h3>
+      <p class="cdp-paper-note">📝 Paper trading only — practice with virtual money. No real money or real orders.</p>
       <p id="cdTrialText" class="cdp-text">Paper trading, Heatmap, Price Alerts and Pro Charts are free for 7 days.</p>
       <div class="cdp-matrix">
-        <div class="cdp-matrix-head"><span>PLANS AFTER THE TRIAL</span><em>Post-trial</em></div>
+        <div class="cdp-matrix-head"><span>PAPER TRADING PLANS</span><em>Tap to choose</em></div>
         <div class="cdp-prices">
-          <div><small class="cdp-up">MONTHLY</small><b>₹99</b><small>1 month</small></div>
-          <div><small class="cdp-up">HALF-YEARLY</small><b>₹299</b><small>6 months</small></div>
-          <div class="is-best"><em>BEST VALUE</em><small class="cdp-up">ANNUAL</small><b>₹499</b><small>1 full year</small></div>
+          <button type="button" data-plan="Monthly Plan"><small class="cdp-up">MONTHLY</small><b>₹99</b><small>1 month</small></button>
+          <button type="button" data-plan="Half-Yearly Plan"><small class="cdp-up">HALF-YEARLY</small><b>₹299</b><small>6 months</small></button>
+          <button type="button" data-plan="Annual Plan" class="is-best is-sel"><em>BEST VALUE</em><small class="cdp-up">ANNUAL</small><b>₹499</b><small>1 full year</small></button>
         </div>
-        <p class="cdp-note"><span>✓</span>No automatic payment during the trial. Choose a plan any time from Upgrade.</p>
+        <p class="cdp-note"><span>✓</span>No automatic payment during the trial. Buy now or any time later from Upgrade.</p>
       </div>
-      <button id="cdTrialAccept" class="cdp-primary cdp-primary--green" type="button">Start trading →</button>
+      <button id="cdTrialAccept" class="cdp-primary cdp-primary--green" type="button">Start paper trading →</button>
+      <button id="cdTrialBuy" class="cdp-ghost" type="button">Buy Annual plan now · ₹499</button>
     </div>
   </div>
 
@@ -1821,7 +1823,7 @@
         <div class="cdp-crown cdp-crown--sm" aria-hidden="true">👑</div>
         <div>
           <h3 id="cdPlansTitle" class="cdp-title">Choose your plan</h3>
-          <p class="cdp-sub">Unlock every CryptoDock Pro feature</p>
+          <p class="cdp-sub">CryptoDock Pro for paper trading · virtual money only</p>
         </div>
         <button id="cdPlansClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
       </div>
@@ -1855,7 +1857,7 @@
   <script src="/frontend/news.js?v=20261005-news-2"></script>
   <script src="/frontend/welcome.js?v=20261004-welcome-1"></script>
   <script src="/frontend/fit-line.js?v=20261005-list-2"></script>
-  <script src="/frontend/pro.js?v=20261004-pro-ui-1"></script>
+  <script src="/frontend/pro.js?v=20261005-plans-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
