@@ -480,10 +480,11 @@
     nav.scrollTo({ left: active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2, behavior: "smooth" });
   }
 
-  // The "Refresh Technical" bar belongs to the old BTC chart tools only.
+  // The old "Refresh Technical" bar stays hidden: the Technical page refreshes
+  // itself in the background, like every other page.
   function syncTopbar() {
     const bar = document.querySelector(".btc-topbar");
-    if (bar) bar.hidden = activePanel() !== "technical"; // "Refresh Technical" belongs to the Technical page only
+    if (bar) bar.hidden = true;
   }
 
   // ---------- events ----------
