@@ -668,7 +668,7 @@ def calculate_swing_failure_structure(candles, atr_value, swing_left_right=3, vo
         quality_label = "HIGH" if supporting_passed == len(supporting_checks) else "MEDIUM"
         supporting_summary = f"{supporting_passed}/{len(supporting_checks)} supporting filters aligned (volume, second close, 1h trend, 4h trend, momentum)"
         path_summary = "retest and confirmation candle are present" if retest_path_ok else "breakout is continuing without a pullback yet"
-        return build_filter_result(direction, final_signal, f"{final_signal} CONFIRMED — {quality_label} QUALITY", active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"{final_signal} — confirmed 15m break, {path_summary}, with {supporting_summary}. Run Gemini AI Analysis now; proceed only if Gemini agrees.", f"Core price-action confirmed ({path_summary}); {supporting_summary}.", quality_label, passed, waiting, failed, "Bullish break + support retest hold" if direction == "BULLISH" else "Bearish break + resistance retest rejection", confirmation_close_price)
+        return build_filter_result(direction, final_signal, f"{final_signal} CONFIRMED — {quality_label} QUALITY", active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"{final_signal} — confirmed 15m break, {path_summary}, with {supporting_summary}.", f"Core price-action confirmed ({path_summary}); {supporting_summary}.", quality_label, passed, waiting, failed, "Bullish break + support retest hold" if direction == "BULLISH" else "Bearish break + resistance retest rejection", confirmation_close_price)
     status = f"{direction} BREAK / FILTERS PENDING" if not failed else f"{direction} BREAK / FILTER FAILED"
     return build_filter_result(direction, watch_signal, status, active_high, active_low, protected_level, break_level, protected_level, invalidation_level, f"HOLD — a structure break exists, but final {final_signal} is blocked until every fakeout filter passes. Review failed/pending filters below.", "Break is not yet high quality enough for a final signal.", "MEDIUM" if len(failed) <= 1 else "LOW", passed, waiting, failed, "Bullish break awaiting filters" if direction == "BULLISH" else "Bearish break awaiting filters")
 
@@ -1130,7 +1130,6 @@ def build_setup_quality(market_data, technical_result):
         flags.append("Limited room to key level")
     risk_reward_ok = direction != "NEUTRAL" and level_ok and float(m15.get("atr_percent", 0)) > 0
     add("risk_reward", "Risk/reward feasibility", "PASS" if risk_reward_ok else "WAIT", "A measurable invalidation and enough target room are available." if risk_reward_ok else "Wait for a clearer trigger, invalidation, and target distance before any practice trade.")
-    add("ai_alignment", "Gemini AI vs live technical alignment", "WAIT", "Browser checks this against the most recent Gemini result. Run Gemini AI Analysis for a fresh comparison.")
     passed = sum(item["state"] == "PASS" for item in items)
     waiting = sum(item["state"] == "WAIT" for item in items)
     failed = sum(item["state"] == "FAIL" for item in items)

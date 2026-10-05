@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261005-nochart-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-tools-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-neutral-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -690,13 +690,14 @@
     </section>
 
     <section class="tab-panel" data-panel="technical">
+      <p class="cd-tech-disclaimer">📘 <b>Educational technical analysis of BTC</b> — indicators like RSI, MACD, volume and support / resistance, calculated automatically. It describes the market; it is <b>not</b> investment advice or a recommendation to buy or sell. CryptoDock is paper trading only.</p>
       <div id="customizableSections" class="customizable-sections">
         <section class="market-insights-layout layout-editable" data-layout-id="market-insights">
           <section class="card multi-timeframe-side-card">
             <div class="section-heading">
               <div>
-                <h2>Multi-Timeframe Signals</h2>
-                <p>Action signal and market direction by timeframe.</p>
+                <h2>Multi-Timeframe Trend</h2>
+                <p>Trend direction by timeframe: bullish, bearish or neutral.</p>
               </div>
             </div>
 
@@ -781,7 +782,7 @@
                 <section class="card technical-intelligence-card layout-editable" data-layout-id="technical-intelligence">
           <div class="section-heading technical-intelligence-heading">
             <div>
-              <h2>Technical Signal Intelligence</h2>
+              <h2>Technical Score</h2>
               <p>Live technical health, score breakdown, market regime, multi-timeframe alignment and distance from key levels.</p>
             </div>
 
@@ -937,7 +938,7 @@
   <div class="swing-structure-footer">
     <p id="swingStructureReason">Loading 15m swing structure…</p>
     <p class="swing-final-conclusion">
-  <span>Final Conclusion</span>
+  <span>Summary</span>
   <strong id="swingFinalConclusion">Loading final structure conclusion...</strong>
 </p>
     <div class="swing-filter-panel">
@@ -953,7 +954,7 @@
         <section class="card setup-quality-card layout-editable" data-layout-id="setup-quality">
           <div class="section-heading">
             <div>
-              <h2>Setup Quality &amp; Trade Checklist</h2>
+              <h2>Setup Quality Checklist</h2>
               <p>Educational checklist based on current live technical conditions. It does not place trades or guarantee outcomes.</p>
             </div>
 
@@ -994,8 +995,8 @@
         <section class="card trade-plan-card layout-editable" data-layout-id="advanced-trade-plan">
           <div class="section-heading">
             <div>
-              <h2>Advanced Trade Plan</h2>
-              <p>Automatic Engine setup summary. Wait for confirmation before considering any practice trade.</p>
+              <h2>Key Levels Map</h2>
+              <p>Levels the indicators are watching. Educational only — not a trade plan or recommendation.</p>
             </div>
             <span class="plan-badge">ENGINE</span>
           </div>
@@ -1017,12 +1018,12 @@
             </article>
 
             <article class="plan-item">
-              <span>Target 1</span>
+              <span>Next level 1</span>
               <strong id="target1">--</strong>
             </article>
 
             <article class="plan-item">
-              <span>Target 2</span>
+              <span>Next level 2</span>
               <strong id="target2">--</strong>
             </article>
           </div>
@@ -1531,6 +1532,7 @@
   <script src="/frontend/paper.js?v=20261005-cdet-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
+  <script src="/frontend/neutral-terms.js?v=20261005-neutral-1"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
 
