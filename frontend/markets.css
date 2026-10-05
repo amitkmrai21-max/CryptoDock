@@ -1592,3 +1592,16 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-eye.is-on i { transform: translateX(16px); background: #fff; }
 .cd-rrg-del { margin-left: 6px; width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 50%; background: none; color: var(--muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; vertical-align: middle; }
 .cd-rrg-table tbody tr.is-off td:not(.cd-rrg-act) { opacity: 0.4; }
+
+/* RRG list head: "↺ Top 20" and the Select all switch on the right */
+.cd-rrg-head-acts { display: flex; align-items: center; gap: 8px; }
+.cd-rrg-all { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.cd-rrg-all .cd-rrg-eye { display: inline-block; flex: none; pointer-events: none; }
+
+/* Coin sheet / stats card: "★ In Watchlist" stays on one line */
+.cd-sheet-actions .cd-pill { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 3px; padding-right: 3px; font-size: clamp(11px, 3.1vw, 13.5px); }
+#cdStats .cd-sheet-actions .cd-pill { padding-left: 3px; padding-right: 3px; font-size: clamp(10.5px, 2.9vw, 12.5px); }
+.cd-rrg-list-head { flex-wrap: wrap; row-gap: 8px; }
+.cd-rrg-list-head h3 { white-space: nowrap; }
+.cd-rrg-head-acts { margin-left: auto; }
+.cd-rrg-head-acts .cd-rrg-reset { white-space: nowrap; }
