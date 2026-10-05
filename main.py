@@ -1902,6 +1902,182 @@ def coin_stats(symbol: str = "BTCUSDT"):
         raise HTTPException(status_code=503, detail=f"Coin stats are busy, try again shortly: {str(error)}") from error
 
 
+# ================= RRG: relative rotation of many coins =================
+# Each coin's strength against an equal-weight index of the top 20 coins
+# (by 24h volume), JdK-style: RS-Ratio (is it stronger than the market?)
+# and RS-Momentum (is that strength rising?), both centred on 100. Every
+# point of the tail is returned so the app can play the rotation back.
+RRG_TOP_N = 20
+RRG_MAX_COINS = 30
+RRG_TIMEFRAMES = {
+    # tail = points shown/played; limit = candles fetched (tail + warm-up)
+    "1h": {"interval": "1h", "limit": 140, "tail": 48, "ttl": 60, "label": "1 Hour"},
+    "1m": {"interval": "1d", "limit": 120, "tail": 30, "ttl": 600, "label": "1 Month"},
+    "1y": {"interval": "1w", "limit": 130, "tail": 52, "ttl": 3600, "label": "1 Year"},
+}
+RRG_Z_WINDOW = 14
+rrg_klines_cache = {}
+rrg_result_cache = {}
+
+
+def _ema(values, span):
+    out, k, prev = [], 2 / (span + 1), None
+    for v in values:
+        prev = v if prev is None else prev + k * (v - prev)
+        out.append(prev)
+    return out
+
+
+def _rolling_z(values, window):
+    out = []
+    for i, v in enumerate(values):
+        chunk = values[max(0, i - window + 1): i + 1]
+        if len(chunk) < window:
+            out.append(None)
+            continue
+        mean = sum(chunk) / window
+        var = sum((x - mean) ** 2 for x in chunk) / window
+        sd = var ** 0.5
+        out.append((v - mean) / sd if sd > 1e-12 else 0.0)
+    return out
+
+
+def _rrg_closes(base, tf):
+    cfg = RRG_TIMEFRAMES[tf]
+
+    def fetch():
+        raw = binance_get("/api/v3/klines", {"symbol": base + "USDT", "interval": cfg["interval"], "limit": cfg["limit"]}, weight=2, timeout=10)
+        return {int(c[0]): float(c[4]) for c in raw if float(c[4]) > 0}
+
+    return cached_call(rrg_klines_cache, f"{base}:{tf}", cfg["ttl"], fetch, max_entries=2000)
+
+
+def _rrg_top_bases():
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins", [])
+    bases = [c["base"] for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)]
+    top = ["BTC"] + [b for b in bases if b != "BTC"]
+    return top[:RRG_TOP_N], {c["base"]: c for c in coins}
+
+
+def _rrg_series(closes, index, times):
+    """RS-Ratio / RS-Momentum for one coin on the shared timeline."""
+    pairs = [(t, closes[t] / index[t]) for t in times if t in closes and index.get(t)]
+    if len(pairs) < RRG_Z_WINDOW * 2 + 4:
+        return {}
+    ts = [t for t, _ in pairs]
+    rs = _ema([r for _, r in pairs], 3)
+    ratio_z = _rolling_z(rs, RRG_Z_WINDOW)
+    ratio = [None if z is None else 100 + z for z in ratio_z]
+    roc = [None]
+    for i in range(1, len(ratio)):
+        a, b = ratio[i - 1], ratio[i]
+        roc.append(None if a is None or b is None else (b / a - 1) * 100)
+    valid = [(i, r) for i, r in enumerate(roc) if r is not None]
+    mom_z = _rolling_z([r for _, r in valid], RRG_Z_WINDOW)
+    momentum = [None] * len(roc)
+    for (i, _), z in zip(valid, mom_z):
+        momentum[i] = None if z is None else 100 + z
+    # Light smoothing so the tails glide instead of zig-zagging.
+    good = [i for i in range(len(ts)) if ratio[i] is not None and momentum[i] is not None]
+    if not good:
+        return {}
+    xs = _ema([ratio[i] for i in good], 2)
+    ys = _ema([momentum[i] for i in good], 2)
+    return {ts[i]: (round(x, 3), round(y, 3)) for i, x, y in zip(good, xs, ys)}
+
+
+def _rrg_quadrant(x, y):
+    if x >= 100 and y >= 100:
+        return "leading"
+    if x >= 100:
+        return "weakening"
+    if y < 100:
+        return "lagging"
+    return "improving"
+
+
+def build_rrg_rotation(tf, extra):
+    cfg = RRG_TIMEFRAMES[tf]
+    top, by_base = _rrg_top_bases()
+    bases = list(dict.fromkeys(top + extra))[:RRG_MAX_COINS]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        results = dict(zip(bases, pool.map(lambda b: _try(lambda: _rrg_closes(b, tf)), bases)))
+    base_line = results.get("BTC") or {}
+    times = sorted(base_line)
+    if len(times) < RRG_Z_WINDOW * 2 + 4:
+        raise HTTPException(status_code=503, detail="RRG data is loading, please try again shortly.")
+    # Equal-weight index of the top coins, chain-linked so a coin with a
+    # shorter history simply joins the index when it starts trading.
+    index, level = {}, 100.0
+    for i, t in enumerate(times):
+        if i:
+            prev = times[i - 1]
+            moves = [results[b][t] / results[b][prev] for b in top if results.get(b) and t in results[b] and prev in results[b]]
+            if moves:
+                level *= sum(moves) / len(moves)
+        index[t] = level
+    tail_times = times[-cfg["tail"]:]
+    coins = []
+    for base in bases:
+        closes = results.get(base)
+        if not closes:
+            continue
+        series = _rrg_series(closes, index, times)
+        points = [list(series[t]) if t in series else None for t in tail_times]
+        last = next((p for p in reversed(points) if p), None)
+        if not last:
+            continue
+        info = by_base.get(base, {})
+        coins.append({
+            "base": base,
+            "top": base in top,
+            "points": points,
+            "ratio": last[0],
+            "momentum": last[1],
+            "quadrant": _rrg_quadrant(*last),
+            "price": info.get("price"),
+            "change_percent": info.get("change_percent"),
+        })
+    shown = {c["base"] for c in coins}
+    return {
+        "skipped": [b for b in extra if b not in shown],
+        "timeframe": tf,
+        "label": cfg["label"],
+        "interval": cfg["interval"],
+        "benchmark": f"Top {len(top)} coins equal-weight index",
+        "times": tail_times,
+        "coins": coins,
+        "updated_at": int(time.time()),
+    }
+
+
+def _try(fn):
+    try:
+        return fn()
+    except Exception as error:  # one coin failing must not break the chart
+        print(f"RRG data skipped: {error}")
+        return None
+
+
+@app.get("/api/rrg/rotation")
+def rrg_rotation(tf: str = "1h", coins: str = ""):
+    """Rotation of the top 20 coins plus up to 10 searched coins."""
+    tf = tf if tf in RRG_TIMEFRAMES else "1h"
+    known = get_usdt_symbols()
+    extra = []
+    for raw in (coins or "").upper().split(","):
+        base = raw.strip()
+        if base and base + "USDT" in known and base not in extra:
+            extra.append(base)
+    extra = extra[:RRG_MAX_COINS - RRG_TOP_N]
+    key = f"{tf}:{','.join(sorted(extra))}"
+    try:
+        return cached_call(rrg_result_cache, key, min(30, RRG_TIMEFRAMES[tf]["ttl"]), lambda: build_rrg_rotation(tf, extra), max_entries=200)
+    except requests.exceptions.RequestException as error:
+        raise HTTPException(status_code=503, detail=f"RRG data is busy, try again shortly: {str(error)}") from error
+
+
 # ================= TRIAL & SUBSCRIPTION (RAZORPAY) =================
 # Same model as MarketDock: every email gets one 7-day trial (kept for good —
 # logout, account deletion or signing up again never resets it), then a paid

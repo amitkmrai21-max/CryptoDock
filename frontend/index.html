@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261004-pro-ui-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-rrg-2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -159,6 +159,11 @@
         <button class="nav-button app-tab" type="button" data-tab="technical">
           <span class="nav-icon">T</span>
           Technical
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="rrg">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M6 16c2-6 6-9 12-10" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="18" cy="6" r="2" fill="currentColor"/></svg></span>
+          RRG
         </button>
 
         <button class="nav-button app-tab" type="button" data-tab="tools">
@@ -721,38 +726,59 @@
     <p id="liveChartStatus" class="live-chart-status">Loading candles…</p>
   </section>
 </section>
-    <section class="tab-panel" data-panel="technical">
-      <section class="card rrg-card">
-        <div class="section-heading">
+    <section class="tab-panel" data-panel="rrg">
+      <div class="cd-dash cd-rrg-page">
+        <div class="cd-dash-head">
           <div>
-            <h2>RRG-Style Relative Rotation</h2>
-            <p>BTC benchmark vs ETH and SOL. Relative strength and momentum view, not an official JdK RRG.</p>
+            <h2>Relative Rotation (RRG)</h2>
+            <p class="cd-meta" id="cdRrgMeta">Top 20 coins vs the market · loading…</p>
           </div>
-
-          <div class="rrg-controls">
-            <button id="rrg1hBtn" class="rrg-timeframe-btn" type="button" data-rrg-timeframe="1h">1 Hour</button>
-            <button id="rrg1dBtn" class="rrg-timeframe-btn active" type="button" data-rrg-timeframe="1d">1 Day</button>
-            <button id="rrgResetBtn" class="chart-control-btn" type="button">Reset View</button>
+          <span class="cd-rrg-live" id="cdRrgLive"><i></i>LIVE</span>
+        </div>
+        <section class="card cd-rrg-card">
+          <div class="cd-rrg-toolbar">
+            <div class="cd-rrg-search">
+              <input id="cdRrgSearch" type="search" placeholder="Search any coin to add (e.g. PEPE, ZEC)…" autocomplete="off" />
+              <div id="cdRrgSuggest" class="cd-rrg-suggest" hidden></div>
+            </div>
+            <div class="cd-rrg-tfs" id="cdRrgTfs">
+              <button type="button" class="cd-pill is-active" data-rrg-tf="1h">1H</button>
+              <button type="button" class="cd-pill" data-rrg-tf="1m">1M</button>
+              <button type="button" class="cd-pill" data-rrg-tf="1y">1Y</button>
+            </div>
           </div>
-        </div>
+          <div class="cd-rrg-stage" id="cdRrgStage">
+            <canvas id="cdRrgCanvas" aria-label="Relative rotation graph"></canvas>
+            <div id="cdRrgTip" class="cd-rrg-tip" hidden></div>
+            <p id="cdRrgStatus" class="cd-rrg-status">Loading rotation…</p>
+          </div>
+          <div class="cd-rrg-player">
+            <button type="button" id="cdRrgPlay" class="cd-rrg-play" aria-label="Play">▶</button>
+            <input type="range" id="cdRrgScrub" min="0" max="1000" value="1000" aria-label="Timeline" />
+            <span id="cdRrgWhen" class="cd-rrg-when">--</span>
+            <div class="cd-rrg-speeds" id="cdRrgSpeeds">
+              <button type="button" data-rrg-speed="0.5">0.5x</button>
+              <button type="button" data-rrg-speed="1" class="is-active">1x</button>
+              <button type="button" data-rrg-speed="2">2x</button>
+              <button type="button" data-rrg-speed="4">4x</button>
+            </div>
+          </div>
+          <div class="cd-rrg-chips" id="cdRrgChips"></div>
+        </section>
+        <section class="card cd-rrg-card">
+          <div class="cd-rrg-quads" id="cdRrgQuads"></div>
+          <div class="cd-table-wrap">
+            <table class="cd-table cd-rrg-table">
+              <thead><tr><th>Coin</th><th>Quadrant</th><th class="cd-num">RS-Ratio</th><th class="cd-num">RS-Mom.</th><th class="cd-num">Heading</th><th class="cd-num">24h</th></tr></thead>
+              <tbody id="cdRrgBody"></tbody>
+            </table>
+          </div>
+        </section>
+        <ul class="cd-page-notes"><li>Coins vs an equal-weight top-20 index</li><li>Press ▶ to replay the rotation</li><li>Not advice</li></ul>
+      </div>
+    </section>
 
-        <p id="rrgStatus" class="status-line">Loading RRG-style rotation data...</p>
-
-        <div class="rrg-chart-wrap">
-          <canvas id="rrgChart"></canvas>
-        </div>
-
-        <div class="rrg-legend">
-          <span class="rrg-legend-item btc-legend">BTC benchmark</span>
-          <span class="rrg-legend-item eth-legend">ETH</span>
-          <span class="rrg-legend-item sol-legend">SOL</span>
-          <span class="rrg-legend-note">
-            Leading: +RS/+Momentum · Weakening: +RS/-Momentum ·
-            Lagging: -RS/-Momentum · Improving: -RS/+Momentum
-          </span>
-        </div>
-      </section>
-
+    <section class="tab-panel" data-panel="technical">
       <div id="customizableSections" class="customizable-sections">
         <section class="market-insights-layout layout-editable" data-layout-id="market-insights">
           <section class="card multi-timeframe-side-card">
@@ -1679,7 +1705,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=20261004-welcome-1"></script>
+  <script src="/frontend/app.js?v=20261005-rrg-1"></script>
 
   <!-- Paper trading order ticket (paper.js) -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
@@ -1916,6 +1942,7 @@
   <script src="/frontend/coin-sheet.js?v=20261004-motion-2"></script>
   <script src="/frontend/coin-stats.js?v=20261004-card-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261004-back-1"></script>
+  <script src="/frontend/rrg.js?v=20261005-rrg-2"></script>
   <script src="/frontend/news.js?v=20261004-news-1"></script>
   <script src="/frontend/welcome.js?v=20261004-welcome-1"></script>
   <script src="/frontend/fit-line.js?v=20261004-line-1"></script>
