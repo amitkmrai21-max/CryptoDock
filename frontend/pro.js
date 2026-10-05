@@ -258,17 +258,25 @@
     const secondary = el("cdProStatusSecondary");
     const barWrap = el("cdProStatusBarWrap");
     let tone = "info", icon = "🗓️", title = "", sub = "", dates = "", note = "", bar = null;
+    // Days box (total / used / left) and the next price to pay.
+    let days = null, nextHead = "NEXT PRICE", nextNote = "", nextPick = null;
+    const DAY = 86400, TRIAL_DAYS = 7;
     secondary.hidden = true;
     primary.className = "cdp-primary";
     if (acc.reason === "owner") {
       tone = "ok"; icon = "👑"; title = "Owner access · ACTIVE ✓"; sub = "Every Pro feature, always on."; dates = "No plan needed for this account.";
       note = "You have full access to CryptoDock Pro."; primary.textContent = "Close"; primary.onclick = () => hide("cdProStatus");
+      nextHead = "PLANS USERS SEE"; nextNote = "Owner: nothing to pay.";
     } else if (acc.reason === "paid") {
       const left = Math.max(0, Math.ceil((status.valid_until_ts - now) / 86400));
       const plan = status.plan || "Plan";
       tone = "ok"; icon = "👑"; title = "Plan status: ACTIVE ✓"; sub = `CryptoDock Pro · ${plan}${PLAN_PRICES[plan] ? ` (₹${PLAN_PRICES[plan]})` : ""}`;
       dates = `Valid until <b>${fmtDate(status.valid_until_ts)}</b> · ${left} day${left === 1 ? "" : "s"} remaining`;
       note = "Your plan is active. Buying again adds to the time you have left.";
+      const total = status.paid_at ? Math.max(left, Math.round((status.valid_until_ts - status.paid_at) / DAY)) : left;
+      days = { total, used: Math.max(0, total - left), left };
+      nextHead = "NEXT PRICE · RENEW OR SWITCH"; nextPick = PLAN_PRICES[plan] ? plan : null;
+      nextNote = `Renewing now adds the new plan's days after ${fmtDate(status.valid_until_ts)}. No auto-renewal.`;
       primary.textContent = "Extend plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
     } else if (acc.reason === "trial") {
       const total = 7 * 86400, start = status.trial_start_ts || now;
@@ -277,11 +285,15 @@
       tone = "ok"; icon = "⏳"; title = "7-day free trial ACTIVE ✓"; sub = `Day ${day} of 7 · ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left`;
       dates = `Trial ends on <b>${fmtDate(status.trial_end_ts)}</b>`;
       note = "Every Pro feature is open during the trial. Pick a plan any time to keep it after the trial.";
+      days = { total: TRIAL_DAYS, used: Math.max(0, TRIAL_DAYS - acc.daysLeft), left: acc.daysLeft };
+      nextHead = "NEXT PRICE · AFTER THE TRIAL"; nextNote = "Nothing is charged when the trial ends; choose a plan only if you want to continue.";
       primary.className = "cdp-primary cdp-primary--green"; primary.textContent = "Choose a plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
     } else if (acc.reason === "fresh") {
       tone = "new"; icon = "🎁"; title = "7-day free trial available"; sub = "Not started yet · no payment needed";
       dates = "Your 7 days start only when you tap Start.";
       note = "Try every Pro feature free for 7 days, then choose a plan if you like it.";
+      days = { total: TRIAL_DAYS, used: 0, left: TRIAL_DAYS };
+      nextHead = "NEXT PRICE · AFTER THE FREE TRIAL"; nextNote = "The 7 free days start only when you tap Start.";
       primary.className = "cdp-primary cdp-primary--green"; primary.textContent = "Start 7-day free trial →";
       primary.onclick = async () => {
         primary.disabled = true; el("cdProStatusError").hidden = true;
@@ -300,6 +312,14 @@
       tone = "off"; icon = "⛔"; title = acc.reason === "plan-expired" ? "Plan expired" : "Free trial ended";
       sub = "Pro features are locked."; dates = ended ? `Ended on <b>${fmtDate(ended)}</b>` : "";
       note = "Choose a plan — from ₹99/month — to unlock paper trading, Heatmap, Alerts, RRG and News again.";
+      if (acc.reason === "plan-expired") {
+        const total = status.paid_at && status.valid_until_ts ? Math.round((status.valid_until_ts - status.paid_at) / DAY) : null;
+        days = total ? { total, used: total, left: 0 } : null;
+        nextPick = PLAN_PRICES[status.plan] ? status.plan : null; nextHead = "NEXT PRICE · RENEW";
+      } else {
+        days = { total: TRIAL_DAYS, used: TRIAL_DAYS, left: 0 }; nextHead = "NEXT PRICE";
+      }
+      nextNote = "One-time payment · no auto-renewal.";
       primary.textContent = acc.reason === "plan-expired" ? "Renew plan →" : "Choose a plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
     }
     banner.className = "cdp-state is-" + tone;
@@ -311,6 +331,18 @@
     el("cdProStatusNote").textContent = note;
     el("cdProStatusNote").hidden = !note;
     barWrap.hidden = bar === null;
+    el("cdProDays").hidden = !days;
+    if (days) {
+      el("cdProDaysTotal").textContent = days.total;
+      el("cdProDaysUsed").textContent = days.used;
+      el("cdProDaysLeft").textContent = days.left;
+      el("cdProDays").classList.toggle("is-none-left", days.left === 0);
+    }
+    el("cdProNext").hidden = acc.reason === "checking";
+    el("cdProNextHead").textContent = nextHead;
+    el("cdProNextNote").textContent = nextNote;
+    el("cdProNextNote").hidden = !nextNote;
+    document.querySelectorAll("#cdProNext [data-next-plan]").forEach((b) => b.classList.toggle("is-current", b.dataset.nextPlan === nextPick));
     if (bar !== null) el("cdProStatusBar").style.width = Math.round(bar * 100) + "%";
   }
   function openStatusCard() {
@@ -421,6 +453,15 @@
   // ---------- events ----------
   el("cdUpgradeBtn").addEventListener("click", openStatusCard);
   el("cdMyPlanBtn")?.addEventListener("click", openStatusCard);
+  el("cdNavUpgrade")?.addEventListener("click", openStatusCard);
+  // A price in "Next price" opens Choose your plan with that plan picked.
+  el("cdProNext").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-next-plan]");
+    if (!b) return;
+    choosePlan(b.dataset.nextPlan);
+    hide("cdProStatus");
+    openPlans();
+  });
   el("cdProStatusClose").addEventListener("click", () => hide("cdProStatus"));
   el("cdProStatus").addEventListener("click", (e) => { if (e.target.id === "cdProStatus") hide("cdProStatus"); });
   el("cdPlansClose").addEventListener("click", () => hide("cdPlans"));

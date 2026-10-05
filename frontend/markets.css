@@ -1795,3 +1795,30 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-myplan-btn em.is-new { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
 .cd-myplan-btn em.is-off { background: rgba(239, 68, 68, 0.15); color: #f87171; }
 .cdp-feat-grid div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+/* Pro card: days box and next price */
+.cdp-days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cdp-days[hidden] { display: none; }
+.cdp-days div { padding: 10px 6px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); text-align: center; }
+.cdp-days span { display: block; color: var(--muted); font-size: 11px; font-weight: 700; }
+.cdp-days b { display: block; margin-top: 2px; font-family: var(--cd-num-font); font-size: 22px; }
+.cdp-days .is-left { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.1); }
+.cdp-days .is-left b { color: #4ade80; }
+.cdp-days.is-none-left .is-left { border-color: rgba(239, 68, 68, 0.45); background: rgba(239, 68, 68, 0.1); }
+.cdp-days.is-none-left .is-left b { color: #f87171; }
+.cdp-next { display: flex; flex-direction: column; gap: 8px; }
+.cdp-next[hidden] { display: none; }
+.cdp-next .cdp-feat-head { margin: 0; }
+.cdp-next-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cdp-next-list button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 4px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; cursor: pointer; }
+.cdp-next-list span { color: var(--muted); font-size: 11px; font-weight: 800; }
+.cdp-next-list b { font-family: var(--cd-num-font); font-size: 18px; }
+.cdp-next-list small { color: var(--muted); font-size: 10.5px; }
+.cdp-next-list button.is-current { border-color: #a78bfa; background: rgba(139, 92, 246, 0.14); }
+.cdp-next-list button.is-current::after { content: "YOUR PLAN"; position: absolute; top: -8px; left: 50%; transform: translateX(-50%); padding: 1px 6px; border-radius: 6px; background: #7c3aed; color: #fff; font-size: 8.5px; font-weight: 800; letter-spacing: 0.4px; white-space: nowrap; }
+.cdp-next-note { margin: 0; color: var(--muted); font-size: 11.5px; }
+.cdp-next-note[hidden] { display: none; }
+/* Upgrade in the sidebar and in More */
+.sidebar .cd-nav-upgrade { color: #fcd34d; }
+.sidebar .cd-nav-upgrade .nav-icon { font-size: 13px; }
+.cd-more-tile.cd-more-upgrade { border-color: rgba(251, 191, 36, 0.45); background: rgba(251, 191, 36, 0.1); color: #fcd34d; }
