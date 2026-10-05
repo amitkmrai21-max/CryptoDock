@@ -340,6 +340,7 @@
     el("cdRrgPlay").classList.toggle("is-playing", playing);
     el("cdRrgLive").classList.toggle("is-replay", playing || frame < n - 0.001);
     el("cdRrgLive").lastChild.textContent = playing ? "REPLAY" : frame < n - 0.001 ? "PAUSED" : "LIVE";
+    el("cdRrgLive").hidden = !playing && frame >= n - 0.001; // "Live" shows only on the header line
   }
 
   function heading(points) {
