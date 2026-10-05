@@ -1,8 +1,9 @@
 // CryptoDock Pro: every email gets one 7-day trial (the server remembers it
 // for good), then a plan — ₹99 / 1 month, ₹299 / 6 months, ₹499 / 1 year,
 // paid through Razorpay. Pro: paper trading (order ticket, Positions,
-// Orders), Heatmap, Price Alerts, RRG and News. Coin Detail, the Scanner
-// and Chart Analysis are free for every signed-in user.
+// Orders), Heatmap, Price Alerts, RRG and News (the cards list these), plus
+// Coin Detail. The Scanner and Chart Analysis are free for every signed-in
+// user.
 // Everything else stays free. The owner's email always has access.
 (function cryptoPro() {
   const OWNER_EMAIL = "amitkmrai21@gmail.com";
@@ -14,6 +15,7 @@
     alerts: "Price Alerts",
     rrg: "RRG",
     news: "News",
+    coin: "Coin Detail",
   };
   const PLAN_PRICES = { "Monthly Plan": 99, "Half-Yearly Plan": 299, "Annual Plan": 499 };
 
