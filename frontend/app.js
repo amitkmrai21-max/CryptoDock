@@ -843,7 +843,6 @@ async function loadTechnicalFallback(prefix = "Live technical analysis refreshed
     if (!response.ok) throw new Error(data.detail || "Technical signal API could not be loaded.");
     latestTechnicalResponse = data; latestTechnicalMarket = data?.market_data?.timeframes || {};
     updateIndicators(latestTechnicalMarket["15m"] || {}, latestTechnicalMarket["1h"] || {});
-    ["15m", "1h", "4h"].forEach((frame) => { const item = data?.timeframes?.[frame] || {}; const key = frame === "15m" ? "15m" : frame; setMiniSignal(`signal${key}`, item.signal); setText(`summary${key}`, item.summary); setText(`keyLevel${key}`, item.key_level); });
     setText("marketBias", data.market_bias); setText("setupStatus", data.setup_status); setText("confirmationNeeded", data.confirmation_needed); setText("target1", data.target_1); setText("target2", data.target_2);
     renderEngineCard(data);
     updateSignalConfirmation(data);
