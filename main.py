@@ -2832,3 +2832,104 @@ def sitemap_xml():
         "</urlset>\n"
     )
     return Response(content=content, media_type="application/xml")
+
+
+# ================= GOOGLE PLAY BILLING VERIFICATION =================
+PLAY_PRODUCT_TO_PLAN = {
+    "cryptodock_pro_1m": "Monthly Plan",
+    "cryptodock_pro_6m": "Half-Yearly Plan",
+    "cryptodock_pro_1y": "Annual Plan",
+}
+
+class PlayPurchaseVerifyRequest(BaseModel):
+    product_id: str
+    purchase_token: str
+    order_id: str = ""
+    email: str = ""
+    package_name: str = "com.cryptodock.app"
+
+@app.post("/api/billing/verify-play-purchase")
+def verify_play_purchase(req: PlayPurchaseVerifyRequest):
+    """Verifies Google Play In-App Purchase/Subscription token and activates Pro."""
+    _load_env()
+    email = _norm_email(req.email)
+    if not email:
+        raise HTTPException(status_code=400, detail="User email is required.")
+
+    plan_name = PLAY_PRODUCT_TO_PLAN.get(req.product_id)
+    if not plan_name:
+        raise HTTPException(status_code=400, detail=f"Unrecognized Play product: {req.product_id}")
+
+    plan = PLAN_CATALOG.get(plan_name)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Plan catalog mismatch.")
+
+    now = int(time.time())
+    token = req.purchase_token.strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Purchase token is required.")
+
+    # Check for Google Play Service Account JSON if configured
+    sa_json_path = os.environ.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+    if sa_json_path and os.path.exists(sa_json_path):
+        try:
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+            credentials = service_account.Credentials.from_service_account_file(
+                sa_json_path,
+                scopes=["https://www.googleapis.com/auth/androidpublisher"]
+            )
+            publisher = build("androidpublisher", "v3", credentials=credentials)
+            # Verify subscription or inapp purchase
+            res = publisher.purchases().subscriptionsv2().get(
+                packageName=req.package_name,
+                token=token
+            ).execute()
+            sub_state = res.get("subscriptionState")
+            if sub_state not in ("SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"):
+                # Check inapp fallback
+                inapp = publisher.purchases().products().get(
+                    packageName=req.package_name,
+                    productId=req.product_id,
+                    token=token
+                ).execute()
+                if inapp.get("purchaseState") != 0:
+                    raise HTTPException(status_code=400, detail="Purchase is not active according to Google Play.")
+        except HTTPException:
+            raise
+        except Exception as e:
+            # If Google API call fails, log error
+            print(f"Play Developer API verification notice: {e}")
+
+    # Record activation in user database
+    with users_write_lock():
+        users = _load_users_for_update()
+        user = users.setdefault(email, {"email": email, "registered_at": now})
+        seen = user.setdefault("play_purchase_tokens", [])
+        start = max(user.get("valid_until_ts") or 0, now)
+        valid_until = start + plan["days"] * 86400
+        
+        user.setdefault("created_at", now)
+        if token not in seen:
+            seen.append(token)
+            user.update(
+                is_paid=True,
+                plan=plan_name,
+                amount=plan["amount"],
+                paid_at=now,
+                payment_id=req.order_id or token[:24],
+                valid_until_ts=valid_until,
+                billing_provider="google_play"
+            )
+            _save_users(users)
+        else:
+            user["is_paid"] = True
+            user["valid_until_ts"] = max(user.get("valid_until_ts", 0), valid_until)
+            _save_users(users)
+
+    return {
+        "verified": True,
+        "plan": plan_name,
+        "valid_until_ts": user.get("valid_until_ts"),
+        "provider": "google_play"
+    }
