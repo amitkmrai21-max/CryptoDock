@@ -188,8 +188,6 @@
       : "";
     el("cdCoinPaper").innerHTML = top + table;
     el("cdCoinPaperCard").hidden = !held && !trades.length;
-    el("cdCoinSell").disabled = !held;
-    el("cdCoinSell").style.opacity = held ? "" : "0.5";
   }
 
   function renderCoin() {

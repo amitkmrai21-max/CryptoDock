@@ -1699,3 +1699,4 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
   .cd-cdet-bar-row { gap: 7px; font-size: 11.5px; }
   .cd-cdet-bar-row > span { min-width: 64px; }
 }
+.cd-cdet-more #cdCoinStar { margin-left: auto; }
