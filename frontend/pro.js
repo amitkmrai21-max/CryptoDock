@@ -1,13 +1,13 @@
-// CryptoDock Pro: every email gets one 7-day trial (the server remembers it
-// for good), then a plan — ₹99 / 1 month, ₹299 / 6 months, ₹499 / 1 year,
-// paid through Razorpay. Pro: paper trading (order ticket, Positions,
-// Orders), Heatmap, Price Alerts, RRG and News (the cards list these), plus
-// Coin Detail. The Scanner and Chart Analysis are free for every signed-in
-// user.
-// Everything else stays free. The owner's email always has access.
+// CryptoDock Pro: every email gets one 7-day trial, started by the user
+// from the trial card or the Pro status card (the server remembers it for
+// good), then a plan — ₹99 / 1 month, ₹299 / 6 months, ₹499 / 1 year, paid
+// through Razorpay. Pro: paper trading (order ticket, Positions, Orders),
+// Heatmap, Price Alerts, RRG and News (the cards list these), plus Coin
+// Detail. The Scanner stays free for every signed-in user. Upgrade shows
+// until the trial is started, hides during the trial and a paid plan, and
+// comes back when either ends. The owner's email always has access.
 (function cryptoPro() {
   const OWNER_EMAIL = "amitkmrai21@gmail.com";
-  const NEW_USER_WINDOW_SEC = 24 * 3600;
   const PRO_TABS = {
     positions: "Paper Trading",
     orders: "Paper Trading",
@@ -58,22 +58,25 @@
       // Keep the cached status; access() says "checking" if there's none.
     }
     renderUpgrade();
+    renderStatusCard();
     loginNotice();
   }
 
-  // { ok, reason: owner | paid | trial | signin | expired | plan-expired | checking, isNew }
+  // { ok, reason: owner | paid | trial | fresh | signin | expired | plan-expired | checking }
   function access() {
     if (!email) return { ok: false, reason: "signin" };
     if (email === OWNER_EMAIL) return { ok: true, reason: "owner" };
     if (!status) { sync(); return { ok: false, reason: "checking" }; }
     const now = Date.now() / 1000;
     if (status.is_paid && (!status.valid_until_ts || status.valid_until_ts > now)) return { ok: true, reason: "paid" };
+    // Signed up but the 7-day trial hasn't been started yet (it starts on the
+    // "Start 7-day free trial" button, not at sign-up).
+    if (status.trial_started === false) return { ok: false, reason: "fresh" };
     if (status.trial_end_ts && status.trial_end_ts > now) {
       return {
         ok: true,
         reason: "trial",
         daysLeft: Math.max(1, Math.ceil((status.trial_end_ts - now) / 86400)),
-        isNew: Number.isFinite(status.trial_start_ts) && now - status.trial_start_ts < NEW_USER_WINDOW_SEC,
       };
     }
     return { ok: false, reason: status.plan_expired ? "plan-expired" : "expired" };
@@ -119,23 +122,48 @@
     show("cdProGate");
   }
 
-  // A brand-new user's first Pro tap waits for the trial card to be accepted.
+  // ---------- starting the 7-day trial ----------
+  // The first time a signed-up user opens a Pro feature, the trial card
+  // offers the free week; the trial (and its 7 days) starts on that tap.
   const welcomeKey = () => "cdProWelcomeAccepted:" + email;
-  function welcomeAccepted() {
-    try { return localStorage.getItem(welcomeKey()) === "1"; } catch (e) { return true; }
-  }
   let pendingResume = null;
-  function showTrialCard(acc, resume) {
-    el("cdTrialText").textContent = `You have CryptoDock Pro free for ${acc.daysLeft} more day${acc.daysLeft === 1 ? "" : "s"}: unlimited paper trading, Heatmap, Price Alerts, RRG and News.`;
-    pendingResume = resume;
+  function showTrialCard(resume) {
+    el("cdTrialError").hidden = true;
+    pendingResume = resume || null;
     show("cdTrialCard");
   }
-  el("cdTrialAccept").addEventListener("click", () => {
-    try { localStorage.setItem(welcomeKey(), "1"); } catch (e) { /* ignore */ }
-    hide("cdTrialCard");
-    const resume = pendingResume;
-    pendingResume = null;
-    if (resume) resume();
+
+  async function startTrial() {
+    const res = await fetch("/api/user/start-trial", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Could not start the trial. Please try again.");
+    status = data;
+    try { localStorage.setItem(cacheKey(), JSON.stringify(data)); localStorage.setItem(welcomeKey(), "1"); } catch (e) { /* ignore */ }
+    renderUpgrade();
+    renderStatusCard();
+    return data;
+  }
+
+  el("cdTrialAccept").addEventListener("click", async () => {
+    const btn = el("cdTrialAccept");
+    btn.disabled = true;
+    el("cdTrialError").hidden = true;
+    try {
+      await startTrial();
+      hide("cdTrialCard");
+      const resume = pendingResume;
+      pendingResume = null;
+      if (resume) resume();
+    } catch (error) {
+      el("cdTrialError").textContent = error.message;
+      el("cdTrialError").hidden = false;
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   // Plan tiles on the trial card and the Pro card: tap to choose a plan.
@@ -163,10 +191,7 @@
   // Runs `action` if Pro is open for this user; otherwise shows why not.
   function guard(feature, action) {
     const acc = access();
-    if (acc.ok && acc.reason === "trial" && acc.isNew && !welcomeAccepted()) {
-      showTrialCard(acc, action);
-      return false;
-    }
+    if (acc.reason === "fresh") { showTrialCard(action); return false; }
     if (acc.ok) { action(); return true; }
     showGate(acc, feature);
     return false;
@@ -177,7 +202,7 @@
     const tab = event.target.closest(".app-tab[data-tab]");
     if (!tab || !PRO_TABS[tab.dataset.tab] || tab.dataset.proPass === "1") return;
     const acc = access();
-    if (acc.ok && !(acc.reason === "trial" && acc.isNew && !welcomeAccepted())) return;
+    if (acc.ok) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     guard(PRO_TABS[tab.dataset.tab], () => {
@@ -215,7 +240,86 @@
   function renderUpgrade() {
     const acc = access();
     el("cdUpgradeBtn").hidden = acc.reason === "owner" || acc.reason === "paid" || acc.reason === "trial";
+    const mine = el("cdMyPlanState");
+    if (mine) {
+      mine.textContent = { owner: "Owner · active", paid: "Active", trial: `Trial · ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left`, fresh: "Free trial available", expired: "Trial ended", "plan-expired": "Plan expired", checking: "Checking…" }[acc.reason] || "--";
+      mine.className = acc.ok ? "is-on" : acc.reason === "fresh" ? "is-new" : "is-off";
+    }
   }
+
+  // ---------- Pro status card (Upgrade / Settings → My plan) ----------
+  const fmtDate = (ts) => new Date(ts * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  function renderStatusCard() {
+    if (!el("cdProStatus")) return;
+    const acc = access();
+    const now = Date.now() / 1000;
+    const banner = el("cdProStatusBanner");
+    const primary = el("cdProStatusPrimary");
+    const secondary = el("cdProStatusSecondary");
+    const barWrap = el("cdProStatusBarWrap");
+    let tone = "info", icon = "🗓️", title = "", sub = "", dates = "", note = "", bar = null;
+    secondary.hidden = true;
+    primary.className = "cdp-primary";
+    if (acc.reason === "owner") {
+      tone = "ok"; icon = "👑"; title = "Owner access · ACTIVE ✓"; sub = "Every Pro feature, always on."; dates = "No plan needed for this account.";
+      note = "You have full access to CryptoDock Pro."; primary.textContent = "Close"; primary.onclick = () => hide("cdProStatus");
+    } else if (acc.reason === "paid") {
+      const left = Math.max(0, Math.ceil((status.valid_until_ts - now) / 86400));
+      const plan = status.plan || "Plan";
+      tone = "ok"; icon = "👑"; title = "Plan status: ACTIVE ✓"; sub = `CryptoDock Pro · ${plan}${PLAN_PRICES[plan] ? ` (₹${PLAN_PRICES[plan]})` : ""}`;
+      dates = `Valid until <b>${fmtDate(status.valid_until_ts)}</b> · ${left} day${left === 1 ? "" : "s"} remaining`;
+      note = "Your plan is active. Buying again adds to the time you have left.";
+      primary.textContent = "Extend plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
+    } else if (acc.reason === "trial") {
+      const total = 7 * 86400, start = status.trial_start_ts || now;
+      bar = Math.min(1, Math.max(0, (now - start) / total));
+      const day = Math.min(7, Math.max(1, Math.ceil((now - start) / 86400)));
+      tone = "ok"; icon = "⏳"; title = "7-day free trial ACTIVE ✓"; sub = `Day ${day} of 7 · ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left`;
+      dates = `Trial ends on <b>${fmtDate(status.trial_end_ts)}</b>`;
+      note = "Every Pro feature is open during the trial. Pick a plan any time to keep it after the trial.";
+      primary.className = "cdp-primary cdp-primary--green"; primary.textContent = "Choose a plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
+    } else if (acc.reason === "fresh") {
+      tone = "new"; icon = "🎁"; title = "7-day free trial available"; sub = "Not started yet · no payment needed";
+      dates = "Your 7 days start only when you tap Start.";
+      note = "Try every Pro feature free for 7 days, then choose a plan if you like it.";
+      primary.className = "cdp-primary cdp-primary--green"; primary.textContent = "Start 7-day free trial →";
+      primary.onclick = async () => {
+        primary.disabled = true; el("cdProStatusError").hidden = true;
+        try { await startTrial(); } catch (error) { el("cdProStatusError").textContent = error.message; el("cdProStatusError").hidden = false; }
+        finally { primary.disabled = false; }
+      };
+      secondary.hidden = false; secondary.textContent = "Or buy a plan now"; secondary.onclick = () => { hide("cdProStatus"); openPlans(); };
+    } else if (acc.reason === "signin") {
+      tone = "info"; icon = "🔑"; title = "Sign in to start"; sub = "Your plan is tied to your email.";
+      dates = "Sign up free, then start your 7-day trial.";
+      primary.textContent = "Sign in / Sign up"; primary.onclick = () => { hide("cdProStatus"); openSignIn(); };
+    } else if (acc.reason === "checking") {
+      tone = "info"; icon = "⏱️"; title = "Checking your plan…"; sub = "One moment."; primary.textContent = "Close"; primary.onclick = () => hide("cdProStatus");
+    } else {
+      const ended = acc.reason === "plan-expired" ? status.valid_until_ts : status.trial_end_ts;
+      tone = "off"; icon = "⛔"; title = acc.reason === "plan-expired" ? "Plan expired" : "Free trial ended";
+      sub = "Pro features are locked."; dates = ended ? `Ended on <b>${fmtDate(ended)}</b>` : "";
+      note = "Choose a plan — from ₹99/month — to unlock paper trading, Heatmap, Alerts, RRG and News again.";
+      primary.textContent = acc.reason === "plan-expired" ? "Renew plan →" : "Choose a plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
+    }
+    banner.className = "cdp-state is-" + tone;
+    el("cdProStatusIcon").textContent = icon;
+    el("cdProStatusTitle").textContent = title;
+    el("cdProStatusSub").textContent = sub;
+    el("cdProStatusDates").innerHTML = dates;
+    el("cdProStatusDates").hidden = !dates;
+    el("cdProStatusNote").textContent = note;
+    el("cdProStatusNote").hidden = !note;
+    barWrap.hidden = bar === null;
+    if (bar !== null) el("cdProStatusBar").style.width = Math.round(bar * 100) + "%";
+  }
+  function openStatusCard() {
+    el("cdProStatusError").hidden = true;
+    renderStatusCard();
+    show("cdProStatus");
+    sync().then(renderStatusCard);
+  }
+  window.cdOpenProStatus = openStatusCard;
 
   // ---------- plans & payment ----------
   function selectedPlan() {
@@ -315,7 +419,10 @@
   }
 
   // ---------- events ----------
-  el("cdUpgradeBtn").addEventListener("click", openPlans);
+  el("cdUpgradeBtn").addEventListener("click", openStatusCard);
+  el("cdMyPlanBtn")?.addEventListener("click", openStatusCard);
+  el("cdProStatusClose").addEventListener("click", () => hide("cdProStatus"));
+  el("cdProStatus").addEventListener("click", (e) => { if (e.target.id === "cdProStatus") hide("cdProStatus"); });
   el("cdPlansClose").addEventListener("click", () => hide("cdPlans"));
   el("cdPlansPay").addEventListener("click", pay);
   document.querySelectorAll('input[name="cdPlan"]').forEach((r) => r.addEventListener("change", () => choosePlan(r.value)));

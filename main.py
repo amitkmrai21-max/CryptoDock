@@ -2239,18 +2239,29 @@ def sync_user_trial(req: TrialSyncRequest):
     email = _norm_email(req.email)
     if not email:
         raise HTTPException(status_code=400, detail="Email is required")
-    existing = _load_users().get(email)
-    if not existing or not existing.get("created_at"):
+    # Signing in only registers the account; the 7-day trial starts when the
+    # user taps "Start 7-day free trial" (/api/user/start-trial).
+    if not _load_users().get(email):
         with users_write_lock():
             users = _load_users_for_update()
-            user = users.get(email)
-            if not user or not user.get("created_at"):
-                user = user or {"is_paid": False}
-                user.setdefault("email", email)
-                user.setdefault("user_id", req.user_id)
-                user["created_at"] = user.get("trial_start_ts") or int(time.time())
-                users[email] = user
+            if email not in users:
+                users[email] = {"email": email, "user_id": req.user_id, "is_paid": False, "registered_at": int(time.time())}
                 _save_users(users)
+    return subscription_status(email)
+
+
+@app.post("/api/user/start-trial")
+def start_user_trial(req: TrialSyncRequest):
+    """Start this email's one 7-day trial (once ever; later calls change nothing)."""
+    email = _norm_email(req.email)
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    with users_write_lock():
+        users = _load_users_for_update()
+        user = users.setdefault(email, {"email": email, "user_id": req.user_id, "is_paid": False, "registered_at": int(time.time())})
+        if not user.get("created_at"):
+            user["created_at"] = int(time.time())
+            _save_users(users)
     return subscription_status(email)
 
 
@@ -2263,8 +2274,22 @@ def subscription_status(email: str = ""):
     user = _load_users().get(email, {})
     valid_until_ts = user.get("valid_until_ts")
     is_paid = bool(user.get("is_paid") and valid_until_ts and now < valid_until_ts)
-    # No record yet: the trial clock starts at the first sign-in (sync-trial).
-    trial_start_ts = user.get("created_at") or now
+    trial_start_ts = user.get("created_at")  # set when the trial is started
+    if not trial_start_ts:
+        return {
+            "email": email,
+            "is_paid": is_paid,
+            "plan": user.get("plan"),
+            "valid_until_ts": valid_until_ts,
+            "plan_expired": bool(user.get("is_paid") and valid_until_ts and now >= valid_until_ts),
+            "trial_started": False,
+            "trial_available": True,
+            "trial_start_ts": None,
+            "trial_end_ts": None,
+            "trial_days_remaining": TRIAL_SECONDS // 86400,
+            "trial_expired": False,
+            "trial_active": False,
+        }
     trial_end_ts = trial_start_ts + TRIAL_SECONDS
     trial_expired = now >= trial_end_ts
     return {
@@ -2278,6 +2303,8 @@ def subscription_status(email: str = ""):
         "trial_days_remaining": max(0, math.ceil((trial_end_ts - now) / 86400)),
         "trial_expired": trial_expired,
         "trial_active": not is_paid and not trial_expired,
+        "trial_started": True,
+        "trial_available": False,
     }
 
 
@@ -2371,6 +2398,7 @@ def verify_payment(req: PaymentVerifyRequest):
         users = _load_users_for_update()
         now = int(time.time())
         user = users.setdefault(email, {"email": email, "created_at": now})
+        user.setdefault("created_at", now)  # buying uses up the free trial
         seen = user.setdefault("payment_ids", [])
         if req.razorpay_payment_id not in seen:
             # Renewing early adds to the time already paid for.

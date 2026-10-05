@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261005-nochart-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-ticker-2">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-trial-2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1319,6 +1319,7 @@
             <p class="settings-help">Save your preferences and paper trades.</p>
           </div>
         </div>
+        <button id="cdMyPlanBtn" class="cd-myplan-btn" type="button"><span>👑 My plan</span><em id="cdMyPlanState">--</em></button>
         <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
 
         <div class="settings-subsection">
@@ -1762,10 +1763,11 @@
   <div id="cdTrialCard" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket cdp-card" role="dialog" aria-modal="true" aria-labelledby="cdTrialTitle">
       <div class="cd-sheet-handle"></div>
-      <span class="cdp-badge cdp-badge--green"><i class="cdp-dot"></i>PAPER TRADING PRO · 7-DAY TRIAL</span>
-      <h3 id="cdTrialTitle" class="cdp-title">CryptoDock Pro activated</h3>
+      <span class="cdp-badge cdp-badge--green"><i class="cdp-dot"></i>PAPER TRADING PRO · 7-DAY FREE TRIAL</span>
+      <h3 id="cdTrialTitle" class="cdp-title">Try CryptoDock Pro free</h3>
       <p class="cdp-paper-note">📝 Paper trading only — practice with virtual money. No real money or real orders.</p>
-      <p id="cdTrialText" class="cdp-text">Paper trading, Heatmap, Price Alerts, RRG and News are free for 7 days.</p>
+      <p id="cdTrialText" class="cdp-text">Start your 7-day free trial: unlimited paper trading, Heatmap, Price Alerts, RRG and News. No payment needed.</p>
+      <p id="cdTrialError" class="cd-ticket-error" hidden></p>
       <div class="cdp-matrix">
         <div class="cdp-matrix-head"><span>PAPER TRADING PLANS</span><em>Tap to choose</em></div>
         <div class="cdp-prices">
@@ -1773,9 +1775,9 @@
           <button type="button" data-plan="Half-Yearly Plan"><small class="cdp-up">HALF-YEARLY</small><b>₹299</b><small>6 months</small></button>
           <button type="button" data-plan="Annual Plan" class="is-best is-sel"><em>BEST VALUE</em><small class="cdp-up">ANNUAL</small><b>₹499</b><small>1 full year</small></button>
         </div>
-        <p class="cdp-note"><span>✓</span>No automatic payment during the trial. Buy now or any time later from Upgrade.</p>
+        <p class="cdp-note"><span>✓</span>No payment during the trial and no auto-renewal. Buy now or any time later from Upgrade.</p>
       </div>
-      <button id="cdTrialAccept" class="cdp-primary cdp-primary--green" type="button">Start paper trading →</button>
+      <button id="cdTrialAccept" class="cdp-primary cdp-primary--green" type="button">Start 7-day free trial →</button>
       <button id="cdTrialBuy" class="cdp-ghost" type="button">Buy Annual plan now · ₹499</button>
     </div>
   </div>
@@ -1813,6 +1815,39 @@
       <p class="cdp-trust">One-time payment · No auto-renewal</p>
     </div>
   </div>
+  <!-- Pro status card (Upgrade button / Settings → My plan): trial or plan state, features, next step -->
+  <div id="cdProStatus" class="cd-ticket-overlay" hidden>
+    <div class="cd-ticket cdp-card cdp-status-card" role="dialog" aria-modal="true" aria-labelledby="cdProStatusTitle">
+      <div class="cd-sheet-handle"></div>
+      <div class="cdp-plans-head">
+        <div class="cdp-crown cdp-crown--sm" aria-hidden="true">👑</div>
+        <div>
+          <h3 class="cdp-title">CryptoDock Pro</h3>
+          <p class="cdp-sub">Paper trading · virtual money only</p>
+        </div>
+        <button id="cdProStatusClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+      </div>
+      <div id="cdProStatusBanner" class="cdp-state">
+        <div class="cdp-state-top"><span id="cdProStatusIcon" class="cdp-state-icon">🗓️</span>
+          <div><strong id="cdProStatusTitle">--</strong><small id="cdProStatusSub"></small></div></div>
+        <div id="cdProStatusDates" class="cdp-state-dates"></div>
+        <div class="cdp-state-bar" id="cdProStatusBarWrap" hidden><i id="cdProStatusBar"></i></div>
+      </div>
+      <p class="cdp-feat-head">INCLUDED IN CRYPTODOCK PRO</p>
+      <div class="cdp-feat-grid">
+        <div><i>💹</i><b>Paper trading</b><small>Buy &amp; sell any coin with virtual USDT</small></div>
+        <div><i>🟩</i><b>Heatmap</b><small>Strong to weak, top 50 / 100 / 200</small></div>
+        <div><i>🔔</i><b>Price Alerts</b><small>Get told when a coin hits your price</small></div>
+        <div><i>🔄</i><b>RRG</b><small>Rotation of the top 20 coins</small></div>
+        <div><i>📰</i><b>Crypto News</b><small>English &amp; हिंदी, with pictures</small></div>
+      </div>
+      <p id="cdProStatusNote" class="cdp-callout"></p>
+      <p id="cdProStatusError" class="cd-ticket-error" hidden></p>
+      <button id="cdProStatusPrimary" class="cdp-primary" type="button">Choose a plan →</button>
+      <button id="cdProStatusSecondary" class="cdp-ghost" type="button" hidden>Choose a plan</button>
+      <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
+    </div>
+  </div>
   <script src="/frontend/tabbar.js?v=20261004-tabs-2"></script>
   <script src="/frontend/coin-sheet.js?v=20261005-tv-2"></script>
   <script src="/frontend/coin-stats.js?v=20261005-tv-2"></script>
@@ -1821,7 +1856,7 @@
   <script src="/frontend/news.js?v=20261005-news-2"></script>
   <script src="/frontend/welcome.js?v=20261004-welcome-1"></script>
   <script src="/frontend/fit-line.js?v=20261005-list-2"></script>
-  <script src="/frontend/pro.js?v=20261005-plans-3"></script>
+  <script src="/frontend/pro.js?v=20261005-trial-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

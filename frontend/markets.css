@@ -1758,3 +1758,40 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 }
 @keyframes cdTickLine { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.85; } }
 @media (prefers-reduced-motion: reduce) { .cd-tick::after { animation: none; opacity: 0.4; } }
+
+/* Pro status card (Upgrade / Settings → My plan), like the Indian market's */
+.cdp-status-card { text-align: left; }
+.cdp-state { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; border: 1px solid; }
+.cdp-state.is-ok { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.4); }
+.cdp-state.is-new { background: rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.45); }
+.cdp-state.is-off { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.4); }
+.cdp-state.is-info { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.35); }
+.cdp-state-top { display: flex; align-items: center; gap: 12px; }
+.cdp-state-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; background: rgba(255, 255, 255, 0.08); font-size: 20px; }
+.cdp-state-top strong { display: block; font-size: 15.5px; }
+.cdp-state.is-ok strong { color: #4ade80; }
+.cdp-state.is-new strong { color: #c4b5fd; }
+.cdp-state.is-off strong { color: #f87171; }
+.cdp-state-top small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.cdp-state-dates { padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.14); color: var(--text-soft, #c4b5fd); font-size: 12.5px; }
+.cdp-state-dates[hidden] { display: none; }
+.cdp-state-dates b { color: var(--text); }
+.cdp-state-bar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.cdp-state-bar[hidden] { display: none; }
+.cdp-state-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #22c55e, #4ade80); }
+.cdp-feat-head { margin: 4px 0 0; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: 0.6px; }
+.cdp-feat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cdp-feat-grid div { display: flex; flex-direction: column; gap: 2px; padding: 10px 11px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); }
+.cdp-feat-grid i { font-style: normal; font-size: 18px; }
+.cdp-feat-grid b { font-size: 13px; }
+.cdp-feat-grid small { color: var(--muted); font-size: 11px; line-height: 1.35; }
+.cdp-callout { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); color: #bae6fd; font-size: 12px; line-height: 1.45; }
+.cdp-callout[hidden] { display: none; }
+.cdp-status-card .cdp-ghost[hidden] { display: none; }
+/* Settings → My plan row */
+.cd-myplan-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin: 6px 0 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.1); color: var(--text); font: inherit; font-weight: 800; cursor: pointer; }
+.cd-myplan-btn em { font-style: normal; font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+.cd-myplan-btn em.is-on { background: rgba(16, 185, 129, 0.15); color: #4ade80; }
+.cd-myplan-btn em.is-new { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+.cd-myplan-btn em.is-off { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.cdp-feat-grid div:last-child:nth-child(odd) { grid-column: 1 / -1; }
