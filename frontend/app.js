@@ -1,4 +1,36 @@
 
+// ===== Real-time Pub-Sub SSE Broadcast Stream Listener =====
+let cdLiveStream = null;
+function initLiveMarketBroadcast() {
+  if (typeof window === "undefined" || !window.EventSource) return;
+  if (cdLiveStream) return;
+  try {
+    cdLiveStream = new EventSource("/api/stream/live");
+    cdLiveStream.onmessage = function(e) {
+      if (!e.data || e.data.startsWith(":")) return;
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload && payload.bitcoin && typeof updatePrice === "function") {
+          updatePrice(payload);
+        }
+      } catch (parseErr) {}
+    };
+    cdLiveStream.onerror = function() {
+      // Browser EventSource automatically handles reconnection backoff
+    };
+  } catch (err) {
+    console.warn("Pub-Sub stream init warning:", err);
+  }
+}
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initLiveMarketBroadcast);
+  } else {
+    initLiveMarketBroadcast();
+  }
+}
+
+
 // ===== Technical Section Gating (Locked for everyone except amitkmrai21@gmail.com) =====
 const CD_TECH_ADMIN_EMAIL = "amitkmrai21@gmail.com";
 
