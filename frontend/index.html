@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=v20261004-zero-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-cdet-2">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-cdet-3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -527,14 +527,18 @@
           <div class="cd-cdet-mom" id="cdCoinMom"></div>
         </section>
         <section class="card cd-cdet-card">
-          <h3>24H RANGE <span id="cdCoinRangeNote"></span></h3>
+          <h3>PRICE RANGES <span id="cdCoinRangeNote"></span></h3>
           <div class="cd-cdet-range" id="cdCoinRange"></div>
+        </section>
+        <section class="card cd-cdet-card">
+          <h3>MARKET STATS <span>last 24 hours</span></h3>
+          <div class="cd-cdet-stats" id="cdCoinStats"></div>
         </section>
         <section class="card cd-cdet-card">
           <h3>RRG POSITION <span>vs top 20 coins · 1H</span></h3>
           <div class="cd-cdet-rrg" id="cdCoinRrg"></div>
         </section>
-        <section class="card cd-cdet-card">
+        <section class="card cd-cdet-card" id="cdCoinPaperCard" hidden>
           <h3>MY PAPER TRADING <span>virtual USDT</span></h3>
           <div id="cdCoinPaper"></div>
         </section>
@@ -542,7 +546,10 @@
           <button id="cdCoinBuy" class="cd-submit is-buy" type="button">BUY</button>
           <button id="cdCoinSell" class="cd-submit is-sell" type="button">SELL</button>
         </div>
-        <button id="cdCoinAlert" class="cd-ghost-btn" type="button">🔔 Set price alert</button>
+        <div class="cd-cdet-more">
+          <button id="cdCoinAlert" class="cd-ghost-btn" type="button">🔔 Set price alert</button>
+          <button id="cdCoinStar" class="cd-ghost-btn" type="button">☆ Add to Watchlist</button>
+        </div>
       </div>
     </section>
 
@@ -1662,7 +1669,7 @@
   </div>
   <script src="/frontend/markets.js?v=20261004-news-1"></script>
   <script src="/frontend/paper.js?v=20261005-cdet-1"></script>
-  <script src="/frontend/coin-tools.js?v=20261005-cdet-1"></script>
+  <script src="/frontend/coin-tools.js?v=20261005-cdet-2"></script>
   <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
 
 

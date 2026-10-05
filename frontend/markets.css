@@ -1680,3 +1680,22 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 /* Coin Detail: smaller BUY / SELL */
 .cd-cdet .cd-coin-actions { max-width: 380px; gap: 8px; }
 .cd-cdet .cd-coin-actions .cd-submit { padding: 9px; font-size: 14px; border-radius: 10px; }
+
+/* Coin Detail: price ranges, market stats, alert + watchlist row */
+.cd-cdet-range .cd-cdet-bar-row + .cd-cdet-bar-row { margin-top: 12px; }
+.cd-cdet-bar-row em { width: 30px; flex: none; color: var(--text-soft, #c4b5fd); font-style: normal; font-weight: 800; font-size: 11.5px; }
+.cd-cdet-bar-row > span { min-width: 74px; }
+.cd-cdet-bar-row > span:last-child { text-align: right; }
+.cd-cdet-bar.is-empty { background: var(--border); }
+.cd-cdet-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cd-cdet-stats div { padding: 9px 11px; border-radius: 12px; background: var(--surface-soft); min-width: 0; }
+.cd-cdet-stats span { display: block; color: var(--muted); font-size: 11px; }
+.cd-cdet-stats b { display: block; font-family: var(--cd-num-font); font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cd-cdet-stats small { display: block; color: var(--muted); font-size: 10.5px; line-height: 1.35; }
+.cd-cdet-more { display: flex; flex-wrap: wrap; gap: 8px; }
+.cd-cdet-more .cd-ghost-btn.is-active { color: var(--yellow); border-color: rgba(251, 191, 36, 0.45); }
+@media (max-width: 420px) {
+  .cd-cdet-stats { grid-template-columns: 1fr 1fr; }
+  .cd-cdet-bar-row { gap: 7px; font-size: 11.5px; }
+  .cd-cdet-bar-row > span { min-width: 64px; }
+}
