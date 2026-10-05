@@ -306,7 +306,9 @@
       .sort((a, b) => (Number(b.change_percent) || 0) - (Number(a.change_percent) || 0));
     const half = Math.floor(heatSize / 2);
     const list = heatSize >= ranked.length ? ranked : ranked.slice(0, half).concat(ranked.slice(ranked.length - (heatSize - half)));
-    grid.innerHTML = list.map((c) => `<button type="button" class="cd-heat-tile" data-coin="${f.escapeHtml ? f.escapeHtml(c.base) : c.base}" style="background:${heatColour(c.change_percent)}">
+    // Long names (e.g. BROCCOLI714) get a smaller font so they fit the tile.
+    const sizeClass = (base) => (base.length >= 9 ? " is-xlong" : base.length >= 7 ? " is-long" : "");
+    grid.innerHTML = list.map((c) => `<button type="button" class="cd-heat-tile${sizeClass(c.base)}" data-coin="${f.escapeHtml ? f.escapeHtml(c.base) : c.base}" style="background:${heatColour(c.change_percent)}">
         <strong>${f.escapeHtml ? f.escapeHtml(c.base) : c.base}</strong><span>${f.fmtPct ? f.fmtPct(c.change_percent) : ""}</span>
       </button>`).join("") || '<p class="cd-empty">Loading coins…</p>';
   }

@@ -1719,3 +1719,8 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 /* Heatmap legend (like the Indian market): strong green → weak red */
 .cd-heat-legend { display: flex; align-items: center; gap: 8px; margin: -4px 0 2px; color: var(--muted); font-size: 11.5px; font-weight: 700; }
 .cd-heat-legend-bar { width: 150px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, #16a34a, #22c55e 30%, #475569 50%, #ef4444 70%, #dc2626); }
+/* Heatmap tiles: names never spill outside the tile */
+.cd-heat-tile { min-width: 0; padding-left: 4px; padding-right: 4px; }
+.cd-heat-tile strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-heat-tile.is-long strong { font-size: 12px; letter-spacing: 0; }
+.cd-heat-tile.is-xlong strong { font-size: 10.5px; letter-spacing: 0; }
