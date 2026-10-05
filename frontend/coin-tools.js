@@ -42,7 +42,7 @@
       // Keep any older numbers; try again in 15s.
       statsCache.set(base, { ...(hit || {}), at: Date.now() - STATS_TTL_MS + 15000, loading: false });
     }
-    if (base === coinBase && activePanel() === "coin") renderPerf();
+    if (base === coinBase && activePanel() === "coin") { const coin = coinOf(coinBase); renderPerf(); renderRange(coin); renderStats(coin); }
   }
 
   async function loadRrg() {
@@ -110,13 +110,42 @@
       </div>`;
   }
 
+  // 24H, 7D and 30D: where the price sits between each period's low and high.
   function renderRange(coin) {
     if (!coin) { el("cdCoinRange").innerHTML = ""; el("cdCoinRangeNote").textContent = ""; return; }
-    const pos = rangePos(coin);
-    el("cdCoinRangeNote").textContent = `Volume ${F().fmtVolume ? F().fmtVolume(coin.volume_usdt) : "--"}`;
-    el("cdCoinRange").innerHTML = `
-      <div class="cd-cdet-bar-row"><span>${usd(coin.low)}</span><div class="cd-cdet-bar"><i style="left:${(pos * 100).toFixed(1)}%"></i></div><span>${usd(coin.high)}</span></div>
-      <p class="cd-meta">Price is ${Math.round(pos * 100)}% of the way from today's low to today's high.</p>`;
+    const perf = statsCache.get(coinBase)?.data?.performance || {};
+    const row = (label, low, high) => {
+      const ok = Number.isFinite(low) && Number.isFinite(high) && high > 0;
+      const lo = ok ? Math.min(low, coin.price) : NaN, hi = ok ? Math.max(high, coin.price) : NaN;
+      const pos = ok && hi > lo ? (coin.price - lo) / (hi - lo) : 0.5;
+      return `<div class="cd-cdet-bar-row"><em>${label}</em><span>${ok ? usd(lo) : "--"}</span><div class="cd-cdet-bar${ok ? "" : " is-empty"}">${ok ? `<i style="left:${(pos * 100).toFixed(1)}%"></i>` : ""}</div><span>${ok ? usd(hi) : "--"}</span></div>`;
+    };
+    el("cdCoinRangeNote").textContent = `now at ${Math.round(rangePos(coin) * 100)}% of today's range`;
+    el("cdCoinRange").innerHTML = row("24H", coin.low, coin.high) +
+      row("7D", perf.d7?.low, perf.d7?.high) +
+      row("30D", perf.d30?.low, perf.d30?.high);
+  }
+
+  // Open, average price, bid / ask (with spread), trades, volume and volume rank.
+  function renderStats(coin) {
+    const d = statsCache.get(coinBase)?.data;
+    const num = (v, digits = 2) => (Number.isFinite(v) ? Number(v).toLocaleString("en-US", { maximumFractionDigits: digits }) : "--");
+    const spread = d && d.ask > 0 && d.bid > 0 ? ((d.ask - d.bid) / d.ask) * 100 : NaN;
+    const rank = window.cdVolumeRank ? window.cdVolumeRank(coinBase) : null;
+    const cell = (label, value, sub = "") => `<div><span>${label}</span><b>${value}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+    el("cdCoinStats").innerHTML =
+      cell("24h Open", d ? usd(d.open) : "--") +
+      cell("Avg. price", d ? usd(d.avg_price) : "--", "volume-weighted") +
+      cell("Bid / Ask", d ? `${usd(d.bid)}` : "--", d ? `ask ${usd(d.ask)}${Number.isFinite(spread) ? ` · spread ${spread.toFixed(3)}%` : ""}` : "") +
+      cell("Trades", d ? num(d.trades, 0) : "--", "in 24h") +
+      cell("Volume", coin && F().fmtVolume ? F().fmtVolume(coin.volume_usdt) : "--", d ? `${num(d.volume_base, 2)} ${esc(coinBase)}` : "") +
+      cell("Volume rank", rank ? `#${rank.rank}` : "--", rank ? `of ${rank.total} coins` : "");
+  }
+
+  function renderStar() {
+    const on = window.cdIsWatched ? window.cdIsWatched(coinBase) : false;
+    el("cdCoinStar").textContent = on ? "★ In Watchlist" : "☆ Add to Watchlist";
+    el("cdCoinStar").classList.toggle("is-active", on);
   }
 
   const RRG_TEXT = {
@@ -152,12 +181,13 @@
           <div><span>Value now</span><b>${money(held.value)}</b></div>
           <div><span>Profit / Loss</span><b class="${tone(held.pnl)}">${held.pnl >= 0 ? "+" : "-"}${money(Math.abs(held.pnl))} (${held.pct >= 0 ? "+" : ""}${held.pct.toFixed(2)}%)</b></div>
         </div>`
-      : `<p class="cd-meta">You don't hold any ${esc(coinBase)} yet. Tap BUY to start paper trading it.</p>`;
+      : "";
     const table = trades.length
       ? `<table class="cd-cdet-trades"><thead><tr><th>Last trades</th><th></th><th class="cd-num">Qty</th><th class="cd-num">Price</th></tr></thead><tbody>${trades.map((t) =>
           `<tr><td>${esc(when(t.at))}</td><td><span class="cd-cdet-side is-${t.side === "BUY" ? "buy" : "sell"}">${t.side}</span></td><td class="cd-num">${qty(t.qty)}</td><td class="cd-num">${usd(t.price)}</td></tr>`).join("")}</tbody></table>`
       : "";
     el("cdCoinPaper").innerHTML = top + table;
+    el("cdCoinPaperCard").hidden = !held && !trades.length;
     el("cdCoinSell").disabled = !held;
     el("cdCoinSell").style.opacity = held ? "" : "0.5";
   }
@@ -169,8 +199,10 @@
     renderPerf();
     renderMomentum(coin);
     renderRange(coin);
+    renderStats(coin);
     renderRrg();
     renderPaper();
+    renderStar();
     loadStats(coinBase);
     loadRrg();
   }
@@ -319,6 +351,7 @@
     if (event.key === "Enter") { const first = suggestions(el("cdCoinSearch").value)[0]; if (first) pickCoin(first.base); }
     else if (event.key === "Escape") el("cdCoinSuggest").hidden = true;
   });
+  el("cdCoinStar").addEventListener("click", () => { if (window.cdToggleWatch) { window.cdToggleWatch(coinBase); renderStar(); } });
   el("cdCoinTv").addEventListener("click", () => window.cdOpenTradingView && window.cdOpenTradingView(coinBase));
   el("cdCoinBuy").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "BUY"));
   el("cdCoinSell").addEventListener("click", () => window.cdOpenTicket && window.cdOpenTicket(coinBase, "SELL"));
