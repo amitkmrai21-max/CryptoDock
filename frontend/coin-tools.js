@@ -297,8 +297,11 @@
     const grid = el("cdHeatGrid");
     if (!grid) return;
     const f = F();
-    const list = coins().slice(0, heatSize); // already sorted by volume
-    grid.innerHTML = list.map((c, i) => `<button type="button" class="cd-heat-tile${i < 6 ? " is-big" : ""}" data-coin="${f.escapeHtml ? f.escapeHtml(c.base) : c.base}" style="background:${heatColour(c.change_percent)}">
+    // The top N coins by volume, laid out like the Indian market heatmap:
+    // biggest gainer first (green) down to the biggest loser last (red).
+    const list = coins().slice(0, heatSize) // already sorted by volume
+      .sort((a, b) => (Number(b.change_percent) || 0) - (Number(a.change_percent) || 0));
+    grid.innerHTML = list.map((c) => `<button type="button" class="cd-heat-tile" data-coin="${f.escapeHtml ? f.escapeHtml(c.base) : c.base}" style="background:${heatColour(c.change_percent)}">
         <strong>${f.escapeHtml ? f.escapeHtml(c.base) : c.base}</strong><span>${f.fmtPct ? f.fmtPct(c.change_percent) : ""}</span>
       </button>`).join("") || '<p class="cd-empty">Loading coins…</p>';
   }
