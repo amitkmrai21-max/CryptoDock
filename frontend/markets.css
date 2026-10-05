@@ -1605,3 +1605,8 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-list-head h3 { white-space: nowrap; }
 .cd-rrg-head-acts { margin-left: auto; }
 .cd-rrg-head-acts .cd-rrg-reset { white-space: nowrap; }
+
+/* Watchlist notes: one card, one point per line */
+#btcModeRoot .cd-page-notes.cd-notes-list { list-style: disc; white-space: normal; text-align: left; padding: 8px 14px 8px 30px; line-height: 1.75; font-size: 12.5px; }
+#btcModeRoot .cd-page-notes.cd-notes-list li { display: list-item; }
+#btcModeRoot .cd-page-notes.cd-notes-list li + li::before { content: none; }
