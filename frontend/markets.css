@@ -3,43 +3,31 @@
    Mono, used before, draws a dot inside it). */
 :root { --cd-num-font: "Manrope", system-ui, sans-serif; }
 body { font-variant-numeric: tabular-nums; }
-
 /* All-coins Dashboard and Watchlist (markets.js). Uses the app's theme
    variables, so dark/light/midnight themes all apply. */
-
 .cd-dash {
   display: flex;
   flex-direction: column;
   gap: 14px;
   min-width: 0;
 }
-
 .cd-dash-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
-
 .cd-dash-head h2 {
   margin: 0;
   font-size: 22px;
 }
-
 .cd-meta {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 12.5px;
   font-weight: 500;
 }
-
 /* Key coin cards */
-.cd-key-coins {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
-  gap: 10px;
-}
-
 .cd-key-card {
   display: flex;
   flex-direction: column;
@@ -50,29 +38,6 @@ body { font-variant-numeric: tabular-nums; }
   background: var(--surface);
   min-width: 0;
 }
-
-.cd-key-card-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-}
-
-.cd-key-price {
-  font-family: var(--cd-num-font);
-  font-size: 17px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cd-key-inr {
-  color: var(--muted);
-  font-family: var(--cd-num-font);
-  font-size: 12.5px;
-}
-
 /* Coin avatar */
 .cd-avatar {
   display: inline-flex;
@@ -88,26 +53,11 @@ body { font-variant-numeric: tabular-nums; }
   letter-spacing: -0.4px;
   overflow: hidden;
 }
-
 /* Up / down colours */
 .cd-up { color: var(--green); }
 .cd-down { color: var(--red); }
 .cd-flat { color: var(--muted); }
-
 /* Market mood */
-.cd-breadth-card { padding: 12px 14px; }
-
-.cd-breadth-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 13.5px;
-  margin-bottom: 8px;
-}
-
-.cd-breadth-row .cd-meta { margin: 0; }
-
 .cd-breadth-bar {
   display: flex;
   height: 8px;
@@ -115,30 +65,14 @@ body { font-variant-numeric: tabular-nums; }
   overflow: hidden;
   background: var(--surface-soft);
 }
-
 .cd-breadth-bar span:first-child { background: var(--green); }
 .cd-breadth-bar span:last-child { background: var(--red); }
-
 /* Movers */
-.cd-movers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.cd-mover-card { padding: 12px 14px; min-width: 0; }
-
-.cd-mover-card h3 {
-  margin: 0 0 8px;
-  font-size: 14.5px;
-}
-
 .cd-mover-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-
 .cd-mover-list li {
   display: flex;
   align-items: center;
@@ -148,9 +82,7 @@ body { font-variant-numeric: tabular-nums; }
   border-top: 1px solid var(--border);
   font-size: 13px;
 }
-
 .cd-mover-list li:first-child { border-top: 0; }
-
 .cd-mover-name {
   display: flex;
   align-items: center;
@@ -158,22 +90,18 @@ body { font-variant-numeric: tabular-nums; }
   min-width: 0;
   font-weight: 700;
 }
-
 .cd-mover-name span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .cd-mover-right {
   text-align: right;
   font-family: var(--cd-num-font);
   font-size: 12.5px;
   line-height: 1.3;
 }
-
 /* Tables */
 .cd-table-card { padding: 12px 14px; min-width: 0; }
-
 .cd-table-head {
   display: flex;
   align-items: center;
@@ -182,10 +110,8 @@ body { font-variant-numeric: tabular-nums; }
   gap: 10px;
   margin-bottom: 8px;
 }
-
 .cd-table-head h3 { margin: 0; font-size: 15px; }
 .cd-table-head h3 .cd-meta { font-size: 12px; }
-
 .cd-search {
   flex: 1 1 220px;
   max-width: 320px;
@@ -197,15 +123,12 @@ body { font-variant-numeric: tabular-nums; }
   font: inherit;
   font-size: 13.5px;
 }
-
 .cd-table-wrap { overflow-x: auto; }
-
 .cd-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13.5px;
 }
-
 .cd-table th {
   padding: 8px 6px;
   color: var(--muted);
@@ -217,42 +140,33 @@ body { font-variant-numeric: tabular-nums; }
   white-space: nowrap;
   border-bottom: 1px solid var(--border);
 }
-
 .cd-table th[data-sort] { cursor: pointer; user-select: none; }
 .cd-table th[data-sort].is-sorted { color: var(--text); }
-
 .cd-table td {
   padding: 9px 6px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
-
 .cd-table .cd-num {
   text-align: right;
   font-family: var(--cd-num-font);
   white-space: nowrap;
 }
-
 .cd-table th.cd-num { font-family: inherit; }
-
 .cd-coin-cell {
   display: flex;
   align-items: center;
   gap: 9px;
   min-width: 0;
 }
-
 .cd-coin-cell strong { display: block; }
 .cd-coin-cell small { color: var(--muted); font-size: 11px; }
-
 .cd-sub {
   display: block;
   color: var(--muted);
   font-size: 11.5px;
 }
-
 .cd-col-star { width: 30px; }
-
 .cd-star {
   border: 0;
   background: none;
@@ -262,9 +176,7 @@ body { font-variant-numeric: tabular-nums; }
   padding: 2px;
   cursor: pointer;
 }
-
 .cd-star.is-on { color: var(--yellow); }
-
 .cd-show-more {
   display: block;
   margin: 10px auto 2px;
@@ -277,31 +189,21 @@ body { font-variant-numeric: tabular-nums; }
   font-weight: 700;
   cursor: pointer;
 }
-
 .cd-empty {
   margin: 14px 0 6px;
   color: var(--muted);
   text-align: center;
   font-size: 13.5px;
 }
-
-@media (max-width: 900px) {
-  .cd-movers { grid-template-columns: 1fr; }
-}
-
 @media (max-width: 640px) {
-  .cd-col-wide { display: none; }
-  .cd-search { max-width: none; }
-  .cd-key-coins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cd-key-price { font-size: 15px; }
+.cd-col-wide { display: none; }
+.cd-search { max-width: none; }
 }
-
 /* ---------- Paper trading (paper.js) ---------- */
 .cd-key-card[data-base],
 .cd-mover-list li[data-base],
 .cd-table tbody tr[data-base] { cursor: pointer; }
 .cd-table tbody tr[data-base]:hover td { background: var(--surface-soft); }
-
 .cd-ghost-btn {
   padding: 7px 14px;
   border-radius: 10px;
@@ -314,13 +216,11 @@ body { font-variant-numeric: tabular-nums; }
   cursor: pointer;
   white-space: nowrap;
 }
-
 .cd-funds-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
-
 .cd-fund {
   display: flex;
   flex-direction: column;
@@ -331,15 +231,12 @@ body { font-variant-numeric: tabular-nums; }
   background: var(--surface);
   min-width: 0;
 }
-
 .cd-fund span { color: var(--muted); font-size: 12px; font-weight: 700; }
 .cd-fund strong { font-family: var(--cd-num-font); font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-fund small { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-fund strong.cd-up { color: var(--green); }
 .cd-fund strong.cd-down { color: var(--red); }
-
 .cd-hold-list, .cd-order-list { display: flex; flex-direction: column; }
-
 .cd-hold-row {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
@@ -355,16 +252,13 @@ body { font-variant-numeric: tabular-nums; }
   text-align: left;
   cursor: pointer;
 }
-
 .cd-hold-row:first-child { border-top: 0; }
 .cd-hold-row small { display: block; color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-hold-row .cd-coin-cell > span { min-width: 0; }
 .cd-hold-mid { font-family: var(--cd-num-font); font-size: 12.5px; min-width: 0; }
 .cd-hold-pnl { font-family: var(--cd-num-font); font-weight: 700; text-align: right; }
 .cd-hold-pnl small { text-align: right; }
-
 .cd-pills { display: flex; flex-wrap: wrap; gap: 8px; }
-
 .cd-pill {
   padding: 6px 14px;
   border-radius: 999px;
@@ -376,9 +270,7 @@ body { font-variant-numeric: tabular-nums; }
   font-weight: 700;
   cursor: pointer;
 }
-
 .cd-pill.is-active { color: var(--text); border-color: var(--border-strong); background: var(--surface-elevated); }
-
 .cd-order-row {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) auto auto;
@@ -387,7 +279,6 @@ body { font-variant-numeric: tabular-nums; }
   padding: 10px 4px;
   border-top: 1px solid var(--border);
 }
-
 .cd-order-row:first-child { border-top: 0; }
 .cd-order-side { font-weight: 800; font-size: 12.5px; }
 .cd-order-main { min-width: 0; }
@@ -397,7 +288,6 @@ body { font-variant-numeric: tabular-nums; }
 .cd-order-status.is-open { color: var(--yellow); }
 .cd-order-status.is-filled { color: var(--green); }
 .cd-order-cancel { padding: 5px 10px; font-size: 12px; }
-
 /* Order ticket */
 .cd-ticket-overlay {
   position: fixed;
@@ -410,9 +300,7 @@ body { font-variant-numeric: tabular-nums; }
   background: rgba(5, 4, 12, 0.7);
   backdrop-filter: none; -webkit-backdrop-filter: none;
 }
-
 .cd-ticket-overlay[hidden] { display: none; }
-
 .cd-ticket {
   width: 100%;
   max-width: 420px;
@@ -428,19 +316,12 @@ body { font-variant-numeric: tabular-nums; }
   color: var(--text);
   box-shadow: var(--shadow);
 }
-
 .cd-ticket-head { display: flex; align-items: center; justify-content: space-between; }
 .cd-ticket-head strong { font-size: 17px; }
 .cd-ticket-close { border: 0; background: none; color: var(--muted); font-size: 26px; line-height: 1; cursor: pointer; }
 .cd-ticket-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 .cd-ticket-price strong { font-family: var(--cd-num-font); font-size: 22px; }
 .cd-ticket-price .cd-meta { margin: 0; }
-
-.cd-side-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.cd-side-toggle button { padding: 10px; border: 0; background: var(--surface-soft); color: var(--muted); font: inherit; font-weight: 800; cursor: pointer; }
-.cd-side-toggle button[data-side="BUY"].is-active { background: var(--green); color: #052e1a; }
-.cd-side-toggle button[data-side="SELL"].is-active { background: var(--red); color: #3b0a0a; }
-
 .cd-field { display: flex; flex-direction: column; gap: 5px; }
 .cd-field[hidden] { display: none; }
 .cd-field span { color: var(--muted); font-size: 12px; font-weight: 700; }
@@ -453,21 +334,15 @@ body { font-variant-numeric: tabular-nums; }
   font-family: var(--cd-num-font);
   font-size: 15px;
 }
-
-.cd-pct-row .cd-pill { flex: 1; text-align: center; padding: 6px 0; }
-
 .cd-ticket-summary { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--surface-soft); font-size: 13px; }
 .cd-ticket-summary div { display: flex; justify-content: space-between; gap: 10px; }
 .cd-ticket-summary span { color: var(--muted); }
 .cd-ticket-summary strong { font-family: var(--cd-num-font); text-align: right; }
-
 .cd-ticket-error { margin: 0; color: var(--red); font-size: 13px; font-weight: 600; }
 .cd-ticket-error[hidden] { display: none; }
-
 .cd-submit { padding: 13px; border: 0; border-radius: 12px; font: inherit; font-size: 15.5px; font-weight: 800; cursor: pointer; }
 .cd-submit.is-buy { background: var(--green); color: #052e1a; }
 .cd-submit.is-sell { background: var(--red); color: #3b0a0a; }
-
 .cd-toast {
   position: fixed;
   left: 50%;
@@ -487,37 +362,31 @@ body { font-variant-numeric: tabular-nums; }
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
 }
-
 .cd-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
-
 @media (max-width: 760px) {
-  .cd-funds-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cd-hold-row { grid-template-columns: minmax(0, 1fr) auto; }
-  .cd-hold-mid { display: none; }
-  .cd-order-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
-  .cd-order-row .cd-order-cancel { grid-column: 2 / -1; justify-self: start; }
-  .cd-ticket-overlay { align-items: flex-end; padding: 0; }
-  .cd-ticket { max-width: none; border-radius: 18px 18px 0 0; max-height: 92vh; }
+.cd-funds-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cd-hold-row { grid-template-columns: minmax(0, 1fr) auto; }
+.cd-hold-mid { display: none; }
+.cd-order-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
+.cd-order-row .cd-order-cancel { grid-column: 2 / -1; justify-self: start; }
+.cd-ticket-overlay { align-items: flex-end; padding: 0; }
+.cd-ticket { max-width: none; border-radius: 18px 18px 0 0; max-height: 92vh; }
 }
-
 /* ---------- Coin Detail / Scanner / Heatmap (coin-tools.js) ---------- */
 .cd-ticket-head-actions { display: inline-flex; align-items: center; gap: 8px; }
 .cd-coin-price-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
 .cd-coin-price-row strong { font-family: var(--cd-num-font); font-size: 26px; }
 .cd-coin-price-row .cd-meta { margin: 0; font-size: 14px; }
 .cd-coin-price-row span:last-child { font-weight: 700; }
-.cd-coin-chart { width: 100%; height: 380px; margin-top: 10px; }
 .cd-coin-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cd-coin-actions .cd-submit { width: 100%; }
 #cdCoinTitle { margin: 0; }
 .cd-coin-cell h2 + .cd-meta { margin-top: 0; }
-
 .cd-heat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 6px;
 }
-
 .cd-heat-tile {
   display: flex;
   flex-direction: column;
@@ -533,20 +402,16 @@ body { font-variant-numeric: tabular-nums; }
   cursor: pointer;
   text-align: center;
 }
-
 .cd-heat-tile strong { font-size: 13.5px; letter-spacing: 0.2px; }
 .cd-heat-tile span { font-family: var(--cd-num-font); font-size: 12px; opacity: 0.95; }
 .cd-heat-tile.is-big { grid-column: span 2; min-height: 96px; }
 .cd-heat-tile.is-big strong { font-size: 16px; }
-
 @media (max-width: 760px) {
-  .cd-coin-chart { height: 300px; }
-  .cd-heat-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
-  .cd-dash-head .cd-search { flex-basis: 100%; }
-  .cd-dash-head:has(.cd-search) { flex-wrap: wrap; }
-  #cdHeatSize { width: 100%; }
+.cd-heat-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+.cd-dash-head .cd-search { flex-basis: 100%; }
+.cd-dash-head:has(.cd-search) { flex-wrap: wrap; }
+#cdHeatSize { width: 100%; }
 }
-
 /* ---------- Price alerts (alerts.js) ---------- */
 .cd-alert-form {
   display: grid;
@@ -566,11 +431,10 @@ body { font-variant-numeric: tabular-nums; }
 .cd-alert-form .cd-submit { padding: 11px 16px; }
 #cdCoinAlert { align-self: flex-start; }
 @media (max-width: 760px) {
-  .cd-alert-form { grid-template-columns: 1fr 1fr; }
-  .cd-alert-form .cd-submit,
+.cd-alert-form { grid-template-columns: 1fr 1fr; }
+.cd-alert-form .cd-submit,
   .cd-alert-form .cd-field:nth-child(3) { grid-column: 1 / -1; }
 }
-
 /* ---------- CryptoDock Pro (pro.js) ---------- */
 /* Pinned to the far right of the header. */
 .cd-upgrade-btn {
@@ -593,48 +457,6 @@ body { font-variant-numeric: tabular-nums; }
   box-shadow: 0 2px 8px rgba(250, 204, 21, 0.35);
 }
 .cd-upgrade-btn[hidden] { display: none; }
-
-.cd-pro-card { text-align: center; align-items: stretch; }
-.cd-pro-card h3 { margin: 0; font-size: 20px; }
-.cd-pro-card .cd-meta { margin: 0; line-height: 1.5; }
-.cd-pro-card .cd-ticket-head h3 { font-size: 18px; }
-.cd-pro-badge {
-  align-self: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: rgba(250, 204, 21, 0.14);
-  color: #facc15;
-  font-size: 11.5px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-}
-.cd-pro-badge--green { background: rgba(52, 211, 153, 0.14); color: var(--green); }
-
-.cd-plan-mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.cd-plan-mini div { display: flex; flex-direction: column; padding: 10px 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
-.cd-plan-mini strong { font-size: 18px; }
-.cd-plan-mini span { color: var(--muted); font-size: 12px; }
-.cd-plan-mini .is-best { border-color: var(--green); }
-
-.cd-plan-list { display: flex; flex-direction: column; gap: 8px; text-align: left; }
-.cd-plan {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-soft);
-  cursor: pointer;
-}
-.cd-plan:has(input:checked) { border-color: var(--green); }
-.cd-plan input { accent-color: var(--green); width: 18px; height: 18px; }
-.cd-plan strong { display: block; }
-.cd-plan small { color: var(--muted); font-size: 12px; }
-.cd-plan b { font-size: 18px; }
-.cd-plan.is-best small { color: var(--green); font-weight: 700; }
-
 /* ---------- Coin sheet (coin-sheet.js) ---------- */
 .cd-sheet { max-width: 460px; gap: 14px; }
 .cd-sheet-handle { display: none; width: 40px; height: 4px; border-radius: 999px; background: var(--border); align-self: center; margin-bottom: -4px; }
@@ -653,7 +475,6 @@ body { font-variant-numeric: tabular-nums; }
 .cd-sheet-section { display: flex; flex-direction: column; gap: 8px; }
 .cd-sheet-section-head { display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; font-weight: 800; letter-spacing: 0.4px; }
 .cd-sheet-section-head .cd-meta { margin: 0; font-size: 10.5px; }
-
 .cd-depth { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cd-depth-head { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 700; padding: 0 4px 4px; }
 .cd-depth-row { position: relative; display: flex; justify-content: space-between; gap: 6px; padding: 4px; font-family: var(--cd-num-font); font-size: 12px; overflow: hidden; }
@@ -663,35 +484,28 @@ body { font-variant-numeric: tabular-nums; }
 .cd-depth-ask i { background: var(--red); left: 0; right: auto; }
 .cd-depth-bid span:first-of-type { color: var(--green); }
 .cd-depth-ask span:first-of-type { color: var(--red); }
-
 .cd-range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; font-family: var(--cd-num-font); font-size: 12px; }
 .cd-range-bar { position: relative; height: 6px; border-radius: 999px; background: linear-gradient(90deg, var(--red), var(--yellow), var(--green)); opacity: 0.85; }
 .cd-range-bar i { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; background: var(--text); border: 2px solid var(--surface); transform: translate(-50%, -50%); }
-
 .cd-sheet-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .cd-sheet-stats div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--surface-soft); }
 .cd-sheet-stats span { color: var(--muted); font-size: 11.5px; font-weight: 700; }
 .cd-sheet-stats strong { font-family: var(--cd-num-font); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
 .cd-sheet-footer { position: sticky; bottom: -18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 -18px -18px; padding: 12px 18px 18px; background: var(--surface); border-top: 1px solid var(--border); }
-
 #cdWatchTabs .cd-pill { padding: 7px 18px; }
-
 @media (max-width: 760px) {
-  .cd-sheet { max-width: none; }
-  .cd-sheet-handle { display: block; }
+.cd-sheet { max-width: none; }
+.cd-sheet-handle { display: block; }
 }
-
 /* ---------- Scanner bar ---------- */
 .cd-scan-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
 .cd-scan-bar .cd-meta { margin: 0; }
 .cd-scan-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .cd-scan-toggle input { accent-color: var(--green); }
 #cdScanFilters .cd-pill span { opacity: 0.75; font-weight: 600; }
-
 /* ---------- Phone: sidebar becomes a bottom bar, like the Indian market app ---------- */
 @media (max-width: 760px) {
-  #btcModeRoot .sidebar {
+#btcModeRoot .sidebar {
     position: fixed;
     top: auto;
     bottom: 0;
@@ -708,8 +522,7 @@ body { font-variant-numeric: tabular-nums; }
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.35);
   }
-
-  #btcModeRoot .sidebar .nav {
+#btcModeRoot .sidebar .nav {
     display: flex;
     gap: 7px;
     overflow-x: auto;
@@ -717,10 +530,8 @@ body { font-variant-numeric: tabular-nums; }
     scrollbar-width: none;
     padding-right: 4px;
   }
-
-  #btcModeRoot .sidebar .nav::-webkit-scrollbar { display: none; }
-
-  #btcModeRoot .nav-button {
+#btcModeRoot .sidebar .nav::-webkit-scrollbar { display: none; }
+#btcModeRoot .nav-button {
     width: auto;
     min-width: max-content;
     margin: 0;
@@ -728,36 +539,29 @@ body { font-variant-numeric: tabular-nums; }
     border-radius: 999px;
     font-weight: 600;
   }
-
-  #btcModeRoot .nav-button.active {
+#btcModeRoot .nav-button.active {
     color: #24123f;
     background: linear-gradient(135deg, #8b5cf6, #c4b5fd);
     box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
   }
-
-  #btcModeRoot .nav-button.active .nav-icon { color: #24123f; }
-
-  /* Room for the bottom bar so it never covers the last row. */
-  #btcModeRoot .content { padding-bottom: 92px; }
-  .cd-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+#btcModeRoot .nav-button.active .nav-icon { color: #24123f; }
+/* Room for the bottom bar so it never covers the last row. */
+#btcModeRoot .content { padding-bottom: 92px; }
+.cd-toast { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 }
-
 @media (max-width: 720px) {
-  .cd-upgrade-btn { right: 14px; padding: 6px 12px; font-size: 12px; }
+.cd-upgrade-btn { right: 14px; padding: 6px 12px; font-size: 12px; }
 }
-
 /* In the app the ☰ settings button sits at the bottom-right, over the
    bottom bar (as in the Indian market app) — leave room for it. */
 @media (max-width: 760px) {
-  html.capacitor-app #btcModeRoot .sidebar .nav { padding-right: 52px; }
+html.capacitor-app #btcModeRoot .sidebar .nav { padding-right: 52px; }
 }
-
 /* ================= Home dashboard (pro look) ================= */
 .cd-home { gap: 12px; }
 .cd-avatar { position: relative; overflow: hidden; }
 .cd-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .cd-avatar.has-logo { background: transparent !important; color: transparent; border-radius: 50%; }
-
 .cd-ticker-card,
 .cd-panel,
 .cd-feature,
@@ -767,7 +571,6 @@ body { font-variant-numeric: tabular-nums; }
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, #1e1b4b), var(--surface));
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
-
 /* Ticker */
 .cd-ticker-card { display: flex; align-items: center; gap: 4px; padding: 8px 6px 8px 10px; }
 .cd-ticker {
@@ -779,7 +582,10 @@ body { font-variant-numeric: tabular-nums; }
 .cd-ticker-track { display: flex; width: max-content; animation: cdTickerSlide 30s linear infinite; }
 .cd-ticker:hover .cd-ticker-track, .cd-ticker:active .cd-ticker-track { animation-play-state: paused; }
 @keyframes cdTickerSlide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@media (prefers-reduced-motion: reduce) { .cd-ticker { overflow-x: auto; } .cd-ticker-track { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+.cd-ticker { overflow-x: auto; }
+.cd-ticker-track { animation: none; }
+}
 .cd-tick { position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; flex-shrink: 0; }
 .cd-tick .cd-avatar { width: 26px; height: 26px; }
 .cd-tick-text { display: flex; flex-direction: column; text-align: left; line-height: 1.25; }
@@ -787,7 +593,6 @@ body { font-variant-numeric: tabular-nums; }
 .cd-tick-text span { font-family: var(--cd-num-font); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 .cd-tick-text em { font-style: normal; font-weight: 700; margin-left: 4px; }
 .cd-ticker-more { flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--surface-soft); color: var(--text); font-size: 20px; line-height: 1; cursor: pointer; }
-
 /* Hero */
 .cd-hero {
   position: relative;
@@ -811,19 +616,16 @@ body { font-variant-numeric: tabular-nums; }
 .cd-hero-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font: inherit; font-weight: 800; font-size: 14px; cursor: pointer; box-shadow: 0 8px 20px rgba(99, 102, 241, 0.45); }
 .cd-hero-btn span { font-size: 18px; line-height: 1; }
 .cd-hero-art { width: 46%; max-width: 230px; height: auto; flex-shrink: 0; }
-
 /* BTC / ETH */
 .cd-feature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cd-feature { display: flex; flex-direction: column; gap: 4px; padding: 12px 12px 8px; min-width: 0; cursor: pointer; }
 .cd-feature-top { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .cd-feature-top .cd-avatar { width: 30px; height: 30px; }
-.cd-feature-live { margin-left: auto; padding: 2px 8px; border-radius: 999px; background: rgba(52, 211, 153, 0.14); color: var(--green); font-size: 10.5px; font-weight: 800; }
 .cd-feature-price-row { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
 .cd-feature-price { font-family: var(--cd-num-font); font-size: 20px; font-weight: 800; }
 .cd-feature-pct { font-weight: 800; font-size: 14px; }
 .cd-feature-sub { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-family: var(--cd-num-font); font-size: 12px; }
 .cd-spark { width: 100%; height: 44px; margin-top: 4px; }
-
 /* Movers */
 .cd-mover-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cd-mover-panel { padding: 12px; min-width: 0; }
@@ -839,7 +641,6 @@ body { font-variant-numeric: tabular-nums; }
 .is-down .cd-view-all { color: #fca5a5; }
 .cd-mover-panel .cd-mover-list li { padding: 7px 0; border-top-color: color-mix(in srgb, var(--border) 70%, transparent); cursor: pointer; }
 .cd-mover-panel .cd-mover-name .cd-avatar { width: 26px; height: 26px; }
-
 /* Panels */
 .cd-panel { padding: 12px 14px; }
 .cd-panel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -855,30 +656,26 @@ body { font-variant-numeric: tabular-nums; }
 .cd-mood .cd-panel-head { margin-bottom: 10px; }
 .cd-mood-text { margin-left: auto; font-size: 12.5px; font-weight: 800; }
 .cd-mood .cd-breadth-bar { height: 10px; }
-
 @media (max-width: 520px) {
-  .cd-hero { min-height: 120px; padding: 16px 14px; }
-  .cd-hero h2 { font-size: 21px; }
-  .cd-hero p { font-size: 12px; }
-  .cd-hero-btn { padding: 9px 16px; font-size: 13px; }
-  .cd-feature-price { font-size: 17px; }
-  .cd-mover-panel { padding: 10px; }
-  .cd-mover-head h3 { font-size: 13.5px; }
-  .cd-mover-panel .cd-mover-list li { font-size: 12px; }
-  .cd-mover-panel .cd-mover-name { gap: 6px; }
-  .cd-mover-panel .cd-mover-right { font-size: 11px; }
-  .cd-mini-coins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cd-hero { min-height: 120px; padding: 16px 14px; }
+.cd-hero h2 { font-size: 21px; }
+.cd-hero p { font-size: 12px; }
+.cd-hero-btn { padding: 9px 16px; font-size: 13px; }
+.cd-feature-price { font-size: 17px; }
+.cd-mover-panel { padding: 10px; }
+.cd-mover-head h3 { font-size: 13.5px; }
+.cd-mover-panel .cd-mover-list li { font-size: 12px; }
+.cd-mover-panel .cd-mover-name { gap: 6px; }
+.cd-mover-panel .cd-mover-right { font-size: 11px; }
+.cd-mini-coins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
 /* ================= Phone tab bar (tabbar.js) ================= */
 .cd-tabbar { display: none; }
-
 @media (max-width: 760px) {
-  /* The tab bar replaces the scrolling sidebar on phones. */
-  #btcModeRoot .sidebar { display: none; }
-  html.capacitor-app #topSettingsMenuButton { display: none !important; }
-
-  .cd-tabbar {
+/* The tab bar replaces the scrolling sidebar on phones. */
+#btcModeRoot .sidebar { display: none; }
+html.capacitor-app #topSettingsMenuButton { display: none !important; }
+.cd-tabbar {
     position: fixed;
     left: 0;
     right: 0;
@@ -893,8 +690,7 @@ body { font-variant-numeric: tabular-nums; }
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.35);
   }
-
-  .cd-tabbar button {
+.cd-tabbar button {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -909,21 +705,17 @@ body { font-variant-numeric: tabular-nums; }
     font-weight: 700;
     cursor: pointer;
   }
-
-  .cd-tabbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-  .cd-tabbar button.is-active { color: #ffffff; background: linear-gradient(180deg, rgba(139, 92, 246, 0.45), rgba(99, 102, 241, 0.2)); }
-  .cd-tabbar button.is-active svg { stroke: #c4b5fd; }
-
-  #btcModeRoot .content { padding-bottom: 86px; }
-  .cd-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+.cd-tabbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.cd-tabbar button.is-active { color: #ffffff; background: linear-gradient(180deg, rgba(139, 92, 246, 0.45), rgba(99, 102, 241, 0.2)); }
+.cd-tabbar button.is-active svg { stroke: #c4b5fd; }
+#btcModeRoot .content { padding-bottom: 86px; }
+.cd-toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
 }
-
 .cd-more { gap: 12px; }
 .cd-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .cd-more-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: center; }
 .cd-more-icon { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(99, 102, 241, 0.2)); color: #c4b5fd; }
 .cd-more-icon svg { width: 17px; height: 17px; }
-
 /* The ticker's long row must scroll inside its card, not widen the page. */
 #btcModeRoot .content,
 #btcModeRoot .dashboard,
@@ -931,22 +723,20 @@ body { font-variant-numeric: tabular-nums; }
 .cd-home,
 .cd-ticker-card { min-width: 0; max-width: 100%; }
 .cd-ticker-card { overflow: hidden; }
-
 @media (max-width: 520px) {
-  .cd-mover-head h3 { white-space: nowrap; font-size: 13.5px; }
-  .cd-mover-head small { display: none; }
-  .cd-mover-head { gap: 6px; }
-  .cd-mover-icon { font-size: 16px; }
-  .cd-view-all { font-size: 11px; }
-  .cd-hero h2 { font-size: 20px; }
-  .cd-hero-art { width: 40%; }
+.cd-mover-head h3 { white-space: nowrap; font-size: 13.5px; }
+.cd-mover-head small { display: none; }
+.cd-mover-head { gap: 6px; }
+.cd-mover-icon { font-size: 16px; }
+.cd-view-all { font-size: 11px; }
+.cd-hero h2 { font-size: 20px; }
+.cd-hero-art { width: 40%; }
 }
 @media (max-width: 420px) {
-  .cd-mover-head h3 { font-size: 12.5px; }
-  .cd-view-all { font-size: 10.5px; }
-  .cd-mover-icon { font-size: 14px; }
+.cd-mover-head h3 { font-size: 12.5px; }
+.cd-view-all { font-size: 10.5px; }
+.cd-mover-icon { font-size: 14px; }
 }
-
 /* ================= Sheet motion (sheet-motion.js) ================= */
 .cd-ticket-overlay {
   background: rgba(5, 4, 12, calc(0.7 * var(--cd-sheet-dim, 1)));
@@ -960,18 +750,16 @@ body { font-variant-numeric: tabular-nums; }
 .cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(24px) scale(0.98); opacity: 0; }
 .cd-ticket-overlay.cd-closing { pointer-events: none; }
 .cd-ticket-overlay.cd-closing > .cd-ticket { transition-duration: 0.22s; transition-timing-function: cubic-bezier(0.4, 0, 1, 1); }
-
 @media (max-width: 760px) {
-  /* Phones: slide all the way up from the bottom edge, and back down. */
-  .cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(100%); opacity: 1; }
-  .cd-ticket-overlay > .cd-ticket { touch-action: pan-y; overscroll-behavior: contain; }
-  /* A full-screen blur behind a moving sheet is what stuttered on phones;
+/* Phones: slide all the way up from the bottom edge, and back down. */
+.cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(100%); opacity: 1; }
+.cd-ticket-overlay > .cd-ticket { touch-action: pan-y; overscroll-behavior: contain; }
+/* A full-screen blur behind a moving sheet is what stuttered on phones;
      a slightly darker plain backdrop looks the same and stays smooth. */
-  .cd-ticket-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(5, 4, 12, calc(0.78 * var(--cd-sheet-dim, 1))); }
-  .cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
-  .cd-ticket-overlay .cd-sheet-handle { display: block; width: 44px; height: 5px; margin: -6px auto 2px; cursor: grab; }
+.cd-ticket-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(5, 4, 12, calc(0.78 * var(--cd-sheet-dim, 1))); }
+.cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
+.cd-ticket-overlay .cd-sheet-handle { display: block; width: 44px; height: 5px; margin: -6px auto 2px; cursor: grab; }
 }
-
 /* Short page notes at the bottom of a page (instead of a long line under
    the title). */
 .cd-page-notes {
@@ -984,24 +772,22 @@ body { font-variant-numeric: tabular-nums; }
   line-height: 1.7;
 }
 .cd-page-notes li::marker { color: var(--purple, #a78bfa); }
-
 /* Phones: coin tables use the full width — ☆ sits at the left edge, the
    coin right after it, and the 24h column gets room (it was clipped with
    larger system font sizes). */
 @media (max-width: 520px) {
-  .cd-table-card { margin-left: -6px; margin-right: -6px; padding: 10px 4px; }
-  .cd-table-card .cd-table-head,
+.cd-table-card { margin-left: -6px; margin-right: -6px; padding: 10px 4px; }
+.cd-table-card .cd-table-head,
   .cd-table-card .cd-scan-bar,
   .cd-table-card > .cd-empty { padding-left: 8px; padding-right: 8px; }
-  .cd-table th, .cd-table td { padding-left: 3px; padding-right: 3px; }
-  .cd-table th.cd-col-star, .cd-table td:first-child { width: 22px; padding-left: 2px; padding-right: 0; }
-  .cd-star { padding: 0; font-size: 16px; }
-  .cd-table .cd-coin-cell { gap: 7px; }
-  .cd-table .cd-avatar { width: 26px; height: 26px; }
-  .cd-table .cd-num { font-size: 12.5px; }
-  .cd-table th:last-child, .cd-table td:last-child { padding-right: 6px; }
+.cd-table th, .cd-table td { padding-left: 3px; padding-right: 3px; }
+.cd-table th.cd-col-star, .cd-table td:first-child { width: 22px; padding-left: 2px; padding-right: 0; }
+.cd-star { padding: 0; font-size: 16px; }
+.cd-table .cd-coin-cell { gap: 7px; }
+.cd-table .cd-avatar { width: 26px; height: 26px; }
+.cd-table .cd-num { font-size: 12.5px; }
+.cd-table th:last-child, .cd-table td:last-child { padding-right: 6px; }
 }
-
 /* Momentum pill (like the Indian market's MOMENTUM column). */
 .cd-mom-pill {
   display: inline-flex;
@@ -1022,15 +808,13 @@ body { font-variant-numeric: tabular-nums; }
 .cd-mom-chg { display: none; }
 .cd-mom-summary { display: flex; justify-content: space-between; gap: 6px; margin: 2px 0 8px; }
 .cd-mom-summary:empty { display: none; }
-
 /* Phones: the 24h % moves under the pill to save a column. */
 @media (max-width: 520px) {
-  .cd-table .cd-col-chg { display: none; }
-  .cd-mom-chg { display: block; margin-top: 3px; font-size: 11.5px; }
-  .cd-table .cd-mom-pill { font-size: 10px; padding: 2px 6px; gap: 3px; }
-  .cd-table-card .cd-mom-summary { padding: 0 8px; }
+.cd-table .cd-col-chg { display: none; }
+.cd-mom-chg { display: block; margin-top: 3px; font-size: 11.5px; }
+.cd-table .cd-mom-pill { font-size: 10px; padding: 2px 6px; gap: 3px; }
+.cd-table-card .cd-mom-summary { padding: 0 8px; }
 }
-
 /* Watchlist tables: $ price only (no ₹ line). On phones the 24h % sits
    under the price instead of under the momentum pill. */
 .cd-price-chg { display: none; }
@@ -1038,10 +822,9 @@ body { font-variant-numeric: tabular-nums; }
 .cd-sub.cd-price-chg.cd-down { color: var(--red); }
 .cd-watch-table .cd-inr { display: none; }
 @media (max-width: 520px) {
-  .cd-watch-table .cd-price-chg { display: block; font-size: 12px; margin-top: 2px; }
-  .cd-watch-table .cd-mom-chg { display: none; }
+.cd-watch-table .cd-price-chg { display: block; font-size: 12px; margin-top: 2px; }
+.cd-watch-table .cd-mom-chg { display: none; }
 }
-
 /* Momentum pill, the Indian market's look: a filled pill with the label
    and the score in a ring on its right; the row gets a matching accent
    line on its left edge. The summary chips above keep the light style. */
@@ -1085,20 +868,18 @@ body { font-variant-numeric: tabular-nums; }
 .cd-table tr.cd-row-bear td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
 .cd-table tr.cd-row-neutral td:first-child { box-shadow: inset 3px 0 0 #64748b; }
 @media (max-width: 520px) {
-  .cd-table .cd-mom-pill { width: 92px; height: 26px; padding: 0 2px 0 0; gap: 0; }
-  .cd-table .cd-mom-txt { font-size: 9px; }
-  .cd-table th.cd-col-star, .cd-table td:first-child { padding-left: 5px; }
+.cd-table .cd-mom-pill { width: 92px; height: 26px; padding: 0 2px 0 0; gap: 0; }
+.cd-table .cd-mom-txt { font-size: 9px; }
+.cd-table th.cd-col-star, .cd-table td:first-child { padding-left: 5px; }
 }
-
 /* Phones: tighter bottom of every page — the notes, the disclaimer and the
    tab bar sit closer together (the gaps added up to ~80px of empty space). */
 @media (max-width: 760px) {
-  #btcModeRoot .content { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
-  #btcModeRoot main.dashboard { padding-bottom: 8px; row-gap: 10px; }
-  #btcModeRoot .cd-page-notes { margin-top: -4px; padding: 7px 10px; }
-  #btcModeRoot .disclaimer-card { padding: 8px 10px; }
+#btcModeRoot .content { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+#btcModeRoot main.dashboard { padding-bottom: 8px; row-gap: 10px; }
+#btcModeRoot .cd-page-notes { margin-top: -4px; padding: 7px 10px; }
+#btcModeRoot .disclaimer-card { padding: 8px 10px; }
 }
-
 /* Page notes and the disclaimer: one line each. fit-line.js shrinks the
    font until the line fits (down to 8.5px); text that still doesn't fit
    (a long AI disclaimer) wraps instead of being cut. */
@@ -1118,7 +899,6 @@ body { font-variant-numeric: tabular-nums; }
 #btcModeRoot .disclaimer-card .tv-attribution { margin: 0 0 0 4px; }
 #btcModeRoot .cd-page-notes.is-wrapped,
 #btcModeRoot .disclaimer-card.is-wrapped { white-space: normal; }
-
 /* Watchlist 1–10: a row of list tabs that scrolls sideways, and a track of
    lists you swipe through (native scroll-snap, so it follows the finger
    and settles on one list at a time). */
@@ -1151,7 +931,6 @@ body { font-variant-numeric: tabular-nums; }
   scroll-snap-stop: always;
 }
 .cd-wl-slide .cd-table-wrap { overflow-x: visible; }
-
 /* Coin stats sheet (coin-stats.js) — what a Scanner row opens. */
 .cd-stats-price { display: block; font-family: var(--cd-num-font); font-size: 24px; }
 #cdStatsChange { font-weight: 700; margin-right: 8px; }
@@ -1169,9 +948,8 @@ body { font-variant-numeric: tabular-nums; }
 .cd-perf i { font-style: normal; font-family: var(--cd-num-font); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-stats-note { margin: -4px 0 0; text-align: center; font-size: 11px; }
 @media (max-width: 380px) {
-  .cd-stats-sheet .cd-sheet-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cd-stats-sheet .cd-sheet-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
 /* Coin stats opens as a card: centred, rounded on every side, compact, and
    everything on it fits without scrolling (coin-stats.js scales the card
    down a little on short screens or with large system fonts). */
@@ -1203,13 +981,12 @@ body { font-variant-numeric: tabular-nums; }
 #cdStats .cd-sheet-actions .cd-pill { padding: 7px 4px; font-size: 12.5px; }
 #cdStats .cd-stats-note { margin: -2px 0 0; font-size: 10px; }
 @media (max-width: 760px) {
-  /* A card pops in (not a sheet sliding up from the bottom edge). */
-  #cdStats.cd-off > .cd-ticket { transform: translateY(18px) scale(0.94); opacity: 0; }
+/* A card pops in (not a sheet sliding up from the bottom edge). */
+#cdStats.cd-off > .cd-ticket { transform: translateY(18px) scale(0.94); opacity: 0; }
 }
 @media (max-width: 380px) {
-  #cdStats .cd-sheet-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#cdStats .cd-sheet-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-
 /* ================= Crypto News (news.js) ================= */
 .cd-news-page .cd-dash-head { align-items: flex-start; }
 .cd-news-page .cd-dash-head .cd-meta { margin: 2px 0 0; font-size: 12px; }
@@ -1307,14 +1084,13 @@ body { font-variant-numeric: tabular-nums; }
 .cd-news-card.is-skeleton .cd-news-main { padding: 12px; }
 @keyframes cdNewsPulse { 50% { opacity: 0.5; } }
 @media (max-width: 760px) {
-  .cd-news-list { grid-template-columns: 1fr; gap: 10px; }
-  .cd-news-img { flex-basis: 96px; width: 96px; height: 72px; }
-  .cd-news-title { font-size: 14px; }
-  .cd-news-card.is-lead .cd-news-title { font-size: 17px; }
-  .cd-news-sum { display: none; }
-  .cd-news-card.is-lead .cd-news-sum { display: -webkit-box; }
+.cd-news-list { grid-template-columns: 1fr; gap: 10px; }
+.cd-news-img { flex-basis: 96px; width: 96px; height: 72px; }
+.cd-news-title { font-size: 14px; }
+.cd-news-card.is-lead .cd-news-title { font-size: 17px; }
+.cd-news-sum { display: none; }
+.cd-news-card.is-lead .cd-news-sum { display: -webkit-box; }
 }
-
 /* ================= Welcome / sign-in screen (welcome.js) ================= */
 html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-welcome {
@@ -1385,7 +1161,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-welcome-status:empty { display: none; }
 .cd-welcome-foot { margin: 0; text-align: center; color: var(--muted, #a1a1b5); font-size: 11.5px; line-height: 1.6; }
 .cd-welcome-foot a { color: #c4b5fd; }
-
 /* ================= CryptoDock Pro cards (gate, trial, plans) ================= */
 .cdp-card {
   position: relative;
@@ -1457,7 +1232,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cdp-matrix-head em { font-style: normal; padding: 2px 8px; border-radius: 6px; background: rgba(56, 189, 248, 0.12); color: #7dd3fc; font-size: 10.5px; }
 .cdp-note { display: flex; gap: 6px; margin: 0; color: var(--muted); font-size: 11.5px; line-height: 1.45; }
 .cdp-note span { color: #34d399; font-weight: 800; }
-
 /* Plans */
 .cdp-plans { text-align: left; }
 .cdp-plans-head { display: flex; align-items: center; gap: 12px; }
@@ -1494,9 +1268,8 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cdp-chips i { font-style: normal; padding: 2px 7px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.12); font-size: 10.5px; }
 .cdp-plans .cdp-trust { text-align: center; margin-top: -4px; }
 @media (max-width: 760px) {
-  .cdp-card { border-bottom: 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+.cdp-card { border-bottom: 0; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 }
-
 /* ================= RRG page (rrg.js) ================= */
 .cd-rrg-page .cd-dash-head { align-items: flex-start; }
 .cd-rrg-page .cd-dash-head .cd-meta { margin: 2px 0 0; font-size: 12.5px; }
@@ -1546,12 +1319,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-speeds { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface-soft); border: 1px solid var(--border); }
 .cd-rrg-speeds button { min-width: 42px; padding: 6px 8px; border: 0; border-radius: 9px; background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .cd-rrg-speeds button.is-active { background: rgba(139, 92, 246, 0.25); color: #fff; }
-.cd-rrg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.cd-rrg-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-soft); font-size: 12px; font-weight: 800; cursor: pointer; }
-.cd-rrg-chip i { width: 9px; height: 9px; border-radius: 50%; }
-.cd-rrg-chip button { width: 20px; height: 20px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.08); color: var(--muted); font: inherit; font-size: 13px; line-height: 1; cursor: pointer; }
-.cd-rrg-chip.is-off { opacity: 0.45; }
-.cd-rrg-chip.is-hl { border-color: #a78bfa; background: rgba(139, 92, 246, 0.18); }
 .cd-rrg-reset { padding: 4px 12px; border-radius: 999px; border: 1px dashed rgba(167, 139, 250, 0.6); background: none; color: #c4b5fd; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .cd-rrg-quads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .cd-rrg-quad { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid; min-width: 0; }
@@ -1573,24 +1340,23 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-table tbody tr.is-hl td { background: rgba(139, 92, 246, 0.12); }
 .cd-rrg-tip .cd-rrg-q { vertical-align: middle; }
 @media (max-width: 760px) {
-  .cd-rrg-card { padding: 10px; margin-left: -6px; margin-right: -6px; }
-  .cd-rrg-toolbar { gap: 8px; }
-  .cd-rrg-search { flex-basis: 100%; }
-  .cd-rrg-tfs { width: 100%; }
-  .cd-rrg-tfs .cd-pill { flex: 1; }
-  .cd-rrg-quads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cd-rrg-player { gap: 8px; }
-  #cdRrgScrub { flex-basis: calc(100% - 58px); order: 1; }
-  .cd-rrg-play { order: 0; }
-  .cd-rrg-when { order: 2; flex: 1; min-width: 0; }
-  .cd-rrg-speeds { order: 3; }
-  .cd-rrg-table th:nth-child(4), .cd-rrg-table td:nth-child(4),
+.cd-rrg-card { padding: 10px; margin-left: -6px; margin-right: -6px; }
+.cd-rrg-toolbar { gap: 8px; }
+.cd-rrg-search { flex-basis: 100%; }
+.cd-rrg-tfs { width: 100%; }
+.cd-rrg-tfs .cd-pill { flex: 1; }
+.cd-rrg-quads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cd-rrg-player { gap: 8px; }
+#cdRrgScrub { flex-basis: calc(100% - 58px); order: 1; }
+.cd-rrg-play { order: 0; }
+.cd-rrg-when { order: 2; flex: 1; min-width: 0; }
+.cd-rrg-speeds { order: 3; }
+.cd-rrg-table th:nth-child(4), .cd-rrg-table td:nth-child(4),
   .cd-rrg-table th:nth-child(5), .cd-rrg-table td:nth-child(5) { display: none; }
-  .cd-rrg-table .cd-rrg-q { font-size: 9px; padding: 2px 5px; }
-  .cd-rrg-eye { width: 34px; }
-  .cd-rrg-eye.is-on i { transform: translateX(12px); }
+.cd-rrg-table .cd-rrg-q { font-size: 9px; padding: 2px 5px; }
+.cd-rrg-eye { width: 34px; }
+.cd-rrg-eye.is-on i { transform: translateX(12px); }
 }
-
 /* RRG coin list: show / hide switch and remove (replaces the chip row) */
 .cd-rrg-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .cd-rrg-list-head h3 { margin: 0; font-size: 15px; }
@@ -1602,12 +1368,10 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-eye.is-on i { transform: translateX(16px); background: #fff; }
 .cd-rrg-del { margin-left: 6px; width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 50%; background: none; color: var(--muted); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; vertical-align: middle; }
 .cd-rrg-table tbody tr.is-off td:not(.cd-rrg-act) { opacity: 0.4; }
-
 /* RRG list head: "↺ Top 20" and the Select all switch on the right */
 .cd-rrg-head-acts { display: flex; align-items: center; gap: 8px; }
 .cd-rrg-all { display: inline-flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text); font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .cd-rrg-all .cd-rrg-eye { display: inline-block; flex: none; pointer-events: none; }
-
 /* Coin sheet / stats card: "★ In Watchlist" stays on one line */
 .cd-sheet-actions .cd-pill { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 3px; padding-right: 3px; font-size: clamp(11px, 3.1vw, 13.5px); }
 #cdStats .cd-sheet-actions .cd-pill { padding-left: 3px; padding-right: 3px; font-size: clamp(10.5px, 2.9vw, 12.5px); }
@@ -1615,7 +1379,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-rrg-list-head h3 { white-space: nowrap; }
 .cd-rrg-head-acts { margin-left: auto; }
 .cd-rrg-head-acts .cd-rrg-reset { white-space: nowrap; }
-
 /* Watchlist notes: one card, two points, each kept on one line
    (fit-line.js shrinks the font until both fit) */
 #btcModeRoot .cd-page-notes.cd-notes-list { list-style: disc; white-space: nowrap; overflow: hidden; text-align: left; padding: 8px 12px 8px 28px; line-height: 1.75; font-size: 12.5px; }
@@ -1624,9 +1387,8 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 #btcModeRoot .cd-page-notes.cd-notes-list li { display: list-item; }
 #btcModeRoot .cd-page-notes.cd-notes-list li + li::before { content: none; }
 @media (max-width: 760px) {
-  #btcModeRoot .cd-page-notes.cd-notes-list { padding: 7px 6px 7px 19px; }
+#btcModeRoot .cd-page-notes.cd-notes-list { padding: 7px 6px 7px 19px; }
 }
-
 /* ---------- Coin Detail (no chart: search, quick coins, cards) ---------- */
 .cd-cdet { gap: 12px; }
 .cd-cdet-search { position: relative; }
@@ -1690,7 +1452,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 /* Coin Detail: smaller BUY / SELL */
 .cd-cdet .cd-coin-actions { max-width: 380px; gap: 8px; }
 .cd-cdet .cd-coin-actions .cd-submit { padding: 9px; font-size: 14px; border-radius: 10px; }
-
 /* Coin Detail: price ranges, market stats, alert + watchlist row */
 .cd-cdet-range .cd-cdet-bar-row + .cd-cdet-bar-row { margin-top: 12px; }
 .cd-cdet-bar-row em { width: 30px; flex: none; color: var(--text-soft, #c4b5fd); font-style: normal; font-weight: 800; font-size: 11.5px; }
@@ -1705,9 +1466,9 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-cdet-more { display: flex; flex-wrap: wrap; gap: 8px; }
 .cd-cdet-more .cd-ghost-btn.is-active { color: var(--yellow); border-color: rgba(251, 191, 36, 0.45); }
 @media (max-width: 420px) {
-  .cd-cdet-stats { grid-template-columns: 1fr 1fr; }
-  .cd-cdet-bar-row { gap: 7px; font-size: 11.5px; }
-  .cd-cdet-bar-row > span { min-width: 64px; }
+.cd-cdet-stats { grid-template-columns: 1fr 1fr; }
+.cd-cdet-bar-row { gap: 7px; font-size: 11.5px; }
+.cd-cdet-bar-row > span { min-width: 64px; }
 }
 .cd-cdet-more #cdCoinStar { margin-left: auto; }
 .cdp-feats span:last-child:nth-child(odd) { grid-column: 1 / -1; justify-content: center; }
@@ -1715,13 +1476,13 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-dash-head:has(#cdHeatSize) { align-items: center; }
 #cdHeatSize { flex-wrap: nowrap; gap: 6px; }
 @media (max-width: 760px) {
-  #cdHeatSize { width: auto; }
-  #cdHeatSize .cd-pill { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
+#cdHeatSize { width: auto; }
+#cdHeatSize .cd-pill { padding: 5px 10px; font-size: 12.5px; white-space: nowrap; }
 }
 @media (max-width: 400px) {
-  [data-panel="heatmap"] .cd-dash-head h2 { font-size: 19px; }
-  #cdHeatSize { gap: 5px; }
-  #cdHeatSize .cd-pill { padding: 5px 8px; font-size: 12px; }
+[data-panel="heatmap"] .cd-dash-head h2 { font-size: 19px; }
+#cdHeatSize { gap: 5px; }
+#cdHeatSize .cd-pill { padding: 5px 8px; font-size: 12px; }
 }
 /* Heatmap legend (like the Indian market): strong green → weak red */
 .cd-heat-legend { display: flex; align-items: center; gap: 8px; margin: -4px 0 2px; color: var(--muted); font-size: 11.5px; font-weight: 700; }
@@ -1731,7 +1492,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-heat-tile strong { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cd-heat-tile.is-long strong { font-size: 12px; letter-spacing: 0; }
 .cd-heat-tile.is-xlong strong { font-size: 10.5px; letter-spacing: 0; }
-
 /* The one Live marker: just above the header's bottom border, far right, no pill;
    its dot pulses so it's clear prices are streaming. */
 .topbar #topMarketStatus.market-status-badge {
@@ -1747,9 +1507,10 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
   60% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
   100% { transform: scale(0.75); box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
 }
-@media (prefers-reduced-motion: reduce) { .topbar #topMarketStatus .market-status-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+.topbar #topMarketStatus .market-status-dot { animation: none; }
+}
 .cd-rrg-live[hidden] { display: none; }
-
 /* Ticker: the line between coins softly fades lighter and darker */
 .cd-tick::after {
   content: ""; position: absolute; right: 0; top: 12%; bottom: 12%; width: 1.5px; border-radius: 2px;
@@ -1757,8 +1518,9 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
   animation: cdTickLine 2.4s ease-in-out infinite;
 }
 @keyframes cdTickLine { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.85; } }
-@media (prefers-reduced-motion: reduce) { .cd-tick::after { animation: none; opacity: 0.4; } }
-
+@media (prefers-reduced-motion: reduce) {
+.cd-tick::after { animation: none; opacity: 0.4; }
+}
 /* Pro status card (Upgrade / Settings → My plan), like the Indian market's */
 .cdp-status-card { text-align: left; }
 .cdp-state { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; border: 1px solid; }
@@ -1795,7 +1557,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-myplan-btn em.is-new { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
 .cd-myplan-btn em.is-off { background: rgba(239, 68, 68, 0.15); color: #f87171; }
 .cdp-feat-grid div:last-child:nth-child(odd) { grid-column: 1 / -1; }
-
 /* Pro card: days box and next price */
 .cdp-days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .cdp-days[hidden] { display: none; }
@@ -1822,7 +1583,6 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .sidebar .cd-nav-upgrade { color: #fcd34d; }
 .sidebar .cd-nav-upgrade .nav-icon { font-size: 13px; }
 .cd-more-tile.cd-more-upgrade { border-color: rgba(251, 191, 36, 0.45); background: rgba(251, 191, 36, 0.1); color: #fcd34d; }
-
 /* ---------- Tools page (tools.js) ---------- */
 .cd-tools { gap: 12px; }
 .cd-tool-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
@@ -1868,19 +1628,16 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-tool-table td { padding: 8px 4px; border-bottom: 1px solid rgba(38, 33, 56, 0.6); font-family: var(--cd-num-font); text-align: right; }
 .cd-tool-table th:first-child, .cd-tool-table td:first-child { text-align: left; font-family: inherit; font-weight: 800; }
 @media (max-width: 420px) {
-  .cd-tool-tiles { grid-template-columns: repeat(3, 1fr); }
-  .cd-tool-tile { min-height: 62px; padding: 8px; font-size: 11px; }
-  .cd-tool-grid { grid-template-columns: 1fr 1fr; }
+.cd-tool-tiles { grid-template-columns: repeat(3, 1fr); }
+.cd-tool-tile { min-height: 62px; padding: 8px; font-size: 11px; }
+.cd-tool-grid { grid-template-columns: 1fr 1fr; }
 }
-
 /* Technical page: educational notice at the top */
 .cd-tech-disclaimer { margin: 0 0 12px; padding: 11px 13px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.08); color: #bae6fd; font-size: 12.5px; line-height: 1.5; }
 .cd-tech-disclaimer b { color: #e0f2fe; }
-
 /* Technical page refreshes silently — no refresh button or status line. */
 .btc-topbar,
 #technicalRefreshStatus { display: none !important; }
-
 /* Paper futures: positions */
 .cd-pos-liq { color: #f59e0b; }
 .cd-pos-card { background: #131a2a; border: 1px solid #1f293d; border-radius: 12px; padding: 14px; margin: 0 12px 12px; }
