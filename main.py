@@ -2790,6 +2790,127 @@ def delete_account(authorization: str = Header(None)):
     return {"deleted": True}
 
 
+# ---------- Paper trading portfolio sync (one portfolio per signed-in email) ----------
+# The portfolio lives in the browser, and a copy is kept here so every phone
+# and browser signed in with the same email shows the same holdings and
+# orders. Each save bumps "rev"; a save based on an older rev is refused
+# (409) and the device takes the newer copy instead of overwriting it.
+PAPER_DB_FILE = os.getenv("CRYPTODOCK_PAPER_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "paper_portfolios.json")
+PAPER_MAX_BYTES = 400_000
+_paper_lock = threading.RLock()
+_session_email_cache = {}  # sha256(token) -> (email, expires_at)
+
+
+@contextlib.contextmanager
+def paper_write_lock():
+    with _paper_lock:
+        handle = None
+        try:
+            if fcntl:
+                handle = open(PAPER_DB_FILE + ".lock", "a")
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+        finally:
+            if handle:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                handle.close()
+
+
+def _load_paper():
+    for path in (PAPER_DB_FILE, PAPER_DB_FILE + ".bak"):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+            except (OSError, ValueError):
+                continue
+    return {}
+
+
+def _save_paper(data):
+    tmp = f"{PAPER_DB_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, separators=(",", ":"))
+        f.flush()
+        os.fsync(f.fileno())
+    if os.path.exists(PAPER_DB_FILE):
+        shutil.copyfile(PAPER_DB_FILE, PAPER_DB_FILE + ".bak")
+    os.replace(tmp, PAPER_DB_FILE)
+
+
+def _session_email(authorization):
+    """Email of the signed-in Supabase user behind a Bearer token (cached 10 min)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Sign in to sync paper trading.")
+    token = authorization.split(" ", 1)[1].strip()
+    key = hashlib.sha256(token.encode()).hexdigest()
+    now = time.time()
+    cached = _session_email_cache.get(key)
+    if cached and cached[1] > now:
+        return cached[0]
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        email = _norm_email(response.json().get("email")) if response.status_code == 200 else ""
+    except (requests.exceptions.RequestException, ValueError) as error:
+        print(f"Supabase session lookup error: {error}")
+        raise HTTPException(status_code=503, detail="Could not verify the session right now.") from error
+    if not email:
+        raise HTTPException(status_code=401, detail="Session expired. Please sign in again.")
+    if len(_session_email_cache) > 5000:
+        _session_email_cache.clear()
+    _session_email_cache[key] = (email, now + 600)
+    return email
+
+
+class PaperPortfolioRequest(BaseModel):
+    rev: int = 0
+    state: dict
+
+
+def _valid_paper_state(state):
+    return (
+        isinstance(state.get("cash"), (int, float))
+        and isinstance(state.get("holdings", {}), dict)
+        and isinstance(state.get("orders", []), list)
+        and len(state.get("orders", [])) <= 5000
+    )
+
+
+@app.get("/api/paper/portfolio")
+def get_paper_portfolio(authorization: str = Header(None)):
+    email = _session_email(authorization)
+    record = _load_paper().get(email) or {}
+    return {"rev": int(record.get("rev", 0)), "state": record.get("state")}
+
+
+@app.put("/api/paper/portfolio")
+def put_paper_portfolio(payload: PaperPortfolioRequest, authorization: str = Header(None)):
+    email = _session_email(authorization)
+    if not _valid_paper_state(payload.state):
+        raise HTTPException(status_code=400, detail="Invalid paper portfolio.")
+    if len(json.dumps(payload.state)) > PAPER_MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Paper portfolio is too large.")
+    with paper_write_lock():
+        data = _load_paper()
+        record = data.get(email) or {}
+        current = int(record.get("rev", 0))
+        if payload.rev != current:
+            return Response(
+                content=json.dumps({"rev": current, "state": record.get("state")}),
+                status_code=409,
+                media_type="application/json",
+            )
+        data[email] = {"rev": current + 1, "state": payload.state, "updated_at": int(time.time())}
+        _save_paper(data)
+    return {"rev": current + 1}
+
+
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 

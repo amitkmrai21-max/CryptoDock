@@ -47,8 +47,100 @@
   }
   let state = load();
 
-  function save() {
+  function saveLocal() {
     try { localStorage.setItem(storageKey(), JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+  // Every change: keep it on this device and send it to the server, so the
+  // same email shows the same portfolio on every phone and browser.
+  function save() {
+    saveLocal();
+    if (!account) return;
+    setMeta({ dirty: true });
+    scheduleSync(400);
+  }
+
+  // ---------- sync with the server (one copy per signed-in email) ----------
+  // meta.rev = server version this device last had; meta.dirty = changes on
+  // this device the server hasn't got yet.
+  const metaKey = () => storageKey() + ":sync";
+  function getMeta() {
+    try { return { rev: 0, dirty: false, ...JSON.parse(localStorage.getItem(metaKey()) || "{}") }; } catch (e) { return { rev: 0, dirty: false }; }
+  }
+  function setMeta(patch) {
+    try { localStorage.setItem(metaKey(), JSON.stringify({ ...getMeta(), ...patch })); } catch (e) { /* ignore */ }
+  }
+  const hasActivity = (s) => (s.orders && s.orders.length > 0) || Math.abs(s.cash - STARTING_USDT) > EPSILON;
+
+  async function sessionToken() {
+    const client = window.marketDockSupabase;
+    if (!client) return "";
+    try {
+      const { data } = await client.auth.getSession();
+      const session = data && data.session;
+      const email = session && session.user && (session.user.email || "").toLowerCase();
+      return session && email === account ? session.access_token : "";
+    } catch (e) { return ""; }
+  }
+
+  function adopt(forAccount, serverState, rev) {
+    if (forAccount !== account) return;
+    if (hasActivity(state) && JSON.stringify(state) !== JSON.stringify(serverState)) {
+      try { localStorage.setItem(storageKey() + ":backup", JSON.stringify(state)); } catch (e) { /* ignore */ }
+    }
+    state = { ...freshState(), ...serverState };
+    saveLocal();
+    setMeta({ rev, dirty: false });
+    renderAll();
+  }
+
+  async function push(forAccount, token) {
+    const res = await fetch("/api/paper/portfolio", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ rev: getMeta().rev, state }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (forAccount !== account) return;
+    if (res.status === 409 && data.state) {
+      // Another device saved first: show its portfolio instead.
+      adopt(forAccount, data.state, data.rev);
+      toast("Portfolio updated from your other device");
+    } else if (res.ok) {
+      setMeta({ rev: data.rev, dirty: false });
+    }
+  }
+
+  async function syncNow() {
+    const forAccount = account;
+    if (!forAccount) return;
+    const token = await sessionToken();
+    if (!token || forAccount !== account) return;
+    const res = await fetch("/api/paper/portfolio", { headers: { Authorization: "Bearer " + token }, cache: "no-store" });
+    if (!res.ok || forAccount !== account) return;
+    const server = await res.json();
+    const meta = getMeta();
+    if (!server.state) {
+      // Nothing on the server yet: the device that has trades uploads them.
+      if (meta.dirty || hasActivity(state)) await push(forAccount, token);
+    } else if (server.rev > meta.rev) {
+      adopt(forAccount, server.state, server.rev);
+    } else if (meta.dirty) {
+      await push(forAccount, token);
+    }
+  }
+
+  let syncing = null, syncAgain = false, syncTimer = 0;
+  function requestSync() {
+    if (syncing) { syncAgain = true; return syncing; }
+    syncing = syncNow().catch(() => { /* offline: retried on the next sync */ }).finally(() => {
+      syncing = null;
+      if (syncAgain) { syncAgain = false; requestSync(); }
+    });
+    return syncing;
+  }
+  function scheduleSync(delay) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(requestSync, delay);
   }
 
   // ---------- prices ----------
@@ -433,7 +525,15 @@
     state = load();
     closeTicket();
     renderAll();
+    scheduleSync(0);
   });
+
+  // Pick up trades made on another device: once the session is ready, when
+  // the app comes back to the front, and every 20s while it is open.
+  window.addEventListener("cd-auth-state", (event) => { if (event.detail && event.detail.signedIn) scheduleSync(0); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) scheduleSync(0); });
+  setInterval(() => { if (!document.hidden) requestSync(); }, 20000);
+  scheduleSync(1500);
 
   window.cdOpenTicket = openTicket;
   // For Coin Detail: this account's holding in one coin, with live P&L.
