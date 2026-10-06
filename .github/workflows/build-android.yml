@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # publish the APK to the app-latest release
     env:
       # Each build gets a higher version so Play Store accepts it as an update.
       VERSION_CODE: ${{ github.run_number }}
@@ -128,3 +130,18 @@ jobs:
         with:
           name: cryptodock-release-aab
           path: mobile-app/android/app/build/outputs/bundle/release/app-release.aab
+
+      # A fixed link that opens straight on a phone:
+      # https://github.com/<owner>/<repo>/releases/download/app-latest/CryptoDock.apk
+      - name: Publish APK as a direct download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp mobile-app/android/app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/CryptoDock.apk"
+          NOTES="CryptoDock Android app, build ${VERSION_CODE} (${GITHUB_SHA::7}). Tap CryptoDock.apk below to download and install."
+          if gh release view app-latest >/dev/null 2>&1; then
+            gh release edit app-latest --notes "$NOTES"
+          else
+            gh release create app-latest --target "$GITHUB_SHA" --title "CryptoDock app (latest build)" --notes "$NOTES"
+          fi
+          gh release upload app-latest "$RUNNER_TEMP/CryptoDock.apk" --clobber
