@@ -4,6 +4,7 @@
 // seconds costs Binance one call no matter how many people have it open).
 (function cryptoMarkets() {
   const POLL_MS = 3000;
+  const POSITIONS_POLL_MS = 2000;
   const PAGE_SIZE = 100;
   const KEY_COINS = ["BNB", "SOL", "XRP", "DOGE"]; // the Crypto Market row
   const FEATURED = ["BTC", "ETH"]; // big cards with a 24h sparkline
@@ -461,14 +462,17 @@
     return ["dashboard", "watchlist", "positions", "orders", "coin", "scanner", "heatmap", "alerts"].includes(activePanel());
   }
 
-  // Every 3s on the coin pages; every 15s elsewhere (price alerts and limit
-  // orders still need prices there). Paused while the tab is hidden.
+  // Every 2s on Positions (live P&L), 3s on the other coin pages, 15s
+  // elsewhere (price alerts and limit orders still need prices there).
+  // Paused while the tab is hidden. The server refreshes prices every 2s
+  // for everyone at once, so this never adds Binance calls.
   function schedule() {
     clearTimeout(pollTimer);
+    const delay = activePanel() === "positions" ? POSITIONS_POLL_MS : onMarketsPage() ? POLL_MS : 15000;
     pollTimer = setTimeout(async () => {
       if (document.visibilityState === "visible") await refresh();
       schedule();
-    }, onMarketsPage() ? POLL_MS : 15000);
+    }, delay);
   }
 
   // On a phone the sidebar is a sideways-scrolling bottom bar; keep the
