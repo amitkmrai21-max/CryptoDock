@@ -30,8 +30,24 @@ app.add_middleware(
 NO_CACHE_PATHS = {"/", "/frontend/index.html", "/frontend/sw.js"}
 
 
+# Background loops (BTC broadcast, RRG / gauge warm-up) only call Binance
+# while someone is actually using the app: an /api request in the last
+# minute or an open live stream. With nobody on, the server makes no calls;
+# the first visitor's request fetches fresh data and wakes the loops.
+APP_IDLE_AFTER_SECONDS = 60
+_app_activity = {"at": 0.0}
+_ACTIVITY_IGNORED_PATHS = {"/api/health", "/api/stream/stats"}
+
+
+def app_in_use():
+    return time.time() - _app_activity["at"] < APP_IDLE_AFTER_SECONDS or market_hub.subscriber_count > 0
+
+
 @app.middleware("http")
 async def no_cache_app_shell(request, call_next):
+    path = request.url.path
+    if path.startswith("/api/") and path not in _ACTIVITY_IGNORED_PATHS:
+        _app_activity["at"] = time.time()
     response = await call_next(request)
     if request.url.path in NO_CACHE_PATHS:
         response.headers["Cache-Control"] = "no-cache"
@@ -224,9 +240,13 @@ class MarketBroadcastHub:
 market_hub = MarketBroadcastHub()
 
 def _market_broadcast_loop():
-    """Single persistent background loop: requests Binance once every 2 seconds."""
+    """Single persistent background loop: requests Binance once every 2 seconds
+    while the app is in use, and not at all when nobody is on."""
     time.sleep(3)  # initial boot delay
     while True:
+        if not app_in_use():
+            time.sleep(1)
+            continue
         try:
             now = time.time()
             data = _fetch_btc_price(now)
@@ -2298,6 +2318,9 @@ def _rrg_warmer():
     time.sleep(5)
     last = {}
     while True:
+        if not app_in_use():
+            time.sleep(5)
+            continue
         for tf, every in (("1h", 50), ("1m", 540), ("1y", 3000)):
             if time.time() - last.get(tf, 0) >= every:
                 last[tf] = time.time()
@@ -2713,6 +2736,8 @@ def stream_stats():
         "binance_weight_limit": 6000,
         "binance_load_percentage": "1.0%",
         "last_broadcast_at": int(price_cache.get("updated_at") or 0),
+        "app_in_use": app_in_use(),
+        "seconds_since_last_activity": int(time.time() - _app_activity["at"]) if _app_activity["at"] else None,
     }
 
 @app.get("/api/btc/price")
