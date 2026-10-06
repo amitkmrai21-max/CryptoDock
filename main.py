@@ -2699,9 +2699,11 @@ async def live_market_stream(request: Request):
     async def event_generator():
         q = market_hub.subscribe()
         try:
-            # Send immediate snapshot on connect
+            # Send immediate snapshot on connect, unless it's from before an
+            # idle spell (the loop sleeps with nobody on) - then the client
+            # keeps its own price until the fresh one arrives in ~2s.
             init_data = market_hub.last_payload or price_cache.get("data")
-            if init_data:
+            if init_data and time.time() - (price_cache.get("updated_at") or 0) < 10:
                 yield f"data: {json.dumps(init_data)}\n\n"
             while True:
                 if await request.is_disconnected():
