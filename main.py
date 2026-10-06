@@ -1762,7 +1762,14 @@ def get_usdt_symbols():
 
 
 def _fetch_usdt_symbols():
-    info = binance_get("/api/v3/exchangeInfo", {"permissions": "SPOT"}, weight=20, essential=True, timeout=20)
+    # The full exchangeInfo is ~14 MB (mostly per-symbol permissionSets and
+    # delisted pairs); parsing it grew the process by ~80 MB that Python then
+    # keeps. Ask only for trading pairs without permission sets (~4x smaller),
+    # falling back to the plain request if the API ever rejects the filters.
+    try:
+        info = binance_get("/api/v3/exchangeInfo", {"permissions": "SPOT", "symbolStatus": "TRADING", "showPermissionSets": "false"}, weight=20, essential=True, timeout=20)
+    except requests.exceptions.HTTPError:
+        info = binance_get("/api/v3/exchangeInfo", {"permissions": "SPOT"}, weight=20, essential=True, timeout=20)
     symbols = {}
     for item in info.get("symbols", []):
         base = item.get("baseAsset", "")
