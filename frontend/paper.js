@@ -520,8 +520,11 @@
     el("cdTicketMargin").textContent = fmtMoney(margin);
     el("cdTicketFee").textContent = fmtMoney(fee);
     const submit = el("cdTicketSubmit");
-    submit.textContent = isLong ? "Open Long" : "Open Short";
-    submit.className = `cd-ticket-submit-btn ${isLong ? "is-long" : "is-short"}`;
+    const action = isLong ? "Open Long" : "Open Short";
+    submit.querySelector(".cd-swipe-label").textContent = `Swipe to ${action}`;
+    submit.setAttribute("aria-label", `Swipe to ${action}`);
+    submit.classList.toggle("is-long", isLong);
+    submit.classList.toggle("is-short", !isLong);
   }
 
   function showError(message) {
@@ -540,6 +543,9 @@
     el("cdLimitPrice").value = price ? String(price) : "";
     showError("");
     renderTicket();
+    const knob = el("cdTicketSubmit").querySelector(".cd-swipe-knob");
+    knob.style.transform = "";
+    el("cdTicketSubmit").querySelector(".cd-swipe-fill").style.width = "";
     el("cdTicket").hidden = false;
   }
 
@@ -597,7 +603,54 @@
   });
   el("cdTicket").addEventListener("click", (event) => { if (event.target.id === "cdTicket") closeTicket(); });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && ticket.base) closeTicket(); });
-  el("cdTicketSubmit").addEventListener("click", submitTicket);
+  // Swipe to confirm: drag the knob to the end to place the order.
+  (function swipeToConfirm() {
+    const track = el("cdTicketSubmit");
+    const knob = track.querySelector(".cd-swipe-knob");
+    const fill = track.querySelector(".cd-swipe-fill");
+    const PAD = 4;
+    let startX = 0, dx = 0, max = 0, dragging = false;
+    const paint = (x) => {
+      knob.style.transform = `translateX(${x}px)`;
+      fill.style.width = `${x + knob.offsetWidth + PAD * 2}px`;
+    };
+    const reset = () => {
+      track.classList.add("is-snapping");
+      paint(0);
+      setTimeout(() => track.classList.remove("is-snapping"), 260);
+    };
+    track.addEventListener("pointerdown", (event) => {
+      dragging = true;
+      startX = event.clientX;
+      dx = 0;
+      max = track.clientWidth - knob.offsetWidth - PAD * 2;
+      track.classList.remove("is-snapping");
+      track.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+    track.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      dx = Math.min(max, Math.max(0, event.clientX - startX));
+      paint(dx);
+    });
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      if (max > 0 && dx >= max * 0.9) {
+        paint(max);
+        submitTicket();
+        setTimeout(() => paint(0), 300);
+      } else {
+        reset();
+      }
+    };
+    track.addEventListener("pointerup", end);
+    track.addEventListener("pointercancel", end);
+    // Keyboard: Enter / Space still confirms.
+    track.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); submitTicket(); }
+    });
+  })();
 
   el("cdTicket").addEventListener("click", (event) => {
     const side = event.target.closest("[data-side]");
