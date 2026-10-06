@@ -11532,11 +11532,11 @@ body[data-theme="light"] #im-stock-options .oc-main {
    same height as the Long / Short buttons, white round knob */
 .cd-side-btn { height: 52px; padding: 0 10px; font-size: 16px; }
 .cd-swipe { position: relative; overflow: hidden; height: 58px; padding: 0; border-radius: 999px; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: grab; }
-.cd-swipe.is-long { background: #34d399; }
-.cd-swipe.is-short { background: #f87171; }
+.cd-swipe.is-long { background: #10b981; } /* same as the Long button */
+.cd-swipe.is-short { background: #ef4444; } /* same as the Short button */
 .cd-swipe-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 58px; border-radius: 999px; }
-.cd-swipe.is-long .cd-swipe-fill { background: #10b981; }
-.cd-swipe.is-short .cd-swipe-fill { background: #ef4444; }
+.cd-swipe.is-long .cd-swipe-fill { background: #059669; }
+.cd-swipe.is-short .cd-swipe-fill { background: #dc2626; }
 .cd-swipe-label { position: relative; z-index: 1; padding-left: 50px; font-size: 16px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); pointer-events: none; }
 .cd-swipe-knob { position: absolute; z-index: 2; left: 4px; top: 4px; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; font-weight: 800; line-height: 1; pointer-events: none; }
 .cd-swipe.is-long .cd-swipe-knob { background: #fff; color: #10b981; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
