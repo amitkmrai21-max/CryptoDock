@@ -521,7 +521,7 @@
     el("cdTicketFee").textContent = fmtMoney(fee);
     const submit = el("cdTicketSubmit");
     const action = isLong ? "Open Long" : "Open Short";
-    submit.querySelector(".cd-swipe-label").textContent = `Swipe to ${action}`;
+    submit.querySelector(".cd-swipe-text").textContent = `Swipe to ${action}`;
     submit.setAttribute("aria-label", `Swipe to ${action}`);
     submit.classList.toggle("is-long", isLong);
     submit.classList.toggle("is-short", !isLong);
