@@ -1790,6 +1790,10 @@ LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
 # of the coin lists above but come with the same price refresh (the 24h and
 # price calls already return every pair) for the Dashboard's Forex card.
 FOREX_MARKETS = {"EURUSDT": "EUR", "GBPUSDT": "GBP", "AUDUSDT": "AUD"}
+# Thinly traded pairs drift far from the real rate (GBP/USDT at 1.18 on $0.2M
+# a day): the Dashboard shows only pairs above this 24h volume. Thin ones
+# still come back for price lookups, so open positions keep their P&L.
+FOREX_MIN_VOLUME_USDT = 1_000_000
 
 markets_cache = {}
 symbols_cache = {}
@@ -1919,6 +1923,8 @@ def build_markets():
             coins.append(row)
     coins.sort(key=lambda coin: coin["volume_usdt"], reverse=True)
     forex = [row for row in (_market_row(symbol, base, stats[symbol], live) for symbol, base in FOREX_MARKETS.items() if symbol in stats) if row]
+    for row in forex:
+        row["thin"] = row["volume_usdt"] < FOREX_MIN_VOLUME_USDT
     rate, rate_source = get_usdt_inr_rate()
     return {"coins": coins, "count": len(coins), "forex": forex, "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Binance", "updated_at": int(time.time())}
 

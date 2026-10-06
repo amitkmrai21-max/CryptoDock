@@ -186,7 +186,9 @@
   function renderMiniRow(boxId, items, digits) {
     const box = el(boxId);
     if (!box) return;
-    box.innerHTML = items.map((item) => ({ item, coin: coinsByBase.get(item.base) })).filter((r) => r.coin).map(({ item, coin }) => `
+    const rows = items.map((item) => ({ item, coin: coinsByBase.get(item.base) })).filter((r) => r.coin && !r.coin.thin);
+    box.style.gridTemplateColumns = `repeat(${Math.min(Math.max(rows.length, 2), 3)}, minmax(0, 1fr))`;
+    box.innerHTML = rows.map(({ item, coin }) => `
       <div class="cd-mini-coin" data-base="${escapeHtml(coin.base)}">
         <div class="cd-mini-top">${item.flag ? `<span class="cd-mini-flag">${item.flag}</span>` : avatar(coin.base)}<strong>${escapeHtml(item.label)}</strong></div>
         <small class="cd-mini-name">${escapeHtml(item.name)}</small>
