@@ -378,39 +378,46 @@
     setText("cdFundAvailable", fmtMoney(state.cash));
     setText("cdFundAvailableInr", fmtInr(state.cash));
     setText("cdFundInvested", fmtMoney(t.invested));
-    setText("cdFundLocked", t.reserved > 0 ? `${fmtMoney(t.reserved)} in open orders` : "Margin in use");
+    setText("cdFundLocked", t.reserved > 0 ? `${fmtMoney(t.reserved)} in open orders` : fmtInr(t.invested));
     setText("cdFundCurrent", fmtMoney(t.equity));
     setText("cdFundCurrentInr", fmtInr(t.equity));
-    setText("cdFundPnl", signed(fmtMoney(Math.abs(t.total)), t.total), pctClass(t.total));
-    setText("cdFundPnlPct", `Open ${signed(fmtMoney(Math.abs(t.unrealized)), t.unrealized)} · Fees & closed ${signed(fmtMoney(Math.abs(t.booked)), t.booked)}`);
+    // Total P&L here = P&L of what is open now (same as the cards below);
+    // fees and closed trades are already in Available / Current value.
+    setText("cdFundPnl", signed(fmtMoney(Math.abs(t.unrealized)), t.unrealized), pctClass(t.unrealized));
+    setText("cdFundPnlPct", t.booked ? `Fees & closed: ${signed(fmtMoney(Math.abs(t.booked)), t.booked)}` : fmtInr(t.unrealized));
 
     // Settings → Funds: the same virtual account at a glance.
     setText("settingsPaperFundsAvailable", fmtMoney(state.cash));
     setText("settingsPaperFundsAvailableInr", fmtInr(state.cash));
     setText("settingsPaperFundsUsed", fmtMoney(t.invested + t.reserved));
     setText("settingsPaperFundsUsedNote", t.reserved > 0 ? `${fmtMoney(t.reserved)} in open orders` : "Margin in use");
-    setText("settingsPaperFundsPnl", signed(fmtMoney(Math.abs(t.total)), t.total), pctClass(t.total));
-    setText("settingsPaperFundsPnlPct", signed(Math.abs((t.total / STARTING_USDT) * 100).toFixed(2) + "%", t.total));
+    setText("settingsPaperFundsPnl", signed(fmtMoney(Math.abs(t.unrealized)), t.unrealized), pctClass(t.unrealized));
+    setText("settingsPaperFundsPnlPct", t.booked ? `Fees & closed: ${signed(fmtMoney(Math.abs(t.booked)), t.booked)}` : "Open positions");
     setText("settingsPaperFundsOpening", fmtMoney(STARTING_USDT));
     setText("settingsPaperFundsOpeningInr", fmtInr(STARTING_USDT));
 
     const list = el("cdHoldList");
     if (list) {
+      // Same card layout as the original server version of this page.
       const futures = t.posRows.map(({ p, mark, pnl, roe, notional }) => `
         <div class="cd-pos-card">
           <div class="cd-pos-top">
-            <span class="cd-coin-cell">${avatar(p.base)}<strong>${escapeHtml(p.base)}/USDT</strong></span>
-            <span class="cd-pos-tag is-${p.side.toLowerCase()}">${p.side} ${p.leverage}x</span>
-            <button type="button" class="cd-ghost-btn cd-pos-close" data-close-pos="${escapeHtml(p.id)}">Close Market</button>
+            <div class="cd-pos-name">
+              <strong>${escapeHtml(p.base)}/USDT</strong>
+              <span class="cd-pos-tag is-${p.side.toLowerCase()}">${p.side} ${p.leverage}x</span>
+            </div>
+            <button type="button" class="cd-pos-close" data-close-pos="${escapeHtml(p.id)}">Close Market</button>
           </div>
           <div class="cd-pos-grid">
-            <div><span>Size</span><b>${fmtQty(p.qty)} ${escapeHtml(p.base)} · ${fmtMoney(notional)}</b></div>
-            <div><span>Margin</span><b>${fmtMoney(p.margin)}</b></div>
-            <div><span>Entry price</span><b>${fmtUsd(p.entryPrice)}</b></div>
-            <div><span>Mark price</span><b>${fmtUsd(mark)}</b></div>
-            <div><span>Liq. price</span><b class="cd-pos-liq">${fmtUsd(p.liqPrice)}</b></div>
-            <div><span>Open fee paid</span><b>${fmtMoney(p.openFee ?? p.qty * p.entryPrice * FUT_FEE_RATE)}</b></div>
-            <div><span>Unrealized P&amp;L (ROE)</span><b class="${pctClass(pnl)}">${signed(fmtMoney(Math.abs(pnl)), pnl)} (${signed(Math.abs(roe).toFixed(2) + "%", pnl)})</b></div>
+            <div><span>Size:</span> <strong>${fmtQty(p.qty)} ${escapeHtml(p.base)} (${fmtMoney(notional)})</strong></div>
+            <div><span>Margin:</span> <strong>${fmtMoney(p.margin)}</strong></div>
+            <div><span>Entry Price:</span> <strong>${fmtUsd(p.entryPrice)}</strong></div>
+            <div><span>Mark Price:</span> <strong>${fmtUsd(mark)}</strong></div>
+            <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${fmtUsd(p.liqPrice)}</strong></div>
+          </div>
+          <div class="cd-pos-foot">
+            <span>Unrealized P&amp;L (ROE%):</span>
+            <b class="${pnl >= 0 ? "is-up" : "is-down"}">${pnl >= 0 ? "+" : "-"}${fmtMoney(Math.abs(pnl))} (${pnl >= 0 ? "+" : ""}${roe.toFixed(2)}%)</b>
           </div>
         </div>`).join("");
       const spot = t.spotRows.map((r) => `
