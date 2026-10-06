@@ -367,7 +367,7 @@ body { font-variant-numeric: tabular-nums; }
 .cd-funds-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cd-hold-row { grid-template-columns: minmax(0, 1fr) auto; }
 .cd-hold-mid { display: none; }
-.cd-order-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
+.cd-order-row { grid-template-columns: 52px minmax(0, 1fr) auto; }
 .cd-order-row .cd-order-cancel { grid-column: 2 / -1; justify-self: start; }
 .cd-ticket-overlay { align-items: flex-end; padding: 0; }
 .cd-ticket { max-width: none; border-radius: 18px 18px 0 0; max-height: 92vh; }
@@ -1658,3 +1658,15 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-pos-foot b { font-size: 14px; font-weight: 700; }
 .cd-pos-foot b.is-up { color: #10b981; }
 .cd-pos-foot b.is-down { color: #ef4444; }
+
+/* Orders page: trade history cards (entry, exit, P&L per position) */
+.cd-order-list.is-trades { padding-top: 12px; }
+.cd-order-main small + small { margin-top: 1px; }
+.cd-trade-status { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; background: #252d3d; color: #c9d1d9; }
+.cd-trade-status.is-running { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.cd-trade-status.is-liq { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+.cd-trade-legs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.cd-trade-legs > div { background: #0f1522; border: 1px solid #1f293d; border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.cd-trade-legs span { display: block; color: #8b949e; font-size: 11px; margin-bottom: 2px; }
+.cd-trade-legs strong { display: block; color: #fff; font-size: 14px; }
+.cd-trade-legs small { display: block; color: #8b949e; font-size: 11px; margin-top: 2px; }
