@@ -13,7 +13,7 @@
   const FUT_FEE_RATE = 0.0005; // 0.05% taker fee on open and close
   const DEFAULT_LEVERAGE = 200;
   // others: 1 coin per lot. Forex: a 1,000-unit micro lot; gold: 0.01 oz.
-  const LOT_SIZE = { BTC: 0.001, ETH: 0.01, SOL: 0.1, EUR: 1000, GBP: 1000, AUD: 1000, PAXG: 0.01, XAUT: 0.01 };
+  const LOT_SIZE = { BTC: 0.001, ETH: 0.01, SOL: 0.1, EUR: 1000, GBP: 1000, AUD: 1000, BRL: 1000, TRY: 10000, ARS: 100000, PAXG: 0.01, XAUT: 0.01 };
   const lotSize = (base) => LOT_SIZE[base] || 1;
 
   const el = (id) => document.getElementById(id);

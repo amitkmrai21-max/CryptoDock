@@ -115,7 +115,9 @@
   const TRADINGVIEW_ANDROID_PACKAGE = "com.tradingview.tradingviewapp";
   function openTradingView(coinBase) {
     if (!coinBase) return;
-    const path = `www.tradingview.com/chart/?symbol=${encodeURIComponent(`BINANCE:${coinBase}USDT`)}`;
+    // BRL / TRY / ARS trade on Binance as USDT/BRL etc. (the rate per dollar).
+    const tvPair = ["BRL", "TRY", "ARS"].includes(coinBase) ? `USDT${coinBase}` : `${coinBase}USDT`;
+    const path = `www.tradingview.com/chart/?symbol=${encodeURIComponent(`BINANCE:${tvPair}`)}`;
     const webUrl = `https://${path}`;
     if (!/Android/i.test(navigator.userAgent || "")) {
       window.open(webUrl, "_blank", "noopener");

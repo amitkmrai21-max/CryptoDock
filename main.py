@@ -271,7 +271,12 @@ def get_btc_ticker():
 
 
 def get_klines(symbol="BTCUSDT", interval="1h", limit=250):
-    return binance_get("/api/v3/klines", {"symbol": symbol, "interval": interval, "limit": limit}, weight=2)
+    pair = INVERTED_FOREX.get(symbol)
+    if not pair:
+        return binance_get("/api/v3/klines", {"symbol": symbol, "interval": interval, "limit": limit}, weight=2)
+    raw = binance_get("/api/v3/klines", {"symbol": pair, "interval": interval, "limit": limit}, weight=2)
+    # Same row layout, inverted: high <-> low, and the two volumes swap.
+    return [[c[0], _inv(c[1]), _inv(c[3]), _inv(c[2]), _inv(c[4]), c[7], c[6], c[5]] + list(c[8:]) for c in raw]
 
 
 def get_btc_klines(interval="1h", limit=250):
@@ -1789,7 +1794,17 @@ LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
 # Currencies Binance trades against USDT (EUR/USDT ~ EUR/USD). They stay out
 # of the coin lists above but come with the same price refresh (the 24h and
 # price calls already return every pair) for the Dashboard's Forex card.
-FOREX_MARKETS = {"EURUSDT": "EUR", "GBPUSDT": "GBP", "AUDUSDT": "AUD"}
+FOREX_MARKETS = {"EURUSDT": "EUR", "GBPUSDT": "GBP", "AUDUSDT": "AUD", "BRLUSDT": "BRL", "TRYUSDT": "TRY", "ARSUSDT": "ARS"}
+# Binance lists these the other way round (USDT/BRL = reais per USDT). The
+# app treats them like the others, priced in USDT per unit of the currency,
+# so every price, candle and order book from these pairs is inverted.
+INVERTED_FOREX = {"BRLUSDT": "USDTBRL", "TRYUSDT": "USDTTRY", "ARSUSDT": "USDTARS"}
+_INVERTED_BY_PAIR = {pair: alias for alias, pair in INVERTED_FOREX.items()}
+
+
+def _inv(value):
+    value = float(value or 0)
+    return 1 / value if value else 0.0
 # Thinly traded pairs drift far from the real rate (GBP/USDT at 1.18 on $0.2M
 # a day): the Dashboard shows only pairs above this 24h volume. Thin ones
 # still come back for price lookups, so open positions keep their P&L.
@@ -1872,6 +1887,14 @@ def _market_stats():
         tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
         stats = {}
         for ticker in tickers:
+            alias = _INVERTED_BY_PAIR.get(ticker.get("symbol"))
+            if alias:
+                try:
+                    # Inverted: high and low swap; the USDT side is the base volume.
+                    stats[alias] = (_inv(ticker["openPrice"]), _inv(ticker.get("lowPrice")), _inv(ticker.get("highPrice")), float(ticker["volume"]), _inv(ticker["lastPrice"]))
+                except (KeyError, TypeError, ValueError):
+                    pass
+                continue
             if ticker.get("symbol") not in symbols and ticker.get("symbol") not in FOREX_MARKETS:
                 continue
             try:
@@ -1890,7 +1913,11 @@ def _live_prices():
     so the list falls back to the prices in the 24h stats."""
     try:
         rows = binance_get("/api/v3/ticker/price", weight=4, essential=True, timeout=10)
-        return {row["symbol"]: float(row["price"]) for row in rows if "symbol" in row and "price" in row}
+        prices = {row["symbol"]: float(row["price"]) for row in rows if "symbol" in row and "price" in row}
+        for alias, pair in INVERTED_FOREX.items():
+            if prices.get(pair):
+                prices[alias] = _inv(prices[pair])
+        return prices
     except (requests.exceptions.RequestException, ValueError, KeyError, TypeError):
         return {}
 
@@ -2009,8 +2036,14 @@ def coin_depth(symbol: str = "BTCUSDT"):
         raise HTTPException(status_code=404, detail="Unknown coin.")
 
     def fetch():
-        book = binance_get("/api/v3/depth", {"symbol": symbol, "limit": 5}, weight=5, timeout=10)
+        pair = INVERTED_FOREX.get(symbol)
+        book = binance_get("/api/v3/depth", {"symbol": pair or symbol, "limit": 5}, weight=5, timeout=10)
         side = lambda rows: [{"price": float(p), "qty": float(q)} for p, q in rows[:5]]
+        if pair:
+            # Selling USDT for reais = buying reais: asks become bids (and the
+            # other way), each price inverted and its size counted in reais.
+            flip = lambda rows: [{"price": _inv(p), "qty": float(q) * float(p)} for p, q in rows[:5]]
+            return {"symbol": symbol, "bids": flip(book.get("asks", [])), "asks": flip(book.get("bids", [])), "updated_at": int(time.time())}
         return {"symbol": symbol, "bids": side(book.get("bids", [])), "asks": side(book.get("asks", [])), "updated_at": int(time.time())}
 
     try:
@@ -2028,7 +2061,7 @@ coin_perf_cache = {}
 def _coin_performance(symbol):
     """7-day and 30-day change and high/low from daily candles (cached 5 min)."""
     def fetch():
-        raw = binance_get("/api/v3/klines", {"symbol": symbol, "interval": "1d", "limit": 31}, weight=2, timeout=10)
+        raw = get_klines(symbol, "1d", 31)
         candles = [{"open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4])} for c in raw]
         data = {}
         for days in (7, 30):
@@ -2050,6 +2083,21 @@ def _coin_performance(symbol):
     return cached_call(coin_perf_cache, symbol, COIN_PERF_CACHE_SECONDS, fetch, max_entries=500)
 
 
+def _invert_ticker(t):
+    """A USDT/XXX 24h ticker seen as XXX/USDT."""
+    price, open_price = _inv(t.get("lastPrice")), _inv(t.get("openPrice"))
+    return {
+        "lastPrice": price, "openPrice": open_price,
+        "highPrice": _inv(t.get("lowPrice")), "lowPrice": _inv(t.get("highPrice")),
+        "priceChange": price - open_price,
+        "priceChangePercent": (price - open_price) / open_price * 100 if open_price else 0,
+        "weightedAvgPrice": _inv(t.get("weightedAvgPrice")),
+        "volume": t.get("quoteVolume"), "quoteVolume": t.get("volume"),
+        "count": t.get("count"),
+        "bidPrice": _inv(t.get("askPrice")), "askPrice": _inv(t.get("bidPrice")),
+    }
+
+
 @app.get("/api/coin/stats")
 def coin_stats(symbol: str = "BTCUSDT"):
     """Full 24h statistics for one coin plus 7D / 30D performance (Scanner's coin stats sheet)."""
@@ -2058,7 +2106,10 @@ def coin_stats(symbol: str = "BTCUSDT"):
         raise HTTPException(status_code=404, detail="Unknown coin.")
 
     def fetch():
-        t = binance_get("/api/v3/ticker/24hr", {"symbol": symbol}, weight=2, timeout=10)
+        pair = INVERTED_FOREX.get(symbol)
+        t = binance_get("/api/v3/ticker/24hr", {"symbol": pair or symbol}, weight=2, timeout=10)
+        if pair:
+            t = _invert_ticker(t)
         num = lambda key: float(t.get(key) or 0)
         data = {
             "symbol": symbol,

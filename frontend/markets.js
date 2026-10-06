@@ -13,6 +13,12 @@
     { base: "EUR", label: "EUR/USD", name: "Euro", flag: "🇪🇺" },
     { base: "GBP", label: "GBP/USD", name: "British Pound", flag: "🇬🇧" },
     { base: "AUD", label: "AUD/USD", name: "Australian Dollar", flag: "🇦🇺" },
+    // Binance quotes these as USDT/BRL etc.; the server inverts them so they
+    // trade like the rest (price = $ per unit), and the tile shows the
+    // familiar rate too.
+    { base: "BRL", label: "BRL/USD", name: "Brazilian Real", flag: "🇧🇷", perUsd: true },
+    { base: "TRY", label: "TRY/USD", name: "Turkish Lira", flag: "🇹🇷", perUsd: true },
+    { base: "ARS", label: "ARS/USD", name: "Argentine Peso", flag: "🇦🇷", perUsd: true },
   ];
   const COMMODITIES = [
     { base: "PAXG", label: "Gold", name: "PAXG · 1 oz" },
@@ -183,23 +189,29 @@
       </div>`).join("");
   }
 
-  function renderMiniRow(boxId, items, digits) {
+  function renderMiniRow(boxId, items) {
     const box = el(boxId);
     if (!box) return;
     const rows = items.map((item) => ({ item, coin: coinsByBase.get(item.base) })).filter((r) => r.coin && !r.coin.thin);
-    box.style.gridTemplateColumns = `repeat(${Math.min(Math.max(rows.length, 2), 3)}, minmax(0, 1fr))`;
+    const phone = window.matchMedia && window.matchMedia("(max-width: 520px)").matches;
+    const cols = rows.length >= 4 ? (phone ? 2 : 4) : Math.max(rows.length, 2);
+    box.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    const perUsd = (coin) => {
+      const rate = 1 / coin.price;
+      return `1 USD = ${rate.toLocaleString("en-US", { maximumFractionDigits: rate >= 100 ? 1 : 3 })} ${coin.base}`;
+    };
     box.innerHTML = rows.map(({ item, coin }) => `
       <div class="cd-mini-coin" data-base="${escapeHtml(coin.base)}">
         <div class="cd-mini-top">${item.flag ? `<span class="cd-mini-flag">${item.flag}</span>` : avatar(coin.base)}<strong>${escapeHtml(item.label)}</strong></div>
-        <small class="cd-mini-name">${escapeHtml(item.name)}</small>
-        <div class="cd-mini-price">${digits ? "$" + coin.price.toFixed(digits) : fmtUsd(coin.price)}</div>
+        <small class="cd-mini-name">${escapeHtml(item.perUsd ? perUsd(coin) : item.name)}</small>
+        <div class="cd-mini-price">${fmtUsd(coin.price)}</div>
         <div class="cd-mini-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</div>
       </div>`).join("");
     const panel = box.closest(".cd-panel");
     if (panel) panel.hidden = !box.children.length;
   }
-  const renderForex = () => renderMiniRow("cdForexCoins", FOREX, 5);
-  const renderCommodities = () => renderMiniRow("cdCommodityCoins", COMMODITIES, 0);
+  const renderForex = () => renderMiniRow("cdForexCoins", FOREX);
+  const renderCommodities = () => renderMiniRow("cdCommodityCoins", COMMODITIES);
 
   // Ticker strip: the most traded coins, sliding slowly on a loop like the
   // Indian market ticker. The list is drawn twice and the track moves by
