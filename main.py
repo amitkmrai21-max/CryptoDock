@@ -156,7 +156,13 @@ def cached_call(cache, key, ttl, fetch, max_entries=1000):
             raise
         _flight_failures.pop(flight, None)
         if len(cache) >= max_entries and key not in cache:
-            cache.clear()
+            # Full: drop what has expired first; only clear all if that frees nothing.
+            cutoff = time.time() - ttl
+            for old_key, old_entry in list(cache.items()):
+                if old_entry["at"] < cutoff:
+                    cache.pop(old_key, None)
+            if len(cache) >= max_entries:
+                cache.clear()
         cache[key] = {"data": data, "at": time.time()}
         return data
 
@@ -1877,7 +1883,7 @@ def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300
 
     try:
         ttl = (300 if interval in ("1d", "1w") else COIN_CANDLES_CACHE_SECONDS) * binance_slowdown()
-        return cached_call(coin_candles_cache, f"{symbol}:{interval}:{safe_limit}", ttl, fetch, max_entries=500)
+        return cached_call(coin_candles_cache, f"{symbol}:{interval}:{safe_limit}", ttl, fetch, max_entries=150)
     except requests.exceptions.RequestException as error:
         raise HTTPException(status_code=503, detail=f"Candles are busy, try again shortly: {str(error)}") from error
 
@@ -2708,7 +2714,7 @@ def btc_candles(interval: str = "15m", limit: int = 200):
     # One Binance call per interval every 15s, however many people (or old
     # app versions) are asking.
     try:
-        return cached_call(coin_candles_cache, f"BTCUSDT:{interval}:{safe_limit}", COIN_CANDLES_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=500)
+        return cached_call(coin_candles_cache, f"BTCUSDT:{interval}:{safe_limit}", COIN_CANDLES_CACHE_SECONDS * binance_slowdown(), fetch, max_entries=150)
     except requests.exceptions.RequestException as error:
         raise HTTPException(status_code=502, detail=f"Could not load Binance candles: {str(error)}") from error
 
