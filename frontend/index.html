@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261006-clean-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261006-trades-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -485,16 +485,16 @@
           </div>
         </div>
         <div class="cd-pills" id="cdOrderFilters">
-          <button type="button" class="cd-pill is-active" data-filter="all">All</button>
+          <button type="button" class="cd-pill is-active" data-filter="trades">Trades</button>
+          <button type="button" class="cd-pill" data-filter="all">Orders</button>
           <button type="button" class="cd-pill" data-filter="OPEN">Open</button>
-          <button type="button" class="cd-pill" data-filter="FILLED">Executed</button>
           <button type="button" class="cd-pill" data-filter="CANCELLED">Cancelled</button>
         </div>
         <section class="card cd-table-card">
           <div id="cdOrderList" class="cd-order-list"></div>
           <p id="cdOrderEmpty" class="cd-empty" hidden>No orders here yet.</p>
         </section>
-        <ul class="cd-page-notes"><li>Limit fills at your price</li><li>Open orders can be cancelled</li></ul>
+        <ul class="cd-page-notes"><li>Trades: entry, exit &amp; P&amp;L of every position</li><li>Open limit orders can be cancelled</li></ul>
       </div>
     </section>
 
@@ -1544,7 +1544,7 @@
     </div>
   </div>
   <script src="/frontend/markets.js?v=20261006-pos2s-1"></script>
-  <script src="/frontend/paper.js?v=20261006-swipe-2"></script>
+  <script src="/frontend/paper.js?v=20261006-trades-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>

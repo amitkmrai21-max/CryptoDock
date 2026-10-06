@@ -226,7 +226,7 @@
       liqPrice: liqPriceOf(side, price, leverage), openFee: fee, openedAt: Date.now(),
     };
     positions().unshift(pos);
-    state.orders.unshift(newOrder({ base, side: side === "LONG" ? "BUY" : "SELL", action: "OPEN", leverage, type: "MARKET", qty, status: "FILLED", fillPrice: price, fee, filledAt: Date.now() }));
+    state.orders.unshift(newOrder({ base, side: side === "LONG" ? "BUY" : "SELL", action: "OPEN", leverage, type: "MARKET", qty, status: "FILLED", fillPrice: price, fee, filledAt: Date.now(), posId: pos.id }));
     return pos;
   }
 
@@ -275,7 +275,7 @@
     state.cash += back;
     state.realized += back - p.margin;
     list.splice(idx, 1);
-    state.orders.unshift(newOrder({ base: p.base, side: p.side === "LONG" ? "SELL" : "BUY", action: liquidated ? "LIQUIDATED" : "CLOSE", leverage: p.leverage, type: "MARKET", qty: p.qty, status: "FILLED", fillPrice: mark, fee, filledAt: Date.now() }));
+    state.orders.unshift(newOrder({ base: p.base, side: p.side === "LONG" ? "SELL" : "BUY", action: liquidated ? "LIQUIDATED" : "CLOSE", leverage: p.leverage, type: "MARKET", qty: p.qty, status: "FILLED", fillPrice: mark, fee, filledAt: Date.now(), posId: p.id, entryPrice: p.entryPrice, net: back - p.margin - (p.openFee || 0) }));
     save();
     renderAll();
     toast(liquidated
@@ -329,6 +329,7 @@
           order.fillPrice = order.limitPrice;
           order.filledAt = Date.now();
           order.reserved = 0;
+          order.posId = order.id;
           const pos = { id: order.id, base: order.base, side: long ? "LONG" : "SHORT", qty: order.qty, entryPrice: order.limitPrice, leverage: order.leverage, margin, liqPrice: liqPriceOf(long ? "LONG" : "SHORT", order.limitPrice, order.leverage), openFee: notional * FUT_FEE_RATE, openedAt: Date.now() };
           positions().unshift(pos);
           changed = true;
@@ -435,27 +436,144 @@
   }
 
   // ---------- Orders page ----------
-  let orderFilter = "all";
+  let orderFilter = "trades";
   const STATUS_LABEL = { OPEN: "Open", FILLED: "Executed", CANCELLED: "Cancelled" };
+  const fmtWhen = (ms) => new Date(ms).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+  function fmtHeld(ms) {
+    const mins = Math.max(0, Math.round(ms / 60000));
+    const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+    return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  // Each futures trade = its OPEN order + the CLOSE / LIQUIDATED order that
+  // ended it (or the live position while it runs). Newer orders carry posId;
+  // older ones are paired by coin, leverage, direction and size.
+  function buildTrades() {
+    const trades = [];
+    const longOf = (o) => (o.action === "OPEN" ? o.side === "BUY" : o.side === "SELL");
+    const sameQty = (a, b) => Math.abs(a - b) <= Math.max(1e-9, Math.abs(a) * 1e-6);
+    state.orders.slice().reverse().forEach((o) => {
+      if (o.status !== "FILLED") return;
+      if (o.action === "OPEN") {
+        trades.push({ open: o, close: null });
+      } else if (o.action === "CLOSE" || o.action === "LIQUIDATED") {
+        const free = trades.filter((t) => !t.close);
+        const match = (o.posId && free.find((t) => t.open.posId === o.posId))
+          || free.slice().reverse().find((t) => !t.open.posId && t.open.base === o.base && t.open.leverage === o.leverage && longOf(t.open) === longOf(o) && sameQty(t.open.qty, o.qty))
+          || free.slice().reverse().find((t) => !t.open.posId && t.open.base === o.base && t.open.leverage === o.leverage && longOf(t.open) === longOf(o));
+        if (match) match.close = o;
+      }
+    });
+    const live = positions().slice();
+    trades.forEach((t) => {
+      if (t.close) return;
+      const i = live.findIndex((p) => (t.open.posId ? p.id === t.open.posId : p.base === t.open.base && p.leverage === t.open.leverage && (p.side === "LONG") === longOf(t.open) && sameQty(p.qty, t.open.qty)));
+      if (i !== -1) t.position = live.splice(i, 1)[0];
+    });
+    return trades.reverse();
+  }
+
+  function tradeCard(t) {
+    const o = t.open, c = t.close, p = t.position;
+    const long = o.side === "BUY";
+    const entry = o.fillPrice;
+    const lev = o.leverage || 1;
+    const notional = o.qty * entry;
+    const margin = notional / lev;
+    const openFee = o.fee || 0;
+    const opened = o.filledAt || o.createdAt;
+    let status, exitHtml, net, label, fees = openFee, end;
+    if (c) {
+      const closeFee = c.fee || 0;
+      fees += closeFee;
+      end = c.filledAt || c.createdAt;
+      if (Number.isFinite(c.net)) net = c.net;
+      else if (c.action === "LIQUIDATED") net = -(margin + openFee);
+      else {
+        const pnl = (long ? c.fillPrice - entry : entry - c.fillPrice) * o.qty;
+        net = Math.max(0, margin + pnl - closeFee) - margin - openFee;
+      }
+      status = c.action === "LIQUIDATED" ? { text: "Liquidated", cls: "is-liq" } : { text: "Closed", cls: "is-closed" };
+      exitHtml = `<strong>${fmtUsd(c.fillPrice)}</strong><small>${fmtWhen(end)}</small>`;
+      label = "Realised P&amp;L (after fees)";
+    } else if (p) {
+      const mark = priceOf(p.base);
+      end = Date.now();
+      net = mark ? pnlOf(p, mark) : 0;
+      status = { text: "Running", cls: "is-running" };
+      exitHtml = `<strong>${mark ? fmtUsd(mark) : "--"}</strong><small>Live price · still open</small>`;
+      label = "Unrealized P&amp;L (ROE%)";
+    } else {
+      end = null;
+      status = { text: "Closed", cls: "is-closed" };
+      exitHtml = `<strong>--</strong><small>Exit not recorded</small>`;
+      label = "";
+    }
+    // Closed: return on everything the trade took (margin + opening fee), so a
+    // liquidation reads -100%. Running: ROE on margin, as on the Positions page.
+    const base = c ? margin + openFee : margin;
+    const roe = base > 0 && Number.isFinite(net) ? (net / base) * 100 : 0;
+    const liq = p ? p.liqPrice : liqPriceOf(long ? "LONG" : "SHORT", entry, lev);
+    const exitType = c ? (c.action === "LIQUIDATED" ? "Liquidation" : "Close Market") : p ? "--" : "--";
+    return `
+        <div class="cd-pos-card cd-trade-card">
+          <div class="cd-pos-top">
+            <div class="cd-pos-name">
+              <strong>${escapeHtml(o.base)}/USDT</strong>
+              <span class="cd-pos-tag is-${long ? "long" : "short"}">${long ? "LONG" : "SHORT"} ${lev}x</span>
+            </div>
+            <span class="cd-trade-status ${status.cls}">${status.text}</span>
+          </div>
+          <div class="cd-trade-legs">
+            <div><span>Entry ${o.type === "LIMIT" ? "(Limit)" : "(Market)"}</span><strong>${fmtUsd(entry)}</strong><small>${fmtWhen(opened)}</small></div>
+            <div><span>Exit${c ? ` (${exitType})` : ""}</span>${exitHtml}</div>
+          </div>
+          <div class="cd-pos-grid">
+            <div><span>Size:</span> <strong>${fmtQty(o.qty)} ${escapeHtml(o.base)} (${fmtMoney(notional)})</strong></div>
+            <div><span>Margin:</span> <strong>${fmtMoney(margin)}</strong></div>
+            <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${fmtUsd(liq)}</strong></div>
+            <div><span>Fees:</span> <strong>${fmtMoney(fees)}</strong></div>
+            <div><span>Held for:</span> <strong>${end ? fmtHeld(end - opened) : "--"}</strong></div>
+          </div>
+          ${label ? `<div class="cd-pos-foot">
+            <span>${label}:</span>
+            <b class="${net >= 0 ? "is-up" : "is-down"}">${net >= 0 ? "+" : "-"}${fmtMoney(Math.abs(net))} (${net >= 0 ? "+" : ""}${roe.toFixed(2)}%)</b>
+          </div>` : ""}
+        </div>`;
+  }
+
+  function setOrderFilter(next) {
+    orderFilter = next;
+    document.querySelectorAll("#cdOrderFilters [data-filter]").forEach((b) => b.classList.toggle("is-active", b.dataset.filter === next));
+    renderOrders();
+  }
 
   function renderOrders() {
     const list = el("cdOrderList");
     if (!list) return;
+    const empty = el("cdOrderEmpty");
+    if (orderFilter === "trades") {
+      const trades = buildTrades();
+      list.classList.add("is-trades");
+      list.innerHTML = trades.map(tradeCard).join("");
+      if (empty) { empty.textContent = "No trades yet. Your Long / Short trades show here with entry, exit and P&L."; empty.hidden = trades.length > 0; }
+      return;
+    }
+    list.classList.remove("is-trades");
     const orders = state.orders.filter((o) => orderFilter === "all" || o.status === orderFilter);
     list.innerHTML = orders.map((o) => {
       const price = o.status === "FILLED" ? o.fillPrice : o.limitPrice;
-      const when = new Date(o.filledAt || o.cancelledAt || o.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      const when = fmtWhen(o.filledAt || o.cancelledAt || o.createdAt);
       const label = o.action === "OPEN" ? (o.side === "BUY" ? "LONG" : "SHORT") : o.action === "CLOSE" ? "CLOSE" : o.action === "LIQUIDATED" ? "LIQ." : o.side;
       const tone = o.action === "CLOSE" ? "" : o.action === "LIQUIDATED" ? "cd-down" : o.side === "BUY" ? "cd-up" : "cd-down";
       return `<div class="cd-order-row">
         <span class="cd-order-side ${tone}">${label}</span>
-        <span class="cd-order-main"><strong>${escapeHtml(o.base)}${o.leverage ? ` · ${o.leverage}x` : ""}</strong><small>${o.type === "LIMIT" ? "Limit" : "Market"} · ${fmtQty(o.qty)} @ ${price ? fmtUsd(price) : "--"} · ${when}</small></span>
+        <span class="cd-order-main"><strong>${escapeHtml(o.base)}${o.leverage ? ` · ${o.leverage}x` : ""}</strong><small>${o.type === "LIMIT" ? "Limit" : "Market"} · ${fmtQty(o.qty)} @ ${price ? fmtUsd(price) : "--"}${o.fee ? ` · Fee ${fmtMoney(o.fee)}` : ""}</small><small>${when}</small></span>
         <span class="cd-order-status is-${o.status.toLowerCase()}">${STATUS_LABEL[o.status] || o.status}</span>
         ${o.status === "OPEN" ? `<button type="button" class="cd-ghost-btn cd-order-cancel" data-cancel="${o.id}">Cancel</button>` : ""}
       </div>`;
     }).join("");
-    const empty = el("cdOrderEmpty");
-    if (empty) empty.hidden = orders.length > 0;
+    if (empty) { empty.textContent = "No orders here yet."; empty.hidden = orders.length > 0; }
   }
 
   function renderAll() {
@@ -570,6 +688,7 @@
     } else {
       const o = result.order;
       toast(`Limit ${o.side === "BUY" ? "long" : "short"} placed: ${fmtQty(o.qty)} ${o.base} at ${fmtUsd(o.limitPrice)}`);
+      setOrderFilter("OPEN");
       goTo("orders");
     }
   }
@@ -697,11 +816,7 @@
     const cancel = event.target.closest("[data-cancel]");
     if (cancel) { cancelOrder(cancel.dataset.cancel); return; }
     const filter = event.target.closest("#cdOrderFilters [data-filter]");
-    if (filter) {
-      orderFilter = filter.dataset.filter;
-      document.querySelectorAll("#cdOrderFilters [data-filter]").forEach((b) => b.classList.toggle("is-active", b === filter));
-      renderOrders();
-    }
+    if (filter) setOrderFilter(filter.dataset.filter);
   });
 
   el("cdResetFunds")?.addEventListener("click", () => {
