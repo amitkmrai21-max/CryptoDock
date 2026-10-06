@@ -1,0 +1,907 @@
+diff --git a/frontend/index.html b/frontend/index.html
+index 75c32d5..4597382 100644
+--- a/frontend/index.html
++++ b/frontend/index.html
+@@ -26,7 +26,7 @@
+   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+ 
+   <link rel="stylesheet" href="/frontend/style.css?v=20261005-tech-gate-v1">
+-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-silent-1">
++  <link rel="stylesheet" href="/frontend/markets.css?v=20261006-nobur-1">
+   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
+@@ -469,11 +469,11 @@
+           <div class="cd-fund"><span>Total P&amp;L</span><strong id="cdFundPnl">--</strong><small id="cdFundPnlPct"></small></div>
+         </div>
+         <section class="card cd-table-card">
+-          <div class="cd-table-head"><h3>Holdings <span id="cdHoldCount" class="cd-meta"></span></h3></div>
++          <div class="cd-table-head"><h3>Open Positions <span id="cdHoldCount" class="cd-meta"></span></h3></div>
+           <div id="cdHoldList" class="cd-hold-list"></div>
+           <p id="cdHoldEmpty" class="cd-empty" hidden>No coins yet. Tap any coin on the Dashboard or Watchlist, then Buy.</p>
+         </section>
+-        <ul class="cd-page-notes"><li>Virtual USDT only</li><li>No real orders</li><li>Tap a holding to sell it</li></ul>
++        <ul class="cd-page-notes"><li>Virtual USDT only</li><li>No real orders</li><li>Tap Close Market to exit position</li></ul>
+       </div>
+     </section>
+ 
+@@ -1428,66 +1428,112 @@
+ 
+   <script src="/frontend/app.js?v=20261005-tech-gate-v1"></script>
+ 
+-  <!-- Paper trading order ticket (paper.js) -->
++    <!-- Paper trading order ticket (paper.js) -->
+   <div id="cdTicket" class="cd-ticket-overlay" hidden>
+     <div class="cd-ticket" role="dialog" aria-modal="true" aria-labelledby="cdTicketTitle">
+       <div class="cd-sheet-handle"></div>
+       <div class="cd-ticket-head">
+-        <div class="cd-coin-cell"><span id="cdTicketAvatar"></span><div><strong id="cdTicketTitle">--</strong><small>/USDT · Paper trade</small></div></div>
++        <div class="cd-coin-cell">
++          <span id="cdTicketAvatar"></span>
++          <div>
++            <strong id="cdTicketTitle">BTC</strong>
++            <small>/USDT · Perpetual Futures</small>
++          </div>
++        </div>
+         <span class="cd-ticket-head-actions">
+           <button id="cdTicketChart" class="cd-ghost-btn" type="button">Chart</button>
+           <button id="cdTicketClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
+         </span>
+       </div>
++
+       <div class="cd-ticket-price">
+-        <strong id="cdTicketPrice">--</strong>
++        <strong id="cdTicketPrice">$0.00</strong>
++        <span id="cdTicketChange" class="cd-meta">+0.00%</span>
+         <span id="cdTicketInr" class="cd-meta"></span>
+-        <span id="cdTicketChange"></span>
+-      </div>
+-      <div class="cd-side-toggle">
+-        <button type="button" data-side="BUY" class="is-active">Buy</button>
+-        <button type="button" data-side="SELL">Sell</button>
+-      </div>
+-      <div class="cd-pills cd-type-toggle">
+-        <button type="button" class="cd-pill is-active" data-type="MARKET">Market</button>
+-        <button type="button" class="cd-pill" data-type="LIMIT">Limit</button>
+-      </div>
+-      <label class="cd-field" id="cdLimitField" hidden>
+-        <span>Limit price (USDT)</span>
+-        <input id="cdLimitPrice" type="number" inputmode="decimal" min="0" step="any" />
+-      </label>
+-      <label class="cd-field">
+-        <span>Amount (USDT)</span>
+-        <input id="cdAmount" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00" />
+-      </label>
+-      <label class="cd-field">
+-        <span>Quantity (<span id="cdQtyUnit">coin</span>)</span>
+-        <input id="cdQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0" />
+-      </label>
+-      <div class="cd-pills cd-pct-row">
+-        <button type="button" class="cd-pill" data-pct="25">25%</button>
+-        <button type="button" class="cd-pill" data-pct="50">50%</button>
+-        <button type="button" class="cd-pill" data-pct="75">75%</button>
+-        <button type="button" class="cd-pill" data-pct="100">Max</button>
+       </div>
++
++      <!-- Long / Short Switch -->
++      <div class="cd-side-switch">
++        <button type="button" class="cd-side-btn is-long is-active" data-side="BUY">Long</button>
++        <button type="button" class="cd-side-btn is-short" data-side="SELL">Short</button>
++      </div>
++
++      <!-- Leverage & Order Type -->
++      <div class="cd-ticket-controls-row">
++        <div class="cd-ctrl-group">
++          <label>Leverage</label>
++          <select id="cdLeverageSelect" class="cd-select-ctrl">
++            <option value="1">1x</option>
++            <option value="5">5x</option>
++            <option value="10">10x</option>
++            <option value="25">25x</option>
++            <option value="50">50x</option>
++            <option value="100">100x</option>
++            <option value="150">150x</option>
++            <option value="200" selected>200x</option>
++          </select>
++        </div>
++        <div class="cd-ctrl-group">
++          <label>Order Type</label>
++          <div class="cd-type-pills">
++            <button type="button" class="cd-type-pill is-active" data-type="MARKET">Market</button>
++            <button type="button" class="cd-type-pill" data-type="LIMIT">Limit</button>
++          </div>
++        </div>
++      </div>
++
++      <!-- Limit Price -->
++      <div id="cdLimitField" class="cd-input-group" hidden>
++        <label style="font-size:11px;color:#9ca3af;text-transform:uppercase;font-weight:600;display:block;margin-bottom:4px;">Limit Price (USDT)</label>
++        <input type="number" id="cdLimitPrice" step="any" placeholder="0.00" style="width:100%;box-sizing:border-box;background:#111827;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:6px;padding:9px 10px;font-size:14px;margin-bottom:10px;">
++      </div>
++
++      <!-- Size & Units (Lot / USD / BTC) -->
++      <div class="cd-input-group">
++        <div class="cd-input-header">
++          <label id="cdUnitLabel" style="font-size:11px;color:#9ca3af;text-transform:uppercase;font-weight:600;">Lot (1 BTC)</label>
++          <div class="cd-unit-selector">
++            <button type="button" class="cd-unit-btn is-active" data-unit="LOT">Lot</button>
++            <button type="button" class="cd-unit-btn" data-unit="USD">USD</button>
++            <button type="button" class="cd-unit-btn" data-unit="COIN">BTC</button>
++          </div>
++        </div>
++        <div class="cd-input-with-unit">
++          <input type="number" id="cdAmount" step="any" placeholder="0" inputmode="decimal">
++        </div>
++      </div>
++
++      <!-- Quick % Sizing -->
++      <div class="cd-pct-buttons">
++        <button type="button" data-pct="25">25%</button>
++        <button type="button" data-pct="50">50%</button>
++        <button type="button" data-pct="75">75%</button>
++        <button type="button" data-pct="100">Max</button>
++      </div>
++
++      <!-- Margin & Fee Summary -->
+       <div class="cd-ticket-summary">
+-        <div><span>Available</span><strong id="cdTicketAvail">--</strong></div>
+-        <div><span>Fee (0.1%)</span><strong id="cdTicketFee">--</strong></div>
+-        <div><span>Total</span><strong id="cdTicketTotal">--</strong></div>
++        <div class="cd-summary-row">
++          <span>Available Margin:</span>
++          <strong id="cdTicketAvail">$0.00</strong>
++        </div>
++        <div class="cd-summary-row">
++          <span>Required Margin:</span>
++          <strong id="cdTicketMargin">$0.00</strong>
++        </div>
++        <div class="cd-summary-row">
++          <span>Est. Fee (0.05%):</span>
++          <span id="cdTicketFee">$0.00</span>
++        </div>
+       </div>
+-      <p id="cdTicketError" class="cd-ticket-error" hidden></p>
+-      <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
+-    </div>
+-  </div>
+-  <script src="/frontend/markets.js?v=20261005-silent-1"></script>
+-  <script src="/frontend/paper.js?v=20261005-cdet-1"></script>
+-  <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
+-  <script src="/frontend/tools.js?v=20261005-tools-2"></script>
+-  <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
+-  <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
+ 
++      <div id="cdTicketError" class="cd-ticket-error" hidden></div>
+ 
+-  <!-- Phone tab bar + More sheet (tabbar.js) -->
++      <button type="button" id="cdTicketSubmit" class="cd-ticket-submit-btn is-long">
++        Open Long
++      </button>
++    </div>
++  </div>
+   <nav id="cdTabBar" class="cd-tabbar" aria-label="Main">
+     <button type="button" data-tabbar="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></button>
+     <button type="button" data-tabbar="watch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span>Watchlist</span></button>
+@@ -1502,6 +1548,7 @@
+       <div id="cdMoreGrid" class="cd-more-grid"></div>
+     </div>
+   </div>
++
+   <!-- Coin sheet: tap any coin (coin-sheet.js) -->
+   <div id="cdSheet" class="cd-ticket-overlay" hidden>
+     <div class="cd-ticket cd-sheet" role="dialog" aria-modal="true" aria-labelledby="cdSheetTitle">
+@@ -1713,7 +1760,13 @@
+       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
+     </div>
+   </div>
+-  <script src="/frontend/tabbar.js?v=20261005-pos-v1"></script>
++    <script src="/frontend/markets.js?v=20261006-fix-1"></script>
++  <script src="/frontend/paper.js?v=20261006-futures-v6"></script>
++  <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
++  <script src="/frontend/tools.js?v=20261005-tools-2"></script>
++  <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
++  <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
++<script src="/frontend/tabbar.js?v=20261005-pos-v1"></script>
+   <script src="/frontend/coin-sheet.js?v=20261005-tv-2"></script>
+   <script src="/frontend/coin-stats.js?v=20261005-tv-2"></script>
+   <script src="/frontend/sheet-motion.js?v=20261005-step-back-v1"></script>
+diff --git a/frontend/markets.css b/frontend/markets.css
+index 80def70..54e64db 100644
+--- a/frontend/markets.css
++++ b/frontend/markets.css
+@@ -408,7 +408,7 @@ body { font-variant-numeric: tabular-nums; }
+   justify-content: center;
+   padding: 16px;
+   background: rgba(5, 4, 12, 0.7);
+-  backdrop-filter: blur(4px);
++  backdrop-filter: none; -webkit-backdrop-filter: none;
+ }
+ 
+ .cd-ticket-overlay[hidden] { display: none; }
+diff --git a/frontend/paper.js b/frontend/paper.js
+index 7be1868..cd96017 100644
+--- a/frontend/paper.js
++++ b/frontend/paper.js
+@@ -36,7 +36,7 @@
+   }
+   let account = readEmail();
+   const storageKey = () => KEY_PREFIX + (account || "guest");
+-  const freshState = () => ({ cash: STARTING_USDT, holdings: {}, orders: [], realized: 0 });
++  const freshState = () => ({ cash: STARTING_USDT, holdings: {}, positions: [], orders: [], realized: 0 });
+ 
+   function load() {
+     try {
+@@ -49,6 +49,28 @@
+ 
+   function save() {
+     try { localStorage.setItem(storageKey(), JSON.stringify(state)); } catch (e) { /* ignore */ }
++    if (account) {
++      fetch('/api/paper/sync', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ email: account, state })
++      }).catch(() => {});
++    }
++  }
++
++  async function fetchServerPortfolio() {
++    if (!account) return;
++    try {
++      const res = await fetch(`/api/paper/portfolio?email=${encodeURIComponent(account)}`);
++      if (res.ok) {
++        const data = await res.json();
++        if (data && typeof data.cash === 'number') {
++          state = { ...freshState(), ...data, positions: (data.positions && data.positions.length) ? data.positions : (state.positions || []) };
++          try { localStorage.setItem(storageKey(), JSON.stringify(state)); } catch (e) {}
++          renderAll();
++        }
++      }
++    } catch (e) {}
+   }
+ 
+   // ---------- prices ----------
+@@ -118,7 +140,66 @@
+ 
+   // Market order, or a Limit order. A Limit that can already fill at the
+   // current price fills straight away at that (better) price.
+-  function placeOrder({ base, side, type, qty, limitPrice }) {
++  
++  // --- Delta-style 200x Futures Engine ---
++  function getPositionsList() {
++    state.positions = state.positions || [];
++    return state.positions;
++  }
++
++  function applyFuturesOrder({ base, side, qty, price, leverage }) {
++    state.positions = state.positions || [];
++    const notional = qty * price;
++    const margin = notional / (leverage || 1);
++    const fee = notional * 0.0005;
++    
++    if (state.cash < margin + fee) {
++      return { error: `Not enough margin! Available: ${fmtMoney(state.cash)} USDT, Required: ${fmtMoney(margin + fee)} USDT` };
++    }
++    
++    state.cash -= (margin + fee);
++    const posSide = side === "BUY" ? "LONG" : "SHORT";
++    const liqPrice = posSide === "LONG" 
++      ? price * (1 - (0.95 / (leverage || 1)))
++      : price * (1 + (0.95 / (leverage || 1)));
++
++    const pos = {
++      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
++      base,
++      side: posSide,
++      qty,
++      entryPrice: price,
++      leverage: leverage || 200,
++      margin,
++      liqPrice,
++      openedAt: Date.now()
++    };
++    state.positions.unshift(pos);
++    return { pos, fee };
++  }
++
++  function closePosition(posId) {
++    state.positions = state.positions || [];
++    const idx = state.positions.findIndex(p => p.id === posId);
++    if (idx === -1) return;
++    const p = state.positions[idx];
++    const markPrice = priceOf(p.base) || p.entryPrice;
++    const pnl = p.side === "LONG" ? (markPrice - p.entryPrice) * p.qty : (p.entryPrice - markPrice) * p.qty;
++    const notional = p.qty * markPrice;
++    const fee = notional * 0.0005;
++    
++    // Return margin + P&L - close fee to available cash
++    const returnCash = Math.max(0, p.margin + pnl - fee);
++    state.cash += returnCash;
++    state.realized = (state.realized || 0) + (pnl - fee);
++    state.positions.splice(idx, 1);
++    save();
++    renderAll();
++    toast(`Closed ${p.side} ${p.base} ${p.leverage}x | PnL: ${fmtMoney(pnl)} USDT`);
++  }
++  window.cdClosePosition = closePosition;
++
++  function placeOrder({ base, side, type, qty, limitPrice, leverage = 200 }) {
+     const market = priceOf(base);
+     if (!market) return { error: "Live price not available yet. Please try again in a moment." };
+     qty = roundQty(qty);
+@@ -129,15 +210,13 @@
+     const value = qty * refPrice;
+     if (value < MIN_ORDER_USDT) return { error: `Minimum order is ${MIN_ORDER_USDT} USDT.` };
+ 
+-    if (side === "BUY") {
+-      const needed = value * (1 + FEE_RATE);
+-      if (needed > state.cash + 1e-9) return { error: `Not enough funds. Available: ${fmtMoney(state.cash)} USDT.` };
+-      state.cash -= needed;
+-      const order = newOrder({ base, side, type, qty, limitPrice: type === "LIMIT" ? limitPrice : null, status: "OPEN", reserved: needed });
+-      state.orders.unshift(order);
+-      if (fillsNow) fillOrder(order, market);
++        if (type === "MARKET") {
++      const fut = applyFuturesOrder({ base, side, qty, price: market, leverage });
++      if (fut.error) return fut;
+       save();
+-      return { order };
++      renderAll();
++      toast(`${side === "BUY" ? "Long" : "Short"} ${fmtQty(qty)} ${base} at ${fmtUsd(market)} (${leverage}x)`);
++      return { order: { id: fut.pos.id, base, side, qty, fillPrice: market, status: "FILLED" } };
+     }
+ 
+     // Selling (almost) everything sells exactly everything, so rounding
+@@ -184,43 +263,76 @@
+   }
+ 
+   // ---------- Positions page ----------
++  
++  
+   function renderPositions() {
+-    const rows = Object.entries(state.holdings).map(([base, h]) => {
+-      const price = priceOf(base) ?? (h.qty ? h.cost / h.qty : 0);
+-      const value = h.qty * price;
+-      const pnl = value - h.cost;
+-      return { base, h, price, value, pnl, pct: h.cost ? (pnl / h.cost) * 100 : 0, avg: h.qty ? h.cost / h.qty : 0 };
+-    }).sort((a, b) => b.value - a.value);
+-
+-    const invested = rows.reduce((s, r) => s + r.h.cost, 0);
+-    const current = rows.reduce((s, r) => s + r.value, 0);
+-    const locked = lockedCash();
+-    const total = state.cash + locked + current - STARTING_USDT;
++    state.positions = state.positions || [];
++    let totalUnrealizedPnl = 0;
++    let totalMargin = 0;
++
++    const cardsHtml = state.positions.map(p => {
++      const mark = priceOf(p.base) || p.entryPrice;
++      const notional = p.qty * mark;
++      const pnl = p.side === "LONG" ? (mark - p.entryPrice) * p.qty : (p.entryPrice - mark) * p.qty;
++      const roe = p.margin > 0 ? (pnl / p.margin) * 100 : 0;
++      totalUnrealizedPnl += pnl;
++      totalMargin += p.margin;
++      const pnlColor = pnl >= 0 ? '#10b981' : '#ef4444';
++      const sideBg = p.side === "LONG" ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
++      const sideText = p.side === "LONG" ? '#10b981' : '#ef4444';
++
++      return `
++        <div style="background:#131a2a; border:1px solid #1f293d; border-radius:12px; padding:14px; margin-bottom:12px;">
++          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
++            <div style="display:flex; align-items:center; gap:8px;">
++              <strong style="font-size:16px; color:#fff;">${escapeHtml(p.base)}/USDT</strong>
++              <span style="background:${sideBg}; color:${sideText}; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700;">
++                ${p.side} ${p.leverage}x
++              </span>
++            </div>
++            <button onclick="window.cdClosePosition('${p.id}')" style="background:#252d3d; border:1px solid #374151; color:#fff; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer;">
++              Close Market
++            </button>
++          </div>
++          
++          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; margin-bottom:10px;">
++            <div><span style="color:#8b949e;">Size:</span> <strong style="color:#e6edf3;">${fmtQty(p.qty)} ${p.base} (${fmtMoney(notional)})</strong></div>
++            <div><span style="color:#8b949e;">Margin:</span> <strong style="color:#e6edf3;">${fmtMoney(p.margin)}</strong></div>
++            <div><span style="color:#8b949e;">Entry Price:</span> <strong style="color:#e6edf3;">${fmtUsd(p.entryPrice)}</strong></div>
++            <div><span style="color:#8b949e;">Mark Price:</span> <strong style="color:#e6edf3;">${fmtUsd(mark)}</strong></div>
++            <div><span style="color:#8b949e;">Liq. Price:</span> <strong style="color:#f59e0b;">${fmtUsd(p.liqPrice)}</strong></div>
++          </div>
++
++          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #1f293d; padding-top:8px;">
++            <span style="color:#8b949e; font-size:12px;">Unrealized P&L (ROE%):</span>
++            <span style="color:${pnlColor}; font-weight:700; font-size:14px;">
++              ${pnl >= 0 ? '+' : ''}${fmtMoney(pnl)} (${pnl >= 0 ? '+' : ''}${roe.toFixed(2)}%)
++            </span>
++          </div>
++        </div>
++      `;
++    }).join("");
++
+     const setText = (id, text, cls) => { const node = el(id); if (!node) return; node.textContent = text; if (cls !== undefined) node.className = cls; };
+     setText("cdFundAvailable", fmtMoney(state.cash));
+     setText("cdFundAvailableInr", fmtInr(state.cash));
+-    setText("cdFundInvested", fmtMoney(invested));
+-    setText("cdFundLocked", locked > 0 ? `${fmtMoney(locked)} in open orders` : fmtInr(invested));
+-    setText("cdFundCurrent", fmtMoney(current));
+-    setText("cdFundCurrentInr", fmtInr(current));
+-    setText("cdFundPnl", signed(fmtMoney(Math.abs(total)), total), pctClass(total));
+-    setText("cdFundPnlPct", `${signed(Math.abs((total / STARTING_USDT) * 100).toFixed(2) + "%", total)} · ${signed(fmtInr(Math.abs(total)), total)}`);
+-
++    setText("cdFundInvested", fmtMoney(totalMargin));
++    setText("cdFundLocked", fmtInr(totalMargin));
++    setText("cdFundCurrent", fmtMoney(state.cash + totalMargin + totalUnrealizedPnl));
++    setText("cdFundCurrentInr", fmtInr(state.cash + totalMargin + totalUnrealizedPnl));
++    setText("cdFundPnl", signed(fmtMoney(Math.abs(totalUnrealizedPnl)), totalUnrealizedPnl), pctClass(totalUnrealizedPnl));
++    
++    const countEl = el("cdHoldCount");
++    if (countEl) countEl.textContent = state.positions.length ? `(${state.positions.length})` : "";
++    
+     const list = el("cdHoldList");
+     if (list) {
+-      list.innerHTML = rows.map((r) => `
+-        <button type="button" class="cd-hold-row" data-hold="${escapeHtml(r.base)}">
+-          <span class="cd-coin-cell">${avatar(r.base)}<span><strong>${escapeHtml(r.base)}</strong><small>${fmtQty(r.h.qty)} · Avg ${fmtUsd(r.avg)}${r.h.locked ? ` · ${fmtQty(r.h.locked)} in orders` : ""}</small></span></span>
+-          <span class="cd-hold-mid"><span>LTP ${fmtUsd(r.price)}</span><small>${fmtMoney(r.value)} · ${fmtInr(r.value)}</small></span>
+-          <span class="cd-hold-pnl ${pctClass(r.pnl)}">${signed(fmtMoney(Math.abs(r.pnl)), r.pnl)}<small>${signed(Math.abs(r.pct).toFixed(2) + "%", r.pnl)}</small></span>
+-        </button>`).join("");
++      list.innerHTML = cardsHtml;
+     }
+-    setText("cdHoldCount", rows.length ? `(${rows.length})` : "");
+     const empty = el("cdHoldEmpty");
+-    if (empty) empty.hidden = rows.length > 0;
++    if (empty) empty.hidden = state.positions.length > 0;
+   }
+ 
+-  // ---------- Orders page ----------
+   let orderFilter = "all";
+   const STATUS_LABEL = { OPEN: "Open", FILLED: "Executed", CANCELLED: "Cancelled" };
+ 
+@@ -249,6 +361,18 @@
+   }
+ 
+   // ---------- order ticket ----------
++  
++  // Futures Ticket State
++  let ticketSide = "BUY"; // "BUY" (Long) or "SELL" (Short)
++  let ticketLeverage = 200;
++  let ticketUnit = "LOT"; // "LOT", "USD", "COIN"
++  let ticketOrderType = "MARKET";
++  const LOT_SIZE = { "BTC": 0.001, "ETH": 0.01, "SOL": 0.1 };
++
++  function getLotMultiplier(coin) {
++    return LOT_SIZE[coin] || 1;
++  }
++
+   const ticket = { base: null, side: "BUY", type: "MARKET", lastEdited: "amount" };
+ 
+   function ticketPrice() {
+@@ -273,30 +397,127 @@
+   }
+ 
+   function renderTicket() {
++
++    // Delta Futures Handlers
++    const sideBtns = document.querySelectorAll('#cdTicket .cd-side-btn');
++    sideBtns.forEach(btn => {
++      btn.onclick = () => {
++        sideBtns.forEach(b => b.classList.remove('is-active'));
++        btn.classList.add('is-active');
++        ticketSide = btn.dataset.side;
++        const submitBtn = el('cdTicketSubmit');
++        if (submitBtn) {
++          submitBtn.textContent = ticketSide === 'BUY' ? 'Open Long' : 'Open Short';
++          submitBtn.className = `cd-ticket-submit-btn ${ticketSide === 'BUY' ? 'is-long' : 'is-short'}`;
++        }
++        updateFuturesCalc();
++      };
++    });
++
++    const levSelect = el('cdLeverageSelect');
++    if (levSelect) {
++      levSelect.onchange = () => {
++        ticketLeverage = parseFloat(levSelect.value) || 1;
++        updateFuturesCalc();
++      };
++    }
++
++    const unitBtns = document.querySelectorAll('#cdTicket .cd-unit-btn');
++    unitBtns.forEach(btn => {
++      btn.onclick = () => {
++        unitBtns.forEach(b => b.classList.remove('is-active'));
++        btn.classList.add('is-active');
++        ticketUnit = btn.dataset.unit;
++        const tag = el('cdUnitLabel');
++        if (tag) {
++          tag.textContent = ticketUnit === 'LOT' ? `Lot (${getLotMultiplier(ticket.base)} ${ticket.base})` : ticketUnit;
++        }
++        updateFuturesCalc();
++      };
++    });
++
++    const typePills = document.querySelectorAll('#cdTicket .cd-type-pill');
++    typePills.forEach(pill => {
++      pill.onclick = () => {
++        typePills.forEach(p => p.classList.remove('is-active'));
++        pill.classList.add('is-active');
++        ticketOrderType = pill.dataset.type;
++        const lim = el('cdLimitField');
++        if (lim) lim.hidden = ticketOrderType !== 'LIMIT';
++        updateFuturesCalc();
++      };
++    });
++
++    function updateFuturesCalc() {
++      const price = ticketPrice() || 1;
++      const rawVal = parseFloat(el('cdAmount')?.value) || 0;
++      let qty = 0;
++      if (ticketUnit === 'LOT') {
++        qty = rawVal * getLotMultiplier(ticket.base);
++      } else if (ticketUnit === 'USD') {
++        qty = rawVal / price;
++      } else {
++        qty = rawVal;
++      }
++      const notional = qty * price;
++      const margin = notional / (ticketLeverage || 1);
++      const fee = notional * 0.0005;
++
++      const mEl = el('cdTicketMargin');
++      if (mEl) mEl.textContent = fmtMoney(margin);
++      const fEl = el('cdTicketFee');
++      if (fEl) fEl.textContent = fmtMoney(fee);
++      const aEl = el('cdTicketAvail');
++      if (aEl) aEl.textContent = fmtMoney(state.cash);
++    }
++
++    const amtInput = el('cdAmount');
++    if (amtInput) amtInput.oninput = updateFuturesCalc;
++
++    const pctBtns = document.querySelectorAll('#cdTicket [data-pct]');
++    pctBtns.forEach(btn => {
++      btn.onclick = () => {
++        const pct = parseFloat(btn.dataset.pct) / 100;
++        const price = ticketPrice() || 1;
++        const maxNotional = state.cash * (ticketLeverage || 1) * pct;
++        if (ticketUnit === 'LOT') {
++          const lotSize = getLotMultiplier(ticket.base);
++          const totalLots = Math.floor((maxNotional / price) / lotSize);
++          if (amtInput) amtInput.value = totalLots;
++        } else if (ticketUnit === 'USD') {
++          if (amtInput) amtInput.value = (maxNotional).toFixed(2);
++        } else {
++          if (amtInput) amtInput.value = (maxNotional / price).toFixed(4);
++        }
++        updateFuturesCalc();
++      };
++    });
++
+     const coin = coinOf(ticket.base);
+-    el("cdTicketTitle").textContent = ticket.base;
+-    el("cdTicketAvatar").innerHTML = avatar(ticket.base);
+-    el("cdQtyUnit").textContent = ticket.base;
+-    el("cdTicketPrice").textContent = coin ? fmtUsd(coin.price) : "$--";
+-    el("cdTicketInr").textContent = coin && fmt().fmtInr ? fmt().fmtInr(coin.price) : "";
++    if (el("cdTicketTitle")) el("cdTicketTitle").textContent = ticket.base;
++    if (el("cdTicketAvatar")) el("cdTicketAvatar").innerHTML = avatar(ticket.base);
++    if (el("cdQtyUnit")) el("cdQtyUnit").textContent = ticket.base;
++    if (el("cdTicketPrice")) el("cdTicketPrice").textContent = coin ? fmtUsd(coin.price) : "$--";
++    if (el("cdTicketInr")) el("cdTicketInr").textContent = coin && fmt().fmtInr ? fmt().fmtInr(coin.price) : "";
+     const change = el("cdTicketChange");
+-    change.textContent = coin ? `${coin.change_percent > 0 ? "+" : ""}${coin.change_percent.toFixed(2)}%` : "";
+-    change.className = coin ? pctClass(coin.change_percent) : "";
+-
+-    document.querySelectorAll("#cdTicket [data-side]").forEach((b) => b.classList.toggle("is-active", b.dataset.side === ticket.side));
+-    document.querySelectorAll("#cdTicket [data-type]").forEach((b) => b.classList.toggle("is-active", b.dataset.type === ticket.type));
+-    el("cdLimitField").hidden = ticket.type !== "LIMIT";
+-
+-    const isBuy = ticket.side === "BUY";
+-    el("cdTicketAvail").textContent = isBuy ? `${fmtMoney(state.cash)} (${fmtInr(state.cash)})` : `${fmtQty(freeQty(ticket.base))} ${ticket.base}`;
+-    const amount = parseFloat(el("cdAmount").value) || 0;
+-    const fee = amount * FEE_RATE;
+-    el("cdTicketFee").textContent = fmtMoney(fee);
+-    const total = isBuy ? amount + fee : amount - fee;
+-    el("cdTicketTotal").textContent = amount > 0 ? `${fmtMoney(total)} · ${fmtInr(total)}${isBuy ? "" : " (you get)"}` : "--";
++    if (change) {
++      change.textContent = coin ? `${coin.change_percent > 0 ? "+" : ""}${coin.change_percent.toFixed(2)}%` : "";
++      change.className = coin ? pctClass(coin.change_percent) : "";
++    }
++
++    const curSide = ticketSide || ticket.side || "BUY";
++    const curType = ticketOrderType || ticket.type || "MARKET";
++    document.querySelectorAll("#cdTicket .cd-side-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.side === curSide));
++    document.querySelectorAll("#cdTicket .cd-type-pill").forEach((b) => b.classList.toggle("is-active", b.dataset.type === curType));
++    if (el("cdLimitField")) el("cdLimitField").hidden = curType !== "LIMIT";
++
++    const isBuy = curSide === "BUY";
+     const submit = el("cdTicketSubmit");
+-    submit.textContent = isBuy ? "BUY" : "SELL";
+-    submit.className = `cd-submit ${isBuy ? "is-buy" : "is-sell"}`;
++    if (submit) {
++      submit.textContent = isBuy ? "Open Long" : "Open Short";
++      submit.className = `cd-ticket-submit-btn ${isBuy ? "is-long" : "is-short"}`;
++    }
++    updateFuturesCalc();
+   }
+ 
+   function showError(message) {
+@@ -306,18 +527,29 @@
+   }
+ 
+   function openTicket(base, side = "BUY") {
++    if (!account) {
++      if (typeof window.cdOpenSignIn === 'function') window.cdOpenSignIn();
++      else if (el("topSettingsMenuButton")) {
++        el("topSettingsMenuButton").click();
++        setTimeout(() => el("accountLoggedOutGroup")?.scrollIntoView({ behavior: "smooth", block: "center" }), 250);
++      }
++      toast("Please sign in or sign up first to trade.");
++      return;
++    }
+     if (!base) return;
+     ticket.base = base;
+     ticket.side = side;
++    ticketSide = side;
+     ticket.type = "MARKET";
++    ticketOrderType = "MARKET";
+     ticket.lastEdited = "amount";
+-    el("cdAmount").value = "";
+-    el("cdQty").value = "";
++    if (el("cdAmount")) el("cdAmount").value = "";
++    if (el("cdQty")) el("cdQty").value = "";
+     const price = priceOf(base);
+-    el("cdLimitPrice").value = price ? String(price) : "";
++    if (el("cdLimitPrice")) el("cdLimitPrice").value = price ? String(price) : "";
+     showError("");
+     renderTicket();
+-    el("cdTicket").hidden = false;
++    if (el("cdTicket")) el("cdTicket").hidden = false;
+   }
+ 
+   function closeTicket() {
+@@ -326,9 +558,20 @@
+   }
+ 
+   function submitTicket() {
+-    const qty = parseFloat(el("cdQty").value);
+-    const limitPrice = parseFloat(el("cdLimitPrice").value);
+-    const result = placeOrder({ base: ticket.base, side: ticket.side, type: ticket.type, qty, limitPrice });
++    const price = ticketPrice() || (ticket.base ? priceOf(ticket.base) : 0);
++    const rawVal = parseFloat(el('cdAmount')?.value) || 0;
++    let qty = 0;
++    if (ticketUnit === 'LOT') {
++      qty = rawVal * getLotMultiplier(ticket.base);
++    } else if (ticketUnit === 'USD') {
++      qty = price > 0 ? rawVal / price : 0;
++    } else {
++      qty = rawVal;
++    }
++    const limitPrice = parseFloat(el("cdLimitPrice")?.value) || 0;
++    const effSide = ticketSide || ticket.side || "BUY";
++    const effType = ticketOrderType || ticket.type || "MARKET";
++    const result = placeOrder({ base: ticket.base, side: effSide, type: effType, qty, limitPrice, leverage: ticketLeverage || 200 });
+     if (result.error) {
+       showError(result.error);
+       return;
+@@ -396,9 +639,9 @@
+       renderTicket();
+     }
+   });
+-  el("cdAmount").addEventListener("input", () => { ticket.lastEdited = "amount"; syncInputs(); showError(""); renderTicket(); });
+-  el("cdQty").addEventListener("input", () => { ticket.lastEdited = "qty"; syncInputs(); showError(""); renderTicket(); });
+-  el("cdLimitPrice").addEventListener("input", () => { syncInputs(); renderTicket(); });
++  el("cdAmount")?.addEventListener("input", () => { ticket.lastEdited = "amount"; syncInputs(); showError(""); renderTicket(); });
++  el("cdQty")?.addEventListener("input", () => { ticket.lastEdited = "qty"; syncInputs(); showError(""); renderTicket(); });
++  el("cdLimitPrice")?.addEventListener("input", () => { syncInputs(); renderTicket(); });
+ 
+   document.addEventListener("click", (event) => {
+     const hold = event.target.closest("[data-hold]");
+@@ -431,6 +674,7 @@
+     if (next === account) return;
+     account = next;
+     state = load();
++    fetchServerPortfolio();
+     closeTicket();
+     renderAll();
+   });
+@@ -450,4 +694,5 @@
+     .slice(0, limit)
+     .map((o) => ({ side: o.side, qty: o.qty, price: o.fillPrice, at: o.filledAt || o.createdAt }));
+   renderAll();
++  fetchServerPortfolio();
+ })();
+diff --git a/frontend/pro.js b/frontend/pro.js
+index f804817..6482250 100644
+--- a/frontend/pro.js
++++ b/frontend/pro.js
+@@ -389,7 +389,64 @@
+     });
+   }
+ 
++    const PLAY_PRODUCTS = {
++    "Monthly Plan": "cryptodock_pro_1m",
++    "Half-Yearly Plan": "cryptodock_pro_6m",
++    "Annual Plan": "cryptodock_pro_1y",
++  };
++
++  function isCapacitorAndroid() {
++    return Boolean(
++      window.Capacitor &&
++      typeof window.Capacitor.getPlatform === 'function' &&
++      window.Capacitor.getPlatform() === 'android'
++    );
++  }
++
++  async function payWithGooglePlay(planName) {
++    const productId = PLAY_PRODUCTS[planName];
++    if (!productId) throw new Error('Plan not recognized for Google Play.');
++    const PlayBilling = window.Capacitor?.Plugins?.PlayBilling || window.PlayBilling;
++    if (PlayBilling && typeof PlayBilling.purchase === 'function') {
++      const res = await PlayBilling.purchase({ productId });
++      if (!res || !res.purchaseToken) throw new Error('Purchase was not completed.');
++      const verify = await fetch('/api/billing/verify-play-purchase', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          product_id: productId,
++          purchase_token: res.purchaseToken,
++          order_id: res.orderId || '',
++          email: email,
++        }),
++      });
++      const data = await verify.json();
++      if (!verify.ok) throw new Error(data.detail || 'Verification failed.');
++      await sync();
++      hide('cdPlans');
++      return;
++    }
++    throw new Error('Google Play Billing is available inside the installed Android app.');
++  }
++
+   async function pay() {
++    if (!email) { hide('cdPlans'); showGate({ reason: 'signin' }, 'CryptoDock Pro'); return; }
++    const planName = selectedPlan();
++    const btn = el('cdPlansPay');
++    btn.disabled = true;
++    plansError('');
++
++    if (isCapacitorAndroid()) {
++      try {
++        await payWithGooglePlay(planName);
++        return;
++      } catch (err) {
++        plansError(err.message || 'Google Play purchase failed.');
++      } finally {
++        btn.disabled = false;
++      }
++      return;
++    }
+     if (!email) { hide("cdPlans"); showGate({ reason: "signin" }, "CryptoDock Pro"); return; }
+     const planName = selectedPlan();
+     const btn = el("cdPlansPay");
+diff --git a/frontend/style.css b/frontend/style.css
+index 0b4ecc3..f665dd5 100644
+--- a/frontend/style.css
++++ b/frontend/style.css
+@@ -11487,3 +11487,32 @@ body[data-theme="light"] #im-stock-options .oc-main {
+   border-radius: 4px;
+   margin-left: 0.35rem;
+ }
++
++/* Delta Exchange Style Ticket */
++.cd-perp-tag { font-size: 11px; padding: 2px 6px; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-radius: 4px; font-weight: 600; margin-left: 8px; }
++.cd-side-switch { display: flex; gap: 8px; margin: 12px 0; }
++.cd-side-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #9ca3af; font-weight: 700; cursor: pointer; transition: all 0.2s; }
++.cd-side-btn.is-long.is-active { background: #10b981; color: #fff; border-color: #10b981; }
++.cd-side-btn.is-short.is-active { background: #ef4444; color: #fff; border-color: #ef4444; }
++.cd-ticket-controls-row { display: flex; gap: 12px; margin-bottom: 12px; }
++.cd-ctrl-group { flex: 1; display: flex; flex-direction: column; gap: 4px; }
++.cd-ctrl-group label { font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600; }
++.cd-select-ctrl { background: #1f2937; color: #f3f4f6; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; font-weight: 600; font-size: 13px; }
++.cd-type-pills { display: flex; gap: 4px; background: #1f2937; padding: 2px; border-radius: 6px; }
++.cd-type-pill { flex: 1; padding: 6px; border: none; background: transparent; color: #9ca3af; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
++.cd-type-pill.is-active { background: #374151; color: #fff; }
++.cd-input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
++.cd-unit-selector { display: flex; gap: 4px; }
++.cd-unit-btn { background: transparent; border: none; color: #9ca3af; font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 4px; }
++.cd-unit-btn.is-active { background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-weight: 600; }
++.cd-input-with-unit { position: relative; }
++.cd-input-with-unit input { width: 100%; box-sizing: border-box; background: #111827; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 9px 10px; font-size: 14px; }
++.cd-input-unit-tag { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #6b7280; pointer-events: none; }
++.cd-pct-buttons { display: flex; gap: 6px; margin: 10px 0; }
++.cd-pct-buttons button { flex: 1; padding: 6px 0; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #9ca3af; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
++.cd-ticket-summary { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
++.cd-summary-row { display: flex; justify-content: space-between; color: #9ca3af; }
++.cd-summary-row strong { color: #f3f4f6; }
++.cd-ticket-submit-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
++.cd-ticket-submit-btn.is-long { background: #10b981; color: #fff; }
++.cd-ticket-submit-btn.is-short { background: #ef4444; color: #fff; }
+diff --git a/main.py b/main.py
+index f3094fc..c80022f 100644
+--- a/main.py
++++ b/main.py
+@@ -2933,3 +2933,87 @@ def verify_play_purchase(req: PlayPurchaseVerifyRequest):
+         "valid_until_ts": user.get("valid_until_ts"),
+         "provider": "google_play"
+     }
++
++# ==========================================
++# SERVER-SIDE PAPER TRADING ENGINE (Per-Email)
++# ==========================================
++import os
++PAPER_FILE = "/var/www/CryptoDock/paper_portfolios.json"
++_paper_lock = threading.Lock()
++
++def _load_portfolios():
++    if not os.path.exists(PAPER_FILE):
++        return {}
++    try:
++        with open(PAPER_FILE, 'r', encoding='utf-8') as f:
++            return json.load(f)
++    except Exception:
++        return {}
++
++def _save_portfolios(data):
++    with open(PAPER_FILE, 'w', encoding='utf-8') as f:
++        json.dump(data, f, indent=2)
++
++def _get_user_portfolio(email):
++    email = (email or '').strip().lower()
++    if not email:
++        raise HTTPException(status_code=401, detail="Please sign in to access paper trading.")
++    with _paper_lock:
++        ports = _load_portfolios()
++        if email not in ports:
++            ports[email] = {
++                "cash": 10000.0,
++                "holdings": {},
++                "orders": [],
++                "realized": 0.0,
++                "created_at": time.time()
++            }
++            _save_portfolios(ports)
++        return ports[email]
++
++@app.get("/api/paper/portfolio")
++async def get_paper_portfolio(email: str):
++    email = email.strip().lower()
++    if not email:
++        raise HTTPException(status_code=401, detail="Sign in required")
++    port = _get_user_portfolio(email)
++    return port
++
++@app.post("/api/paper/sync")
++async def sync_paper_portfolio(request: Request):
++    data = await request.json()
++    email = (data.get("email") or "").strip().lower()
++    if not email:
++        raise HTTPException(status_code=401, detail="Sign in required")
++    state = data.get("state")
++    if not state or not isinstance(state, dict):
++        raise HTTPException(status_code=400, detail="Invalid state")
++    with _paper_lock:
++        ports = _load_portfolios()
++        ports[email] = {
++            "cash": float(state.get("cash", 10000.0)),
++            "holdings": state.get("holdings", {}),
++            "orders": state.get("orders", [])[:50],
++            "realized": float(state.get("realized", 0.0)),
++            "updated_at": time.time()
++        }
++        _save_portfolios(ports)
++    return {"ok": True, "portfolio": ports[email]}
++
++@app.post("/api/paper/reset")
++async def reset_paper_portfolio(request: Request):
++    data = await request.json()
++    email = (data.get("email") or "").strip().lower()
++    if not email:
++        raise HTTPException(status_code=401, detail="Sign in required")
++    with _paper_lock:
++        ports = _load_portfolios()
++        ports[email] = {
++            "cash": 10000.0,
++            "holdings": {},
++            "orders": [],
++            "realized": 0.0,
++            "updated_at": time.time()
++        }
++        _save_portfolios(ports)
++    return {"ok": True, "portfolio": ports[email]}
