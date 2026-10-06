@@ -1754,7 +1754,12 @@ def news(lang: str = "en"):
 # Every coin Binance trades against USDT on spot, with 24h stats, plus the
 # USDT→INR rate so the app can show both $ and ₹. Shared caches keep this to
 # one Binance call per few seconds no matter how many people have it open.
-MARKETS_CACHE_SECONDS = 3
+# Prices refresh every 2s from /ticker/price (weight 4); the heavier 24h
+# stats (/ticker/24hr MINI, weight 80) every 10s. ~600 weight/min in all,
+# down from ~1,600 when the 24h list was fetched every 3s.
+MARKETS_CACHE_SECONDS = 2
+MARKET_STATS_CACHE_SECONDS = 10
+market_stats_cache = {}
 SYMBOLS_CACHE_SECONDS = 3600
 USDT_INR_CACHE_SECONDS = 300
 # Stablecoins and fiat pairs aren't coins anyone trades for price moves, and
@@ -1828,29 +1833,53 @@ def _fetch_usdt_inr_rate(now):
     return usdt_inr_cache["rate"], usdt_inr_cache["source"]
 
 
+def _market_stats():
+    """24h open/high/low/volume per USDT pair, refreshed every 10s."""
+    def fetch():
+        symbols = get_usdt_symbols()
+        tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
+        stats = {}
+        for ticker in tickers:
+            if ticker.get("symbol") not in symbols:
+                continue
+            try:
+                stats[ticker["symbol"]] = (
+                    float(ticker["openPrice"]), float(ticker.get("highPrice") or 0), float(ticker.get("lowPrice") or 0),
+                    float(ticker["quoteVolume"]), float(ticker["lastPrice"]),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+        return stats
+    return cached_call(market_stats_cache, "all", MARKET_STATS_CACHE_SECONDS, fetch, max_entries=2)
+
+
+def _live_prices():
+    """Latest price of every pair in one light call (weight 4); empty on failure,
+    so the list falls back to the prices in the 24h stats."""
+    try:
+        rows = binance_get("/api/v3/ticker/price", weight=4, essential=True, timeout=10)
+        return {row["symbol"]: float(row["price"]) for row in rows if "symbol" in row and "price" in row}
+    except (requests.exceptions.RequestException, ValueError, KeyError, TypeError):
+        return {}
+
+
 def build_markets():
     symbols = get_usdt_symbols()
-    tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
+    stats = _market_stats()
+    live = _live_prices()
     coins = []
-    for ticker in tickers:
-        base = symbols.get(ticker.get("symbol"))
-        if not base:
-            continue
-        try:
-            price = float(ticker["lastPrice"])
-            open_price = float(ticker["openPrice"])
-            quote_volume = float(ticker["quoteVolume"])
-        except (KeyError, TypeError, ValueError):
-            continue
-        if price <= 0:
+    for symbol, (open_price, high, low, quote_volume, last_price) in stats.items():
+        base = symbols.get(symbol)
+        price = live.get(symbol) or last_price
+        if not base or price <= 0:
             continue
         coins.append({
-            "symbol": ticker["symbol"],
+            "symbol": symbol,
             "base": base,
             "price": price,
             "change_percent": round((price - open_price) / open_price * 100, 2) if open_price else 0.0,
-            "high": float(ticker.get("highPrice") or 0),
-            "low": float(ticker.get("lowPrice") or 0),
+            "high": max(high, price),
+            "low": min(low, price) if low > 0 else price,
             "volume_usdt": quote_volume,
         })
     coins.sort(key=lambda coin: coin["volume_usdt"], reverse=True)
