@@ -192,8 +192,13 @@ body > header.topbar {
 }
 
 .brand-accent {
-  color: #00e5ff;
-  text-shadow: 0 0 16px rgba(0, 229, 255, 0.45);
+  /* Same blue-to-cyan sweep as the logo */
+  color: #00a8ff;
+  background: linear-gradient(90deg, #2563ff 0%, #0094ff 45%, #00dcff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(0, 168, 255, 0.35));
 }
 
 .brand p {
