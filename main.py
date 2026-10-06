@@ -1786,6 +1786,10 @@ USDT_INR_CACHE_SECONDS = 300
 # leveraged tokens (BTCUP/BTCDOWN...) are delisted products — keep them out.
 EXCLUDED_BASES = {"USDC", "FDUSD", "TUSD", "BUSD", "DAI", "USDP", "PAX", "USDS", "AEUR", "EUR", "GBP", "AUD", "TRY", "BRL", "EURI", "XUSD", "USD1", "BFUSD"}
 LEVERAGED_SUFFIXES = ("UP", "DOWN", "BULL", "BEAR")
+# Currencies Binance trades against USDT (EUR/USDT ~ EUR/USD). They stay out
+# of the coin lists above but come with the same price refresh (the 24h and
+# price calls already return every pair) for the Dashboard's Forex card.
+FOREX_MARKETS = {"EURUSDT": "EUR", "GBPUSDT": "GBP", "AUDUSDT": "AUD"}
 
 markets_cache = {}
 symbols_cache = {}
@@ -1794,6 +1798,10 @@ usdt_inr_cache = {"rate": None, "source": None, "updated_at": 0}
 
 def get_usdt_symbols():
     return cached_call(symbols_cache, "all", SYMBOLS_CACHE_SECONDS, _fetch_usdt_symbols)
+
+
+def known_market(symbol):
+    return symbol in FOREX_MARKETS or symbol in get_usdt_symbols()
 
 
 def _fetch_usdt_symbols():
@@ -1860,7 +1868,7 @@ def _market_stats():
         tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
         stats = {}
         for ticker in tickers:
-            if ticker.get("symbol") not in symbols:
+            if ticker.get("symbol") not in symbols and ticker.get("symbol") not in FOREX_MARKETS:
                 continue
             try:
                 stats[ticker["symbol"]] = (
@@ -1883,28 +1891,36 @@ def _live_prices():
         return {}
 
 
+def _market_row(symbol, base, stat, live):
+    open_price, high, low, quote_volume, last_price = stat
+    price = live.get(symbol) or last_price
+    if price <= 0:
+        return None
+    return {
+        "symbol": symbol,
+        "base": base,
+        "price": price,
+        "change_percent": round((price - open_price) / open_price * 100, 2) if open_price else 0.0,
+        "high": max(high, price),
+        "low": min(low, price) if low > 0 else price,
+        "volume_usdt": quote_volume,
+    }
+
+
 def build_markets():
     symbols = get_usdt_symbols()
     stats = _market_stats()
     live = _live_prices()
     coins = []
-    for symbol, (open_price, high, low, quote_volume, last_price) in stats.items():
+    for symbol, stat in stats.items():
         base = symbols.get(symbol)
-        price = live.get(symbol) or last_price
-        if not base or price <= 0:
-            continue
-        coins.append({
-            "symbol": symbol,
-            "base": base,
-            "price": price,
-            "change_percent": round((price - open_price) / open_price * 100, 2) if open_price else 0.0,
-            "high": max(high, price),
-            "low": min(low, price) if low > 0 else price,
-            "volume_usdt": quote_volume,
-        })
+        row = _market_row(symbol, base, stat, live) if base else None
+        if row:
+            coins.append(row)
     coins.sort(key=lambda coin: coin["volume_usdt"], reverse=True)
+    forex = [row for row in (_market_row(symbol, base, stats[symbol], live) for symbol, base in FOREX_MARKETS.items() if symbol in stats) if row]
     rate, rate_source = get_usdt_inr_rate()
-    return {"coins": coins, "count": len(coins), "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Binance", "updated_at": int(time.time())}
+    return {"coins": coins, "count": len(coins), "forex": forex, "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Binance", "updated_at": int(time.time())}
 
 
 def _build_markets_payload():
@@ -1960,7 +1976,7 @@ def coin_candles(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 300
     if interval not in COIN_CANDLE_INTERVALS:
         raise HTTPException(status_code=400, detail="Unsupported candle interval.")
     safe_limit = max(20, min(int(limit), 1000))
-    if symbol not in get_usdt_symbols():
+    if not known_market(symbol):
         raise HTTPException(status_code=404, detail="Unknown coin.")
 
     def fetch():
@@ -1983,7 +1999,7 @@ coin_depth_cache = {}
 def coin_depth(symbol: str = "BTCUSDT"):
     """Top 5 bids and asks from Binance's order book (coin sheet's Market Depth)."""
     symbol = (symbol or "").strip().upper()
-    if symbol not in get_usdt_symbols():
+    if not known_market(symbol):
         raise HTTPException(status_code=404, detail="Unknown coin.")
 
     def fetch():
@@ -2032,7 +2048,7 @@ def _coin_performance(symbol):
 def coin_stats(symbol: str = "BTCUSDT"):
     """Full 24h statistics for one coin plus 7D / 30D performance (Scanner's coin stats sheet)."""
     symbol = (symbol or "").strip().upper()
-    if symbol not in get_usdt_symbols():
+    if not known_market(symbol):
         raise HTTPException(status_code=404, detail="Unknown coin.")
 
     def fetch():

@@ -7,6 +7,17 @@
   const POSITIONS_POLL_MS = 2000;
   const PAGE_SIZE = 100;
   const KEY_COINS = ["BNB", "SOL", "XRP", "DOGE"]; // the Crypto Market row
+  // Forex and Commodity rows: currencies and tokenised gold Binance trades
+  // against USDT (EUR/USDT ~ EUR/USD; 1 PAXG / XAUT = 1 troy ounce of gold).
+  const FOREX = [
+    { base: "EUR", label: "EUR/USD", name: "Euro", flag: "🇪🇺" },
+    { base: "GBP", label: "GBP/USD", name: "British Pound", flag: "🇬🇧" },
+    { base: "AUD", label: "AUD/USD", name: "Australian Dollar", flag: "🇦🇺" },
+  ];
+  const COMMODITIES = [
+    { base: "PAXG", label: "Gold", name: "PAXG · 1 oz" },
+    { base: "XAUT", label: "Gold", name: "XAUT · 1 oz" },
+  ];
   const FEATURED = ["BTC", "ETH"]; // big cards with a 24h sparkline
   const TICKER_SIZE = 12;
   const SPARK_REFRESH_MS = 5 * 60 * 1000;
@@ -64,7 +75,8 @@
   // ---------- formatting ----------
   function decimalsFor(price) {
     if (price >= 1000) return 2;
-    if (price >= 1) return 3;
+    if (price >= 10) return 3;
+    if (price >= 1) return 4; // forex quotes (EUR $1.0832) need 4+
     if (price >= 0.01) return 5;
     return 8;
   }
@@ -170,6 +182,22 @@
         <div class="cd-mini-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</div>
       </div>`).join("");
   }
+
+  function renderMiniRow(boxId, items, digits) {
+    const box = el(boxId);
+    if (!box) return;
+    box.innerHTML = items.map((item) => ({ item, coin: coinsByBase.get(item.base) })).filter((r) => r.coin).map(({ item, coin }) => `
+      <div class="cd-mini-coin" data-base="${escapeHtml(coin.base)}">
+        <div class="cd-mini-top">${item.flag ? `<span class="cd-mini-flag">${item.flag}</span>` : avatar(coin.base)}<strong>${escapeHtml(item.label)}</strong></div>
+        <small class="cd-mini-name">${escapeHtml(item.name)}</small>
+        <div class="cd-mini-price">${digits ? "$" + coin.price.toFixed(digits) : fmtUsd(coin.price)}</div>
+        <div class="cd-mini-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</div>
+      </div>`).join("");
+    const panel = box.closest(".cd-panel");
+    if (panel) panel.hidden = !box.children.length;
+  }
+  const renderForex = () => renderMiniRow("cdForexCoins", FOREX, 5);
+  const renderCommodities = () => renderMiniRow("cdCommodityCoins", COMMODITIES, 0);
 
   // Ticker strip: the most traded coins, sliding slowly on a loop like the
   // Indian market ticker. The list is drawn twice and the track moves by
@@ -424,6 +452,8 @@
     renderFeatured();
     loadSparks();
     renderKeyCoins();
+    renderForex();
+    renderCommodities();
     renderBreadth();
     renderMovers();
     renderAllCoins();
@@ -440,7 +470,10 @@
         coins = data.coins;
         addMomentum(coins);
         rankCoins();
-        coinsByBase = new Map(coins.map((c) => [c.base, c]));
+        // Forex pairs aren't in the coin lists, but price lookups (coin
+        // sheet, Buy / Sell, positions) find them like any coin.
+        const forex = Array.isArray(data.forex) ? data.forex : [];
+        coinsByBase = new Map(coins.concat(forex).map((c) => [c.base, c]));
         if (Number.isFinite(data.usdt_inr)) usdtInr = data.usdt_inr;
         lastOkAt = Date.now();
         window.cdMarkets = { coins, coinsByBase, usdtInr };
