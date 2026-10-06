@@ -223,7 +223,7 @@
     const pos = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       base, side, qty, entryPrice: price, leverage, margin,
-      liqPrice: liqPriceOf(side, price, leverage), openedAt: Date.now(),
+      liqPrice: liqPriceOf(side, price, leverage), openFee: fee, openedAt: Date.now(),
     };
     positions().unshift(pos);
     state.orders.unshift(newOrder({ base, side: side === "LONG" ? "BUY" : "SELL", action: "OPEN", leverage, type: "MARKET", qty, status: "FILLED", fillPrice: price, fee, filledAt: Date.now() }));
@@ -329,7 +329,7 @@
           order.fillPrice = order.limitPrice;
           order.filledAt = Date.now();
           order.reserved = 0;
-          const pos = { id: order.id, base: order.base, side: long ? "LONG" : "SHORT", qty: order.qty, entryPrice: order.limitPrice, leverage: order.leverage, margin, liqPrice: liqPriceOf(long ? "LONG" : "SHORT", order.limitPrice, order.leverage), openedAt: Date.now() };
+          const pos = { id: order.id, base: order.base, side: long ? "LONG" : "SHORT", qty: order.qty, entryPrice: order.limitPrice, leverage: order.leverage, margin, liqPrice: liqPriceOf(long ? "LONG" : "SHORT", order.limitPrice, order.leverage), openFee: notional * FUT_FEE_RATE, openedAt: Date.now() };
           positions().unshift(pos);
           changed = true;
           toast(`${pos.side} ${fmtQty(pos.qty)} ${pos.base} opened at ${fmtUsd(pos.entryPrice)} (limit)`);
@@ -366,13 +366,15 @@
     const reserved = state.orders.filter((o) => o.status === "OPEN").reduce((s, o) => s + (o.reserved || 0), 0);
     const invested = margin + spotCost;
     const equity = state.cash + reserved + margin + posRows.reduce((s, r) => s + r.pnl, 0) + spotValue;
-    return { posRows, spotRows, invested, reserved, unrealized, equity, total: equity - STARTING_USDT };
+    const total = equity - STARTING_USDT;
+    // Total P&L = open (unrealized) P&L + everything already booked: fees
+    // paid to open positions and closed trades.
+    return { posRows, spotRows, invested, reserved, unrealized, equity, total, booked: total - unrealized };
   }
 
   function renderPositions() {
     const t = accountTotals();
     const setText = (id, text, cls) => { const node = el(id); if (!node) return; node.textContent = text; if (cls !== undefined) node.className = cls; };
-    const pnlLine = `${signed(Math.abs((t.total / STARTING_USDT) * 100).toFixed(2) + "%", t.total)} · ${signed(fmtInr(Math.abs(t.total)), t.total)}`;
     setText("cdFundAvailable", fmtMoney(state.cash));
     setText("cdFundAvailableInr", fmtInr(state.cash));
     setText("cdFundInvested", fmtMoney(t.invested));
@@ -380,7 +382,7 @@
     setText("cdFundCurrent", fmtMoney(t.equity));
     setText("cdFundCurrentInr", fmtInr(t.equity));
     setText("cdFundPnl", signed(fmtMoney(Math.abs(t.total)), t.total), pctClass(t.total));
-    setText("cdFundPnlPct", pnlLine);
+    setText("cdFundPnlPct", `Open ${signed(fmtMoney(Math.abs(t.unrealized)), t.unrealized)} · Fees & closed ${signed(fmtMoney(Math.abs(t.booked)), t.booked)}`);
 
     // Settings → Funds: the same virtual account at a glance.
     setText("settingsPaperFundsAvailable", fmtMoney(state.cash));
@@ -407,6 +409,7 @@
             <div><span>Entry price</span><b>${fmtUsd(p.entryPrice)}</b></div>
             <div><span>Mark price</span><b>${fmtUsd(mark)}</b></div>
             <div><span>Liq. price</span><b class="cd-pos-liq">${fmtUsd(p.liqPrice)}</b></div>
+            <div><span>Open fee paid</span><b>${fmtMoney(p.openFee ?? p.qty * p.entryPrice * FUT_FEE_RATE)}</b></div>
             <div><span>Unrealized P&amp;L (ROE)</span><b class="${pctClass(pnl)}">${signed(fmtMoney(Math.abs(pnl)), pnl)} (${signed(Math.abs(roe).toFixed(2) + "%", pnl)})</b></div>
           </div>
         </div>`).join("");
