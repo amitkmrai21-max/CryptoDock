@@ -1895,8 +1895,29 @@ def _build_markets_payload():
     return {"raw": raw, "gz": gzip.compress(raw, compresslevel=6)}
 
 
+# Someone opened a coin page in the last minute -> keep the list warm.
+_markets_demand = {"at": 0.0}
+
+
+def _markets_warmer():
+    """Refresh the coin list the moment it turns 2s old while people are
+    using the app, so every poll gets prices at most ~2s old instead of
+    waiting for the first request after expiry (which made it 2-4s).
+    Same one Binance call per refresh for everyone; idle when nobody's on."""
+    time.sleep(4)
+    while True:
+        if time.time() - _markets_demand["at"] < 60:
+            try:
+                cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+            except Exception as error:
+                print(f"Markets warm-up skipped: {error}")
+                time.sleep(2)
+        time.sleep(0.25)
+
+
 @app.get("/api/markets")
 def markets(request: Request):
+    _markets_demand["at"] = time.time()
     try:
         payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
     except (requests.exceptions.RequestException, ValueError) as error:
@@ -2299,6 +2320,7 @@ def _rrg_warmer():
 def _start_broadcast_and_rrg():
     threading.Thread(target=_market_broadcast_loop, name="market-broadcast-loop", daemon=True).start()
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
+    threading.Thread(target=_markets_warmer, name="markets-warmer", daemon=True).start()
 
 def _old_rrg_warmer_skip():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
