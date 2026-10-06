@@ -1881,17 +1881,7 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .btc-topbar,
 #technicalRefreshStatus { display: none !important; }
 
-/* Paper futures ticket: leverage, order type, size unit */
-.cd-ticket-row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; align-items: end; }
-.cd-lev-field select {
-  width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border);
-  background: var(--surface-soft); color: var(--text); font: inherit; font-weight: 800;
-}
-.cd-ticket-row .cd-type-toggle { margin: 0; }
-.cd-size-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.cd-unit-toggle { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--surface-soft); border: 1px solid var(--border); }
-.cd-unit-toggle button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 7px; cursor: pointer; }
-.cd-unit-toggle button.is-active { background: rgba(96, 165, 250, 0.2); color: #93c5fd; }
+/* Paper futures: positions */
 .cd-pos-liq { color: #f59e0b; }
 .cd-pos-card { background: #131a2a; border: 1px solid #1f293d; border-radius: 12px; padding: 14px; margin: 0 12px 12px; }
 .cd-pos-card:first-child { margin-top: 4px; }

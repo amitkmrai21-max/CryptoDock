@@ -486,9 +486,9 @@
   }
 
   function unitLabel() {
-    if (ticket.unit === "LOT") return `Size in lots (1 lot = ${lotSize(ticket.base)} ${ticket.base})`;
-    if (ticket.unit === "USD") return "Size in USD (position value)";
-    return `Size in ${ticket.base}`;
+    if (ticket.unit === "LOT") return `Lot (${lotSize(ticket.base)} ${ticket.base})`;
+    if (ticket.unit === "USD") return "USD";
+    return ticket.base;
   }
 
   function renderTicket() {
@@ -516,14 +516,12 @@
     const margin = notional / ticket.leverage;
     const fee = notional * FUT_FEE_RATE;
     const isLong = ticket.side === "BUY";
-    el("cdTicketAvail").textContent = `${fmtMoney(state.cash)} (${fmtInr(state.cash)})`;
-    el("cdTicketSize").textContent = notional > 0 ? `${fmtQty(roundQty(qty))} ${ticket.base} · ${fmtMoney(notional)}` : "--";
-    el("cdTicketMargin").textContent = notional > 0 ? `${fmtMoney(margin)} · ${fmtInr(margin)}` : "--";
-    el("cdTicketFee").textContent = notional > 0 ? fmtMoney(fee) : "--";
-    el("cdTicketLiq").textContent = notional > 0 && price ? fmtUsd(liqPriceOf(isLong ? "LONG" : "SHORT", price, ticket.leverage)) : "--";
+    el("cdTicketAvail").textContent = fmtMoney(state.cash);
+    el("cdTicketMargin").textContent = fmtMoney(margin);
+    el("cdTicketFee").textContent = fmtMoney(fee);
     const submit = el("cdTicketSubmit");
     submit.textContent = isLong ? "Open Long" : "Open Short";
-    submit.className = `cd-submit ${isLong ? "is-buy" : "is-sell"}`;
+    submit.className = `cd-ticket-submit-btn ${isLong ? "is-long" : "is-short"}`;
   }
 
   function showError(message) {
