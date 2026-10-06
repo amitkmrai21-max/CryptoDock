@@ -176,35 +176,45 @@ price_cache = {"data": None, "updated_at": 0}
 # Single upstream to Binance -> 10,000+ app clients
 # ==========================================
 class MarketBroadcastHub:
+    """One upstream fetch, pushed to every connected client (SSE).
+    publish() runs on the background loop thread while each subscriber's
+    queue lives on the server's asyncio loop; asyncio queues are not
+    thread-safe, so delivery is handed to that loop with
+    call_soon_threadsafe (otherwise waiting clients could wake late)."""
+
     def __init__(self):
-        self._subscribers = set()
+        self._subscribers = {}  # queue -> its event loop
         self._lock = threading.Lock()
         self.last_payload = None
 
     def subscribe(self):
         q = asyncio.Queue(maxsize=15)
         with self._lock:
-            self._subscribers.add(q)
+            self._subscribers[q] = asyncio.get_running_loop()
         return q
 
     def unsubscribe(self, q):
         with self._lock:
-            self._subscribers.discard(q)
+            self._subscribers.pop(q, None)
+
+    @staticmethod
+    def _deliver(q, data):
+        if q.full():
+            try:
+                q.get_nowait()  # drop the oldest; slow clients only need the latest
+            except asyncio.QueueEmpty:
+                pass
+        q.put_nowait(data)
 
     def publish(self, data):
         self.last_payload = data
         with self._lock:
-            subs = list(self._subscribers)
-        for q in subs:
+            subs = list(self._subscribers.items())
+        for q, loop in subs:
             try:
-                if q.full():
-                    try:
-                        q.get_nowait()
-                    except (asyncio.QueueEmpty, Exception):
-                        pass
-                q.put_nowait(data)
-            except Exception:
-                pass
+                loop.call_soon_threadsafe(self._deliver, q, data)
+            except RuntimeError:  # loop closed (server shutting down)
+                self.unsubscribe(q)
 
     @property
     def subscriber_count(self):
