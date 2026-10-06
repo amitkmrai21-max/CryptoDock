@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20261006-brand-3">
+  <link rel="stylesheet" href="/frontend/style.css?v=20261006-funds-1">
   <link rel="stylesheet" href="/frontend/markets.css?v=20261005-silent-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -1208,18 +1208,22 @@
           <div class="im-funds-cell">
             <span>Available</span>
             <strong id="settingsPaperFundsAvailable">--</strong>
+            <small id="settingsPaperFundsAvailableInr"></small>
           </div>
           <div class="im-funds-cell">
-            <span>Used margin</span>
+            <span>Invested</span>
             <strong id="settingsPaperFundsUsed">--</strong>
+            <small id="settingsPaperFundsUsedNote"></small>
           </div>
           <div class="im-funds-cell">
-            <span>Realized P&amp;L</span>
-            <strong id="settingsPaperFundsRealized">--</strong>
+            <span>Total P&amp;L</span>
+            <strong id="settingsPaperFundsPnl">--</strong>
+            <small id="settingsPaperFundsPnlPct"></small>
           </div>
           <div class="im-funds-cell">
-            <span>Opening balance</span>
+            <span>Starting funds</span>
             <strong id="settingsPaperFundsOpening">--</strong>
+            <small id="settingsPaperFundsOpeningInr"></small>
           </div>
         </div>
       </div>
@@ -1480,7 +1484,7 @@
     </div>
   </div>
   <script src="/frontend/markets.js?v=20261005-silent-1"></script>
-  <script src="/frontend/paper.js?v=20261006-sync-1"></script>
+  <script src="/frontend/paper.js?v=20261006-funds-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>

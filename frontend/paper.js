@@ -298,6 +298,16 @@
     setText("cdFundPnl", signed(fmtMoney(Math.abs(total)), total), pctClass(total));
     setText("cdFundPnlPct", `${signed(Math.abs((total / STARTING_USDT) * 100).toFixed(2) + "%", total)} · ${signed(fmtInr(Math.abs(total)), total)}`);
 
+    // Settings → Funds: the same virtual account at a glance.
+    setText("settingsPaperFundsAvailable", fmtMoney(state.cash));
+    setText("settingsPaperFundsAvailableInr", fmtInr(state.cash));
+    setText("settingsPaperFundsUsed", fmtMoney(invested + locked));
+    setText("settingsPaperFundsUsedNote", locked > 0 ? `${fmtMoney(locked)} in open orders` : fmtInr(invested));
+    setText("settingsPaperFundsPnl", signed(fmtMoney(Math.abs(total)), total), pctClass(total));
+    setText("settingsPaperFundsPnlPct", signed(Math.abs((total / STARTING_USDT) * 100).toFixed(2) + "%", total));
+    setText("settingsPaperFundsOpening", fmtMoney(STARTING_USDT));
+    setText("settingsPaperFundsOpeningInr", fmtInr(STARTING_USDT));
+
     const list = el("cdHoldList");
     if (list) {
       list.innerHTML = rows.map((r) => `
