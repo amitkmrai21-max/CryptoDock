@@ -22,12 +22,22 @@ function initLiveMarketBroadcast() {
     console.warn("Pub-Sub stream init warning:", err);
   }
 }
-if (typeof document !== "undefined") {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initLiveMarketBroadcast);
+/* Close the stream while the tab / app is in the background, so the server
+   sees nobody on and stops calling Binance; reopen it on return. */
+function syncLiveMarketBroadcast() {
+  if (document.hidden) {
+    if (cdLiveStream) { cdLiveStream.close(); cdLiveStream = null; }
   } else {
     initLiveMarketBroadcast();
   }
+}
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncLiveMarketBroadcast);
+  } else {
+    syncLiveMarketBroadcast();
+  }
+  document.addEventListener("visibilitychange", syncLiveMarketBroadcast);
 }
 
 
