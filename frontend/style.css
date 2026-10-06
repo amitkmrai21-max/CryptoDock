@@ -11497,3 +11497,33 @@ body[data-theme="light"] #im-stock-options .oc-main {
   border-radius: 4px;
   margin-left: 0.35rem;
 }
+
+/* Delta Exchange style paper ticket (original server layout) */
+.cd-side-switch { display: flex; gap: 8px; margin: 12px 0; }
+.cd-side-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #9ca3af; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.cd-side-btn.is-long.is-active { background: #10b981; color: #fff; border-color: #10b981; }
+.cd-side-btn.is-short.is-active { background: #ef4444; color: #fff; border-color: #ef4444; }
+.cd-ticket-controls-row { display: flex; gap: 12px; margin-bottom: 12px; }
+.cd-ctrl-group { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.cd-ctrl-group label, .cd-input-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600; }
+.cd-select-ctrl { background: #1f2937; color: #f3f4f6; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; font-weight: 600; font-size: 13px; }
+.cd-type-pills { display: flex; gap: 4px; background: #1f2937; padding: 2px; border-radius: 6px; }
+.cd-type-pill { flex: 1; padding: 6px; border: none; background: transparent; color: #9ca3af; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cd-type-pill.is-active { background: #374151; color: #fff; }
+.cd-input-group { margin-bottom: 10px; }
+.cd-input-group[hidden] { display: none; }
+.cd-input-group > .cd-input-label { display: block; margin-bottom: 4px; }
+.cd-input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.cd-unit-selector { display: flex; gap: 4px; }
+.cd-unit-btn { background: transparent; border: none; color: #9ca3af; font-size: 11px; padding: 2px 6px; cursor: pointer; border-radius: 4px; }
+.cd-unit-btn.is-active { background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-weight: 600; }
+.cd-input-with-unit { position: relative; }
+.cd-input-with-unit input { width: 100%; box-sizing: border-box; background: #111827; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 9px 10px; font-size: 14px; }
+.cd-pct-buttons { display: flex; gap: 6px; margin: 10px 0; }
+.cd-pct-buttons button { flex: 1; padding: 6px 0; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: #9ca3af; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
+.cd-ticket-summary { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.cd-summary-row { display: flex; justify-content: space-between; color: #9ca3af; }
+.cd-summary-row strong { color: #f3f4f6; }
+.cd-ticket-submit-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.cd-ticket-submit-btn.is-long { background: #10b981; color: #fff; }
+.cd-ticket-submit-btn.is-short { background: #ef4444; color: #fff; }
