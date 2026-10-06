@@ -67,7 +67,7 @@
 
     panel.addEventListener("touchstart", (event) => {
       if (event.touches.length !== 1) return;
-      if (panel.scrollTop > 0 || event.target.closest("input, select, textarea")) return;
+      if (panel.scrollTop > 0 || event.target.closest("input, select, textarea, [data-swipe]")) return; // [data-swipe]: swipe-to-confirm slider
       armed = true;
       dragging = false;
       startY = event.touches[0].clientY;
