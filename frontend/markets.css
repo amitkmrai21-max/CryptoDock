@@ -1670,3 +1670,10 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-trade-legs span { display: block; color: #8b949e; font-size: 11px; margin-bottom: 2px; }
 .cd-trade-legs strong { display: block; color: #fff; font-size: 14px; }
 .cd-trade-legs small { display: block; color: #8b949e; font-size: 11px; margin-top: 2px; }
+
+/* Dashboard: Forex and Commodity rows */
+.cd-panel-note { margin-left: auto; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.cd-mini-coins.cd-mini-coins-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cd-mini-coins.cd-mini-coins-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cd-mini-flag { font-size: 17px; line-height: 1; }
+.cd-mini-name { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

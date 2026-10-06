@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261006-trades-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261006-fx-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -257,6 +257,18 @@
           <div class="cd-panel-head"><span class="cd-panel-icon">◈</span><h3>Crypto Market</h3><button type="button" class="cd-view-all" data-go="watchlist">View All ›</button></div>
           <div id="cdKeyCoins" class="cd-mini-coins"></div>
           <p id="cdMarketMeta" class="cd-meta cd-home-meta">Loading live prices…</p>
+        </section>
+
+        <!-- Forex -->
+        <section class="cd-panel" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">$</span><h3>Forex</h3><span class="cd-panel-note">vs USDT</span></div>
+          <div id="cdForexCoins" class="cd-mini-coins cd-mini-coins-3"></div>
+        </section>
+
+        <!-- Commodity -->
+        <section class="cd-panel" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">◆</span><h3>Commodity</h3><span class="cd-panel-note">Tokenised gold</span></div>
+          <div id="cdCommodityCoins" class="cd-mini-coins cd-mini-coins-2"></div>
         </section>
 
         <!-- Market mood -->
@@ -1543,8 +1555,8 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261006-pos2s-1"></script>
-  <script src="/frontend/paper.js?v=20261006-trades-1"></script>
+  <script src="/frontend/markets.js?v=20261006-fx-1"></script>
+  <script src="/frontend/paper.js?v=20261006-fx-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
