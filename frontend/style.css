@@ -177,9 +177,9 @@ body > header.topbar {
 }
 
 .brand-logo {
-  width: 62px;
-  height: 62px;
-  flex: 0 0 62px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   object-fit: contain;
   position: relative;
   top: 0;
@@ -1803,9 +1803,9 @@ canvas {
 
 @media (max-width: 420px) {
   .brand-logo {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
   }
 
   .brand h1 {
