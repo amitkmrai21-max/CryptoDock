@@ -11542,3 +11542,11 @@ body[data-theme="light"] #im-stock-options .oc-main {
 .cd-swipe.is-long .cd-swipe-knob { background: #fff; color: #10b981; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .cd-swipe.is-short .cd-swipe-knob { background: #fff; color: #ef4444; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .cd-swipe.is-snapping .cd-swipe-knob, .cd-swipe.is-snapping .cd-swipe-fill { transition: transform 0.25s ease, width 0.25s ease; }
+.cd-swipe-label { display: inline-flex; align-items: center; gap: 10px; }
+/* Moving arrows: show which way to swipe */
+.cd-swipe-hint { display: inline-flex; gap: 1px; font-size: 22px; font-weight: 800; line-height: 1; }
+.cd-swipe-hint i { font-style: normal; opacity: 0.25; animation: cd-swipe-hint 1.2s ease-in-out infinite; }
+.cd-swipe-hint i:nth-child(2) { animation-delay: 0.2s; }
+.cd-swipe-hint i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes cd-swipe-hint { 0%, 100% { opacity: 0.25; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .cd-swipe-hint i { animation: none; opacity: 0.7; } }
