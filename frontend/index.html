@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-funds-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261005-silent-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261006-futures-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -464,16 +464,16 @@
         </div>
         <div class="cd-funds-grid">
           <div class="cd-fund"><span>Available</span><strong id="cdFundAvailable">--</strong><small id="cdFundAvailableInr"></small></div>
-          <div class="cd-fund"><span>Invested</span><strong id="cdFundInvested">--</strong><small id="cdFundLocked"></small></div>
-          <div class="cd-fund"><span>Current value</span><strong id="cdFundCurrent">--</strong><small id="cdFundCurrentInr"></small></div>
+          <div class="cd-fund"><span>Margin used</span><strong id="cdFundInvested">--</strong><small id="cdFundLocked"></small></div>
+          <div class="cd-fund"><span>Equity</span><strong id="cdFundCurrent">--</strong><small id="cdFundCurrentInr"></small></div>
           <div class="cd-fund"><span>Total P&amp;L</span><strong id="cdFundPnl">--</strong><small id="cdFundPnlPct"></small></div>
         </div>
         <section class="card cd-table-card">
-          <div class="cd-table-head"><h3>Holdings <span id="cdHoldCount" class="cd-meta"></span></h3></div>
+          <div class="cd-table-head"><h3>Open Positions <span id="cdHoldCount" class="cd-meta"></span></h3></div>
           <div id="cdHoldList" class="cd-hold-list"></div>
-          <p id="cdHoldEmpty" class="cd-empty" hidden>No coins yet. Tap any coin on the Dashboard or Watchlist, then Buy.</p>
+          <p id="cdHoldEmpty" class="cd-empty" hidden>No open positions. Tap any coin on the Dashboard or Watchlist, then Buy (Long) or Sell (Short).</p>
         </section>
-        <ul class="cd-page-notes"><li>Virtual USDT only</li><li>No real orders</li><li>Tap a holding to sell it</li></ul>
+        <ul class="cd-page-notes"><li>Virtual USDT only</li><li>No real orders</li><li>Tap Close Market to exit a position</li></ul>
       </div>
     </section>
 
@@ -1211,7 +1211,7 @@
             <small id="settingsPaperFundsAvailableInr"></small>
           </div>
           <div class="im-funds-cell">
-            <span>Invested</span>
+            <span>Margin used</span>
             <strong id="settingsPaperFundsUsed">--</strong>
             <small id="settingsPaperFundsUsedNote"></small>
           </div>
@@ -1432,12 +1432,12 @@
 
   <script src="/frontend/app.js?v=20261005-tech-gate-v1"></script>
 
-  <!-- Paper trading order ticket (paper.js) -->
+  <!-- Paper trading order ticket (paper.js): Long / Short with leverage -->
   <div id="cdTicket" class="cd-ticket-overlay" hidden>
     <div class="cd-ticket" role="dialog" aria-modal="true" aria-labelledby="cdTicketTitle">
       <div class="cd-sheet-handle"></div>
       <div class="cd-ticket-head">
-        <div class="cd-coin-cell"><span id="cdTicketAvatar"></span><div><strong id="cdTicketTitle">--</strong><small>/USDT · Paper trade</small></div></div>
+        <div class="cd-coin-cell"><span id="cdTicketAvatar"></span><div><strong id="cdTicketTitle">--</strong><small>/USDT · Paper futures</small></div></div>
         <span class="cd-ticket-head-actions">
           <button id="cdTicketChart" class="cd-ghost-btn" type="button">Chart</button>
           <button id="cdTicketClose" class="cd-ticket-close" type="button" aria-label="Close">×</button>
@@ -1449,25 +1449,46 @@
         <span id="cdTicketChange"></span>
       </div>
       <div class="cd-side-toggle">
-        <button type="button" data-side="BUY" class="is-active">Buy</button>
-        <button type="button" data-side="SELL">Sell</button>
+        <button type="button" data-side="BUY" class="is-active">Long</button>
+        <button type="button" data-side="SELL">Short</button>
       </div>
-      <div class="cd-pills cd-type-toggle">
-        <button type="button" class="cd-pill is-active" data-type="MARKET">Market</button>
-        <button type="button" class="cd-pill" data-type="LIMIT">Limit</button>
+      <div class="cd-ticket-row">
+        <label class="cd-field cd-lev-field">
+          <span>Leverage</span>
+          <select id="cdLeverageSelect">
+            <option value="1">1x</option>
+            <option value="5">5x</option>
+            <option value="10">10x</option>
+            <option value="25">25x</option>
+            <option value="50">50x</option>
+            <option value="100">100x</option>
+            <option value="150">150x</option>
+            <option value="200" selected>200x</option>
+          </select>
+        </label>
+        <div class="cd-field">
+          <span>Order type</span>
+          <div class="cd-pills cd-type-toggle">
+            <button type="button" class="cd-pill is-active" data-type="MARKET">Market</button>
+            <button type="button" class="cd-pill" data-type="LIMIT">Limit</button>
+          </div>
+        </div>
       </div>
       <label class="cd-field" id="cdLimitField" hidden>
         <span>Limit price (USDT)</span>
         <input id="cdLimitPrice" type="number" inputmode="decimal" min="0" step="any" />
       </label>
-      <label class="cd-field">
-        <span>Amount (USDT)</span>
-        <input id="cdAmount" type="number" inputmode="decimal" min="0" step="any" placeholder="0.00" />
-      </label>
-      <label class="cd-field">
-        <span>Quantity (<span id="cdQtyUnit">coin</span>)</span>
-        <input id="cdQty" type="number" inputmode="decimal" min="0" step="any" placeholder="0" />
-      </label>
+      <div class="cd-field">
+        <div class="cd-size-head">
+          <span id="cdUnitLabel">Size in lots</span>
+          <span class="cd-unit-toggle">
+            <button type="button" class="is-active" data-unit="LOT">Lot</button>
+            <button type="button" data-unit="USD">USD</button>
+            <button type="button" data-unit="COIN">Coin</button>
+          </span>
+        </div>
+        <input id="cdAmount" type="number" inputmode="decimal" min="0" step="any" placeholder="0" />
+      </div>
       <div class="cd-pills cd-pct-row">
         <button type="button" class="cd-pill" data-pct="25">25%</button>
         <button type="button" class="cd-pill" data-pct="50">50%</button>
@@ -1475,16 +1496,18 @@
         <button type="button" class="cd-pill" data-pct="100">Max</button>
       </div>
       <div class="cd-ticket-summary">
-        <div><span>Available</span><strong id="cdTicketAvail">--</strong></div>
-        <div><span>Fee (0.1%)</span><strong id="cdTicketFee">--</strong></div>
-        <div><span>Total</span><strong id="cdTicketTotal">--</strong></div>
+        <div><span>Available margin</span><strong id="cdTicketAvail">--</strong></div>
+        <div><span>Position size</span><strong id="cdTicketSize">--</strong></div>
+        <div><span>Required margin</span><strong id="cdTicketMargin">--</strong></div>
+        <div><span>Est. fee (0.05%)</span><strong id="cdTicketFee">--</strong></div>
+        <div><span>Liq. price (approx.)</span><strong id="cdTicketLiq" class="cd-pos-liq">--</strong></div>
       </div>
       <p id="cdTicketError" class="cd-ticket-error" hidden></p>
-      <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">BUY</button>
+      <button id="cdTicketSubmit" class="cd-submit is-buy" type="button">Open Long</button>
     </div>
   </div>
   <script src="/frontend/markets.js?v=20261005-silent-1"></script>
-  <script src="/frontend/paper.js?v=20261006-funds-1"></script>
+  <script src="/frontend/paper.js?v=20261006-futures-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
