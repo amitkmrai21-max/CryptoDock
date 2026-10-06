@@ -11528,17 +11528,17 @@ body[data-theme="light"] #im-stock-options .oc-main {
 .cd-ticket-submit-btn.is-long { background: #10b981; color: #fff; }
 .cd-ticket-submit-btn.is-short { background: #ef4444; color: #fff; }
 
-/* Swipe-to-confirm for Open Long / Open Short — same height as the
-   Long / Short buttons, light round knob in the corner */
+/* Swipe-to-confirm for Open Long / Open Short — solid green / red pill,
+   same height as the Long / Short buttons, white round knob */
 .cd-side-btn { height: 52px; padding: 0 10px; font-size: 16px; }
 .cd-swipe { position: relative; overflow: hidden; height: 52px; padding: 0; border-radius: 999px; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; touch-action: none; cursor: grab; }
-.cd-swipe.is-long { background: rgba(16, 185, 129, 0.28); }
-.cd-swipe.is-short { background: rgba(239, 68, 68, 0.28); }
+.cd-swipe.is-long { background: #10b981; }
+.cd-swipe.is-short { background: #ef4444; }
 .cd-swipe-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 52px; border-radius: 999px; }
-.cd-swipe.is-long .cd-swipe-fill { background: #10b981; }
-.cd-swipe.is-short .cd-swipe-fill { background: #ef4444; }
+.cd-swipe.is-long .cd-swipe-fill { background: #059669; }
+.cd-swipe.is-short .cd-swipe-fill { background: #dc2626; }
 .cd-swipe-label { position: relative; z-index: 1; padding-left: 44px; font-size: 16px; font-weight: 700; color: #fff; pointer-events: none; }
 .cd-swipe-knob { position: absolute; z-index: 2; left: 4px; top: 4px; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; font-weight: 800; line-height: 1; pointer-events: none; }
-.cd-swipe.is-long .cd-swipe-knob { background: #d1fae5; color: #047857; }
-.cd-swipe.is-short .cd-swipe-knob { background: #fee2e2; color: #b91c1c; }
+.cd-swipe.is-long .cd-swipe-knob { background: #fff; color: #10b981; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+.cd-swipe.is-short .cd-swipe-knob { background: #fff; color: #ef4444; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
 .cd-swipe.is-snapping .cd-swipe-knob, .cd-swipe.is-snapping .cd-swipe-fill { transition: transform 0.25s ease, width 0.25s ease; }
