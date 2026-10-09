@@ -29,7 +29,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"  # Capacitor 8 needs Node 22+
 
       - name: Install Capacitor deps and scaffold Android
         working-directory: mobile-app
@@ -89,6 +89,8 @@ jobs:
           sed -i "s/versionCode 1$/versionCode ${VERSION_CODE}/" app/build.gradle
           sed -i "s/versionName \"1.0\"/versionName \"1.0.${VERSION_CODE}\"/" app/build.gradle
           grep -n "versionCode\|versionName" app/build.gradle
+          # Google Play only accepts apps built for a recent Android (target API 36).
+          grep -n "compileSdkVersion\|targetSdkVersion" variables.gradle
 
       - name: Build debug APK (install directly for testing)
         working-directory: mobile-app/android
@@ -130,6 +132,17 @@ jobs:
         with:
           name: cryptodock-release-aab
           path: mobile-app/android/app/build/outputs/bundle/release/app-release.aab
+
+      # Fixed link for the Play Store bundle:
+      # https://github.com/<owner>/<repo>/releases/download/app-latest/CryptoDock-playstore.aab
+      - name: Publish Play Store bundle on the release
+        if: env.HAS_SIGNING_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp mobile-app/android/app/build/outputs/bundle/release/app-release.aab "$RUNNER_TEMP/CryptoDock-playstore.aab"
+          gh release view app-latest >/dev/null 2>&1 || gh release create app-latest --target "$GITHUB_SHA" --title "CryptoDock app (latest build)" --notes "CryptoDock Android app"
+          gh release upload app-latest "$RUNNER_TEMP/CryptoDock-playstore.aab" --clobber
 
       # A fixed link that opens straight on a phone:
       # https://github.com/<owner>/<repo>/releases/download/app-latest/CryptoDock.apk
