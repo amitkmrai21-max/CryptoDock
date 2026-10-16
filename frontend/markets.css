@@ -558,7 +558,7 @@ body { font-variant-numeric: tabular-nums; }
 html.capacitor-app #btcModeRoot .sidebar .nav { padding-right: 52px; }
 }
 /* ================= Home dashboard (pro look) ================= */
-.cd-home { gap: 12px; }
+.cd-home { gap: 10px; }
 .cd-avatar { position: relative; overflow: hidden; }
 .cd-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .cd-avatar.has-logo { background: transparent !important; color: transparent; border-radius: 50%; }
@@ -739,26 +739,58 @@ html.capacitor-app #topSettingsMenuButton { display: none !important; }
 }
 /* ================= Sheet motion (sheet-motion.js) ================= */
 .cd-ticket-overlay {
-  background: rgba(5, 4, 12, calc(0.7 * var(--cd-sheet-dim, 1)));
-  transition: background-color 0.24s ease;
+  background: rgba(5, 4, 12, calc(0.72 * var(--cd-sheet-dim, 1)));
+  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .cd-ticket-overlay > .cd-ticket {
-  transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+  transform: translate3d(0, 0, 0);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
   will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
-.cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
-.cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(24px) scale(0.98); opacity: 0; }
-.cd-ticket-overlay.cd-closing { pointer-events: none; }
-.cd-ticket-overlay.cd-closing > .cd-ticket { transition-duration: 0.22s; transition-timing-function: cubic-bezier(0.4, 0, 1, 1); }
+.cd-ticket-overlay.cd-off {
+  background: rgba(5, 4, 12, 0);
+  pointer-events: none;
+}
+.cd-ticket-overlay.cd-off > .cd-ticket {
+  transform: translate3d(0, 24px, 0) scale(0.98);
+  opacity: 0;
+}
+.cd-ticket-overlay.cd-closing {
+  pointer-events: none;
+}
+.cd-ticket-overlay.cd-closing > .cd-ticket {
+  transition-duration: 0.24s;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
 @media (max-width: 760px) {
-/* Phones: slide all the way up from the bottom edge, and back down. */
-.cd-ticket-overlay.cd-off > .cd-ticket { transform: translateY(100%); opacity: 1; }
-.cd-ticket-overlay > .cd-ticket { touch-action: pan-y; overscroll-behavior: contain; }
-/* A full-screen blur behind a moving sheet is what stuttered on phones;
-     a slightly darker plain backdrop looks the same and stays smooth. */
-.cd-ticket-overlay { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(5, 4, 12, calc(0.78 * var(--cd-sheet-dim, 1))); }
-.cd-ticket-overlay.cd-off { background: rgba(5, 4, 12, 0); }
-.cd-ticket-overlay .cd-sheet-handle { display: block; width: 44px; height: 5px; margin: -6px auto 2px; cursor: grab; }
+  /* Phones: Zerodha-style GPU spring slide up from bottom edge */
+  .cd-ticket-overlay.cd-off > .cd-ticket {
+    transform: translate3d(0, 100%, 0);
+    opacity: 1;
+  }
+  .cd-ticket-overlay > .cd-ticket {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+  }
+  .cd-ticket-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(5, 4, 12, calc(0.76 * var(--cd-sheet-dim, 1)));
+  }
+  .cd-ticket-overlay.cd-off {
+    background: rgba(5, 4, 12, 0);
+  }
+  .cd-ticket-overlay .cd-sheet-handle {
+    display: block;
+    width: 48px;
+    height: 5px;
+    margin: -6px auto 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.28);
+    cursor: grab;
+  }
 }
 /* Short page notes at the bottom of a page (instead of a long line under
    the title). */
@@ -1677,3 +1709,820 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
 .cd-mini-coins.cd-mini-coins-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cd-mini-flag { font-size: 17px; line-height: 1; }
 .cd-mini-name { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+
+/* ==========================================================================
+   CryptoDock - Refined & Compact More Menu Buttons (Softer Palette & Tighter Sizing)
+   ========================================================================== */
+
+#cdMoreGrid {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 9px !important;
+  padding: 4px 2px 18px !important;
+}
+
+#cdMoreGrid .cd-more-tile {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 92px !important;
+  padding: 10px 4px !important;
+  border-radius: 15px !important;
+  border: 1px solid var(--tile-border, rgba(255, 255, 255, 0.08)) !important;
+  background: linear-gradient(155deg, var(--tile-bg-top, #141724) 0%, var(--tile-bg-bot, #0c0f18) 100%) !important;
+  color: var(--tile-text, #e2e8f0) !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1px !important;
+  text-align: center !important;
+  box-shadow: 0 3px 10px var(--tile-shadow, rgba(0, 0, 0, 0.25)), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+  transition: transform 0.12s ease, filter 0.12s ease !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+#cdMoreGrid .cd-more-tile:active {
+  transform: scale(0.96) !important;
+  filter: brightness(1.08) !important;
+}
+
+#cdMoreGrid .cd-more-tile .cd-more-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 11px !important;
+  margin-bottom: 6px !important;
+  background: linear-gradient(135deg, var(--ico-top, #2563eb), var(--ico-bot, #1d4ed8)) !important;
+  color: var(--ico-col, #ffffff) !important;
+  box-shadow: 0 2px 8px var(--ico-glow, rgba(0, 0, 0, 0.3)), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  font-size: 16px !important;
+}
+
+#cdMoreGrid .cd-more-tile .cd-more-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  stroke-width: 2px !important;
+}
+
+/* 1. UPGRADE (Subtle Gold) */
+.cd-more-tile[data-more-upgrade="1"],
+#cdMoreGrid .cd-more-tile:nth-child(1) {
+  --tile-border: rgba(245, 158, 11, 0.28);
+  --tile-bg-top: #211910;
+  --tile-bg-bot: #120e09;
+  --tile-text: #fef3c7;
+  --tile-shadow: rgba(245, 158, 11, 0.1);
+  --ico-top: #d97706;
+  --ico-bot: #92400e;
+  --ico-col: #fffbeb;
+  --ico-glow: rgba(217, 119, 6, 0.25);
+}
+
+/* 2. ORDERS (Soft Cyan) */
+.cd-more-tile[data-more="orders"],
+#cdMoreGrid .cd-more-tile:nth-child(2) {
+  --tile-border: rgba(6, 182, 212, 0.26);
+  --tile-bg-top: #0c1c24;
+  --tile-bg-bot: #071015;
+  --tile-text: #cffafe;
+  --tile-shadow: rgba(6, 182, 212, 0.1);
+  --ico-top: #0891b2;
+  --ico-bot: #0e7490;
+  --ico-col: #ecfeff;
+  --ico-glow: rgba(8, 145, 178, 0.25);
+}
+
+/* 3. COIN DETAIL (Soft Royal Blue) */
+.cd-more-tile[data-more="coin"],
+#cdMoreGrid .cd-more-tile:nth-child(3) {
+  --tile-border: rgba(59, 130, 246, 0.26);
+  --tile-bg-top: #0f182f;
+  --tile-bg-bot: #090e1c;
+  --tile-text: #dbeafe;
+  --tile-shadow: rgba(59, 130, 246, 0.1);
+  --ico-top: #2563eb;
+  --ico-bot: #1d4ed8;
+  --ico-col: #eff6ff;
+  --ico-glow: rgba(37, 99, 235, 0.25);
+}
+
+/* 4. HEATMAP (Soft Emerald) */
+.cd-more-tile[data-more="heatmap"],
+#cdMoreGrid .cd-more-tile:nth-child(4) {
+  --tile-border: rgba(16, 185, 129, 0.26);
+  --tile-bg-top: #0b2019;
+  --tile-bg-bot: #06130e;
+  --tile-text: #d1fae5;
+  --tile-shadow: rgba(16, 185, 129, 0.1);
+  --ico-top: #059669;
+  --ico-bot: #047857;
+  --ico-col: #ecfdf5;
+  --ico-glow: rgba(5, 150, 105, 0.25);
+}
+
+/* 5. ALERTS (Soft Rose) */
+.cd-more-tile[data-more="alerts"],
+#cdMoreGrid .cd-more-tile:nth-child(5) {
+  --tile-border: rgba(244, 63, 94, 0.26);
+  --tile-bg-top: #231117;
+  --tile-bg-bot: #14080d;
+  --tile-text: #ffe4e6;
+  --tile-shadow: rgba(244, 63, 94, 0.1);
+  --ico-top: #e11d48;
+  --ico-bot: #be123c;
+  --ico-col: #fff1f2;
+  --ico-glow: rgba(225, 29, 72, 0.25);
+}
+
+/* 6. TECHNICAL SOON (Soft Violet) */
+.cd-more-tile[data-more="technical"],
+#cdMoreGrid .cd-more-tile:nth-child(6) {
+  --tile-border: rgba(139, 92, 246, 0.26);
+  --tile-bg-top: #1b122e;
+  --tile-bg-bot: #100a1c;
+  --tile-text: #ede9fe;
+  --tile-shadow: rgba(139, 92, 246, 0.1);
+  --ico-top: #7c3aed;
+  --ico-bot: #6d28d9;
+  --ico-col: #f5f3ff;
+  --ico-glow: rgba(124, 58, 237, 0.25);
+}
+
+/* 7. RRG (Soft Magenta) */
+.cd-more-tile[data-more="rrg"],
+#cdMoreGrid .cd-more-tile:nth-child(7) {
+  --tile-border: rgba(217, 70, 239, 0.26);
+  --tile-bg-top: #220f24;
+  --tile-bg-bot: #140815;
+  --tile-text: #fae8ff;
+  --tile-shadow: rgba(217, 70, 239, 0.1);
+  --ico-top: #c026d3;
+  --ico-bot: #a21caf;
+  --ico-col: #fdf4ff;
+  --ico-glow: rgba(192, 38, 211, 0.25);
+}
+
+/* 8. NEWS (Soft Teal) */
+.cd-more-tile[data-more="news"],
+#cdMoreGrid .cd-more-tile:nth-child(8) {
+  --tile-border: rgba(20, 184, 166, 0.26);
+  --tile-bg-top: #0b1f1e;
+  --tile-bg-bot: #061312;
+  --tile-text: #ccfbf1;
+  --tile-shadow: rgba(20, 184, 166, 0.1);
+  --ico-top: #0d9488;
+  --ico-bot: #0f766e;
+  --ico-col: #f0fdfa;
+  --ico-glow: rgba(13, 148, 136, 0.25);
+}
+
+/* 9. TOOLS (Soft Warm Amber) */
+.cd-more-tile[data-more="tools"],
+#cdMoreGrid .cd-more-tile:nth-child(9) {
+  --tile-border: rgba(249, 115, 22, 0.26);
+  --tile-bg-top: #221409;
+  --tile-bg-bot: #130a04;
+  --tile-text: #ffedd5;
+  --tile-shadow: rgba(249, 115, 22, 0.1);
+  --ico-top: #ea580c;
+  --ico-bot: #c2410c;
+  --ico-col: #fff7ed;
+  --ico-glow: rgba(234, 88, 12, 0.25);
+}
+
+/* 10. SETTINGS (Soft Slate Indigo) */
+.cd-more-tile[data-more-settings="1"],
+#cdMoreGrid .cd-more-tile:nth-child(10) {
+  --tile-border: rgba(99, 102, 241, 0.26);
+  --tile-bg-top: #11152a;
+  --tile-bg-bot: #090c19;
+  --tile-text: #e0e7ff;
+  --tile-shadow: rgba(99, 102, 241, 0.1);
+  --ico-top: #4f46e5;
+  --ico-bot: #3730a3;
+  --ico-col: #eef2ff;
+  --ico-glow: rgba(79, 70, 229, 0.25);
+}
+
+/* ================= Home Quick Shortcuts Dock ================= */
+.cd-shortcuts-dock {
+  margin: 0;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(23, 20, 38, 0.75) 0%, rgba(14, 12, 24, 0.9) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
+}
+.cd-shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.cd-shortcuts-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+.cd-shortcuts-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  letter-spacing: 0.04em;
+}
+.cd-shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.cd-shortcut-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px 8px;
+  border-radius: 14px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 64px;
+}
+.cd-shortcut-btn:active {
+  transform: scale(0.96);
+}
+.cd-shortcut-tag {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-bottom: 5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cd-shortcut-main {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+.cd-shortcut-btn.is-futures {
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.14) 0%, rgba(30, 20, 10, 0.5) 100%);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+.cd-shortcut-btn.is-futures .cd-shortcut-tag {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fbbf24;
+}
+.cd-shortcut-btn.is-heatmap {
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.14) 0%, rgba(10, 30, 22, 0.5) 100%);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+.cd-shortcut-btn.is-heatmap .cd-shortcut-tag {
+  background: rgba(16, 185, 129, 0.22);
+  color: #34d399;
+}
+.cd-shortcut-btn.is-scanner {
+  background: linear-gradient(145deg, rgba(56, 189, 248, 0.14) 0%, rgba(10, 25, 40, 0.5) 100%);
+  border-color: rgba(56, 189, 248, 0.45);
+}
+.cd-shortcut-btn.is-scanner .cd-shortcut-tag {
+  background: rgba(56, 189, 248, 0.22);
+  color: #38bdf8;
+}
+.cd-shortcut-btn.is-alerts {
+  background: linear-gradient(145deg, rgba(168, 85, 247, 0.14) 0%, rgba(28, 16, 42, 0.5) 100%);
+  border-color: rgba(168, 85, 247, 0.45);
+}
+.cd-shortcut-btn.is-alerts .cd-shortcut-tag {
+  background: rgba(168, 85, 247, 0.22);
+  color: #c084fc;
+}
+
+/* ================= Crypto Market Mood & Sentiment Card ================= */
+.cd-sentiment-card {
+  margin: 0;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(26, 21, 46, 0.85) 0%, rgba(17, 14, 30, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+.cd-sentiment-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #10b981 100%);
+  opacity: 0.8;
+}
+.cd-sentiment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.cd-sentiment-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cd-sentiment-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+}
+.cd-sentiment-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+.cd-sentiment-live-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  letter-spacing: 0.04em;
+}
+.cd-sentiment-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.cd-sentiment-score-col {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 90px;
+}
+.cd-sentiment-score {
+  font-family: var(--cd-num-font, "Sora", sans-serif);
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  color: #10b981;
+}
+.cd-sentiment-label {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.cd-sentiment-label.is-extreme-bull { color: #10b981; }
+.cd-sentiment-label.is-bull { color: #34d399; }
+.cd-sentiment-label.is-neutral { color: #f59e0b; }
+.cd-sentiment-label.is-bear { color: #f87171; }
+.cd-sentiment-label.is-extreme-bear { color: #ef4444; }
+
+.cd-sentiment-meter-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cd-sentiment-meter-bar {
+  width: 100%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.cd-sentiment-meter-fill {
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #10b981 100%);
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cd-sentiment-meter-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 700;
+}
+.cd-sentiment-meter-labels .is-fear { color: #ef4444; }
+.cd-sentiment-meter-labels .is-neutral { color: #94a3b8; }
+.cd-sentiment-meter-labels .is-greed { color: #10b981; }
+
+.cd-sentiment-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cd-sentiment-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.cd-breadth-summary {
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .cd-shortcuts-grid {
+    gap: 6px;
+  }
+  .cd-shortcut-btn {
+    padding: 8px 2px 7px;
+    min-height: 58px;
+  }
+  .cd-shortcut-main {
+    font-size: 10.5px;
+  }
+  .cd-shortcut-tag {
+    font-size: 8px;
+    padding: 2px 4px;
+  }
+  .cd-sentiment-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .cd-sentiment-meter-col {
+    width: 100%;
+  }
+}
+
+
+/* ==========================================================================
+   Comprehensive Light Theme Overrides (markets.css)
+   ========================================================================== */
+
+/* 1. Home Quick Shortcuts Dock & Buttons */
+body[data-theme="light"] .cd-shortcuts-dock {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+body[data-theme="light"] .cd-shortcuts-title {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-shortcut-main {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-futures {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-futures .cd-shortcut-tag {
+  background: #fef3c7 !important;
+  color: #b45309 !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-heatmap {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-heatmap .cd-shortcut-tag {
+  background: #d1fae5 !important;
+  color: #047857 !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-scanner {
+  background: #f0f9ff !important;
+  border-color: #bae6fd !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-scanner .cd-shortcut-tag {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-alerts {
+  background: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+body[data-theme="light"] .cd-shortcut-btn.is-alerts .cd-shortcut-tag {
+  background: #f3e8ff !important;
+  color: #7e22ce !important;
+}
+
+/* 2. Home Crypto Market Mood Card */
+body[data-theme="light"] .cd-sentiment-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+body[data-theme="light"] .cd-sentiment-header h3 {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-sentiment-bar-track {
+  background: #e2e8f0 !important;
+}
+body[data-theme="light"] .cd-sentiment-scale-col,
+body[data-theme="light"] .cd-sentiment-scale {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-sentiment-stats {
+  color: #475569 !important;
+}
+body[data-theme="light"] .cd-sentiment-coin-counts {
+  color: #475569 !important;
+}
+body[data-theme="light"] .cd-sentiment-live-badge {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+/* 3. More Menu Grid - Vibrant Pastel Cards in Light Theme */
+body[data-theme="light"] #cdMoreGrid .cd-more-tile {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more-upgrade="1"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(1) {
+  --tile-border: #fde68a !important;
+  --tile-bg-top: #fffbeb !important;
+  --tile-bg-bot: #fef3c7 !important;
+  --tile-text: #92400e !important;
+  --tile-shadow: rgba(245, 158, 11, 0.08) !important;
+  --ico-glow: rgba(217, 119, 6, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="orders"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(2) {
+  --tile-border: #a5f3fc !important;
+  --tile-bg-top: #ecfeff !important;
+  --tile-bg-bot: #cffafe !important;
+  --tile-text: #0e7490 !important;
+  --tile-shadow: rgba(6, 182, 212, 0.08) !important;
+  --ico-glow: rgba(8, 145, 178, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="coin"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(3) {
+  --tile-border: #bfdbfe !important;
+  --tile-bg-top: #eff6ff !important;
+  --tile-bg-bot: #dbeafe !important;
+  --tile-text: #1d4ed8 !important;
+  --tile-shadow: rgba(59, 130, 246, 0.08) !important;
+  --ico-glow: rgba(37, 99, 235, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="heatmap"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(4) {
+  --tile-border: #a7f3d0 !important;
+  --tile-bg-top: #f0fdf4 !important;
+  --tile-bg-bot: #dcfce7 !important;
+  --tile-text: #047857 !important;
+  --tile-shadow: rgba(16, 185, 129, 0.08) !important;
+  --ico-glow: rgba(5, 150, 105, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="alerts"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(5) {
+  --tile-border: #fecdd3 !important;
+  --tile-bg-top: #fff1f2 !important;
+  --tile-bg-bot: #ffe4e6 !important;
+  --tile-text: #be123c !important;
+  --tile-shadow: rgba(244, 63, 94, 0.08) !important;
+  --ico-glow: rgba(225, 29, 72, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="technical"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(6) {
+  --tile-border: #ddd6fe !important;
+  --tile-bg-top: #f5f3ff !important;
+  --tile-bg-bot: #ede9fe !important;
+  --tile-text: #6d28d9 !important;
+  --tile-shadow: rgba(139, 92, 246, 0.08) !important;
+  --ico-glow: rgba(124, 58, 237, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="rrg"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(7) {
+  --tile-border: #f5d0fe !important;
+  --tile-bg-top: #fdf4ff !important;
+  --tile-bg-bot: #fae8ff !important;
+  --tile-text: #a21caf !important;
+  --tile-shadow: rgba(217, 70, 239, 0.08) !important;
+  --ico-glow: rgba(192, 38, 211, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="news"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(8) {
+  --tile-border: #99f6e4 !important;
+  --tile-bg-top: #f0fdfa !important;
+  --tile-bg-bot: #ccfbf1 !important;
+  --tile-text: #0f766e !important;
+  --tile-shadow: rgba(20, 184, 166, 0.08) !important;
+  --ico-glow: rgba(13, 148, 136, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more="tools"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(9) {
+  --tile-border: #fed7aa !important;
+  --tile-bg-top: #fff7ed !important;
+  --tile-bg-bot: #ffedd5 !important;
+  --tile-text: #c2410c !important;
+  --tile-shadow: rgba(249, 115, 22, 0.08) !important;
+  --ico-glow: rgba(234, 88, 12, 0.15) !important;
+}
+body[data-theme="light"] .cd-more-tile[data-more-settings="1"],
+body[data-theme="light"] #cdMoreGrid .cd-more-tile:nth-child(10) {
+  --tile-border: #c7d2fe !important;
+  --tile-bg-top: #eef2ff !important;
+  --tile-bg-bot: #e0e7ff !important;
+  --tile-text: #3730a3 !important;
+  --tile-shadow: rgba(99, 102, 241, 0.08) !important;
+  --ico-glow: rgba(79, 70, 229, 0.15) !important;
+}
+
+/* 4. Positions Tab Cards & Elements */
+body[data-theme="light"] .cd-pos-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+body[data-theme="light"] .cd-pos-name strong {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-pos-grid strong {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-pos-grid span {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-pos-close {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+}
+body[data-theme="light"] .cd-pos-close:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-pos-foot {
+  border-top-color: #e2e8f0 !important;
+}
+body[data-theme="light"] .cd-pos-foot span {
+  color: #64748b !important;
+}
+
+/* 5. Order Ticket (Futures Trade Dialog) */
+body[data-theme="light"] #cdTicket .cd-ticket {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.12) !important;
+}
+body[data-theme="light"] #cdTicketTitle {
+  color: #0f172a !important;
+}
+body[data-theme="light"] #cdTicketPrice {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-side-btn {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+  color: #475569 !important;
+}
+body[data-theme="light"] .cd-select-ctrl {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+}
+body[data-theme="light"] .cd-type-pills {
+  background: #f1f5f9 !important;
+}
+body[data-theme="light"] .cd-type-pill {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-type-pill.is-active {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+body[data-theme="light"] .cd-input-with-unit input {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-pct-buttons button {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+body[data-theme="light"] .cd-ticket-summary {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+body[data-theme="light"] .cd-summary-row {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-summary-row strong {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-ctrl-group label,
+body[data-theme="light"] .cd-input-label {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-ticket-overlay .cd-sheet-handle {
+  background: #cbd5e1 !important;
+}
+
+/* 6. Coin Sheet & Stats Modal */
+body[data-theme="light"] .cd-sheet {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+body[data-theme="light"] #cdSheetPrice {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-sheet-stats div {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+body[data-theme="light"] .cd-sheet-stats span {
+  color: #64748b !important;
+}
+body[data-theme="light"] .cd-sheet-stats strong {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .cd-sheet-actions .cd-pill {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #334155 !important;
+}
+body[data-theme="light"] .cd-sheet-actions .cd-pill.is-active {
+  background: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #b45309 !important;
+}
+body[data-theme="light"] .cd-sheet-handle {
+  background: #cbd5e1 !important;
+}
+
+
+/* Market Mood Track & Light Elements V2 */
+/* Mood Bar track: dark mode visibility */
+.cd-sentiment-meter-bar {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+/* Mood Bar track: light mode visibility so entire 0-100 line is visible */
+body[data-theme="light"] .cd-sentiment-meter-bar {
+  background: #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+}
+body[data-theme="light"] .cd-sentiment-meter-labels .is-neutral {
+  color: #475569 !important;
+}
+
+/* Home Hero Banner Light Theme */
+body[data-theme="light"] .cd-hero {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #e0e7ff 100%) !important;
+  border: 1px solid #c7d2fe !important;
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.08) !important;
+}
+body[data-theme="light"] .cd-hero h2 {
+  color: #1e1b4b !important;
+}
+body[data-theme="light"] .cd-hero p {
+  color: #4338ca !important;
+}
+
+/* TradingView / Educational Disclaimer Card */
+body[data-theme="light"] .disclaimer-card {
+  background: #fefce8 !important;
+  border: 1px solid #fef08a !important;
+}
+body[data-theme="light"] .disclaimer-card p,
+body[data-theme="light"] .disclaimer-card span,
+body[data-theme="light"] .disclaimer-card .tv-attribution {
+  color: #92400e !important;
+}
+body[data-theme="light"] .disclaimer-card a {
+  color: #0284c7 !important;
+  text-decoration: underline !important;
+}

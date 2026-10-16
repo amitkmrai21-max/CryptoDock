@@ -18,7 +18,15 @@
   function animateIn(overlay) {
     overlay.classList.add("cd-off");
     overlay.classList.remove("cd-closing");
-    requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.remove("cd-off")));
+    const panel = panelOf(overlay);
+    if (panel) {
+      panel.style.transform = "";
+      panel.style.transition = "";
+    }
+    void overlay.offsetHeight;
+    requestAnimationFrame(() => {
+      overlay.classList.remove("cd-off");
+    });
   }
 
   // Code set hidden=true: keep it on screen just long enough to slide out.
@@ -93,14 +101,24 @@
       armed = false;
       if (!dragging) return;
       dragging = false;
-      panel.style.transition = "";
+      panel.style.transition = "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)";
       overlay.style.removeProperty("--cd-sheet-dim");
       const speed = dy / Math.max(1, Date.now() - startT);
-      if (dy > Math.min(140, panel.offsetHeight * 0.25) || (dy > 40 && speed > 0.5)) {
-        panel.style.transform = `translateY(${dy}px)`;
-        closeOverlay(overlay);
+      if (dy > Math.min(130, panel.offsetHeight * 0.22) || (dy > 35 && speed > 0.45)) {
+        panel.style.transform = "translate3d(0, 100%, 0)";
+        setTimeout(() => {
+          panel.style.transform = "";
+          panel.style.transition = "";
+          closeOverlay(overlay);
+        }, 220);
       } else {
-        panel.style.transform = "";
+        panel.style.transform = "translate3d(0, 0, 0)";
+        setTimeout(() => {
+          if (!closingNow.has(overlay)) {
+            panel.style.transform = "";
+            panel.style.transition = "";
+          }
+        }, 250);
       }
     };
     panel.addEventListener("touchend", end);
