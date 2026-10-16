@@ -7,7 +7,8 @@
 <link rel="icon" type="image/png" href="/frontend/favicon.png?v=v3" />
 <style>
   :root { --bg:#0c0a14; --surface:#14111f; --text:#ede9fe; --muted:#a59cc4; --accent:#a78bfa; --border:#262138; }
-  @media (prefers-color-scheme: light) { :root { --bg:#f5f7fb; --surface:#ffffff; --text:#0f172a; --muted:#4b5875; --accent:#6d28d9; --border:#e2e8f0; } }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg:#f5f7fb; --surface:#ffffff; --text:#0f172a; --muted:#4b5875; --accent:#6d28d9; --border:#e2e8f0; } }
+  :root[data-theme="light"], body[data-theme="light"] { --bg:#f5f7fb; --surface:#ffffff; --text:#0f172a; --muted:#4b5875; --accent:#6d28d9; --border:#e2e8f0; }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
@@ -19,6 +20,27 @@
   ul { padding-left:20px; }
   footer { margin-top:36px; color:var(--muted); font-size:14px; }
 </style>
+
+<script>
+  (function() {
+    try {
+      const p = JSON.parse(localStorage.getItem("btcAiSignalDashboardPreferences") || "{}");
+      if (p.theme === "light") document.documentElement.setAttribute("data-theme", "light");
+      else if (p.theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    } catch(e) {}
+  })();
+</script>
+<style>
+  html[data-theme="light"], body[data-theme="light"] {
+    --bg: #f8fafc !important;
+    --surface: #ffffff !important;
+    --text: #0f172a !important;
+    --muted: #475569 !important;
+    --accent: #0284c7 !important;
+    --border: #e2e8f0 !important;
+  }
+</style>
+
 </head>
 <body><main>
 <p><a href="/">← Back to CryptoDock</a></p>
@@ -46,7 +68,7 @@
 <ul>
   <li><strong>Supabase</strong> — sign-in and account management.</li>
   <li><strong>Razorpay</strong> — subscription payments.</li>
-  <li><strong>Binance public market data</strong> — live coin prices, charts and order books (no personal data is sent).</li>
+  <li><strong>Public market data feeds</strong> — live coin prices, charts and order books (no personal data is sent).</li>
   <li><strong>CoinGecko / ExchangeRate-API</strong> — the USDT → INR rate (no personal data is sent).</li>
   <li><strong>TradingView</strong> — chart widgets; it receives market data, not your account details.</li>
   <li><strong>News publishers</strong> — headlines and pictures come from their public feeds, and stories open on their own websites. Google Translate is used only when you tap "हिंदी में पढ़ें".</li>
