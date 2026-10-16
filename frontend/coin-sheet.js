@@ -81,13 +81,18 @@
     }, DEPTH_POLL_MS);
   }
 
+  function depthPlaceholder() {
+    return '<p class="cd-meta" style="margin:6px 0; opacity:0.4">Loading depth…</p>';
+  }
+
   function open(next) {
     if (!next) return;
     base = next;
-    el("cdDepthBids").innerHTML = el("cdDepthAsks").innerHTML = "";
+    el("cdDepthBids").innerHTML = depthPlaceholder();
+    el("cdDepthAsks").innerHTML = depthPlaceholder();
     render();
     el("cdSheet").hidden = false;
-    loadDepth();
+    setTimeout(loadDepth, 350);
     pollDepth();
   }
 

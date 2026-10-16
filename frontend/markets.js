@@ -304,9 +304,34 @@
     const up = coins.filter((c) => c.change_percent > 0).length;
     const down = coins.filter((c) => c.change_percent < 0).length;
     const total = up + down || 1;
-    el("cdBreadthUp").style.width = (up / total) * 100 + "%";
-    el("cdBreadthDown").style.width = (down / total) * 100 + "%";
-    el("cdBreadthText").innerHTML = `<span class="cd-up">${up} Up</span> · <span class="cd-down">${down} Down</span>`;
+    const bUp = el("cdBreadthUp");
+    const bDown = el("cdBreadthDown");
+    const bText = el("cdBreadthText");
+    if (bUp) bUp.style.width = (up / total) * 100 + "%";
+    if (bDown) bDown.style.width = (down / total) * 100 + "%";
+    if (bText) bText.innerHTML = `<span class="cd-up">${up} Up</span> · <span class="cd-down">${down} Down</span>`;
+
+    // Realtime Market Mood & Sentiment calculation
+    const score = Math.min(100, Math.max(0, Math.round((up / total) * 100)));
+    const scoreEl = el("cdSentimentScore");
+    const labelEl = el("cdSentimentLabel");
+    const meterEl = el("cdSentimentMeterFill");
+    const descEl = el("cdSentimentDesc");
+    if (scoreEl) scoreEl.textContent = score;
+    if (meterEl) meterEl.style.width = score + "%";
+    if (labelEl) {
+      let label = "NEUTRAL";
+      let cls = "is-neutral";
+      if (score >= 75) { label = "EXTREME GREED"; cls = "is-extreme-bull"; }
+      else if (score >= 56) { label = "GREED"; cls = "is-bull"; }
+      else if (score <= 25) { label = "EXTREME FEAR"; cls = "is-extreme-bear"; }
+      else if (score <= 45) { label = "FEAR"; cls = "is-bear"; }
+      labelEl.textContent = label;
+      labelEl.className = "cd-sentiment-label " + cls;
+    }
+    if (descEl) {
+      descEl.textContent = `${up} coins advancing (${Math.round((up / total) * 100)}%) vs ${down} declining across crypto`;
+    }
   }
 
   function renderMomentumSummary() {

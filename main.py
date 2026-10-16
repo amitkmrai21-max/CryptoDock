@@ -2606,6 +2606,55 @@ def start_user_trial(req: TrialSyncRequest):
     return subscription_status(email)
 
 
+# ================= OWNER ANALYTICS (amitkmrai21@gmail.com Only) =================
+@app.get("/api/owner/analytics")
+def get_owner_analytics(authorization: str = Header(None)):
+    # Only the signed-in owner (verified through the Supabase session token):
+    # an email typed into the URL proves nothing, so it is not accepted.
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    users = _load_users()
+    paper_data = _load_paper()
+    all_emails = set(users.keys()).union(set(paper_data.keys()))
+    now = int(time.time())
+    active_subscribers = 0
+    total_paid_ever = 0
+    for u in users.values():
+        if not isinstance(u, dict):
+            continue
+        is_paid = bool(u.get("is_paid", False))
+        valid_until = u.get("valid_until_ts") or 0
+        has_payments = bool(u.get("payment_ids") or u.get("play_purchase_tokens") or (is_paid and valid_until > 0))
+        if has_payments:
+            total_paid_ever += 1
+        if is_paid and valid_until > now:
+            active_subscribers += 1
+    supabase_count = 0
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if service_key:
+        try:
+            resp = requests.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=1",
+                headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+                timeout=3,
+            )
+            if resp.status_code == 200:
+                cr = resp.headers.get("Content-Range", "")
+                if "/" in cr:
+                    supabase_count = int(cr.split("/")[-1])
+        except Exception:
+            pass
+    total_registered = max(len(all_emails), supabase_count)
+    return {
+        "ok": True,
+        "total_registered": total_registered,
+        "total_subscribers": total_paid_ever,
+        "active_subscribers": active_subscribers,
+        "timestamp": now,
+    }
+
+
 @app.get("/api/subscription/status")
 def subscription_status(email: str = ""):
     email = _norm_email(email)
