@@ -1108,6 +1108,9 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
     #07060f;
 }
 .cd-welcome[hidden] { display: none; }
+/* The sign-in screen is always dark, whatever theme the app is set to: the
+   Light theme's dark text colours would be unreadable on its dark card. */
+.cd-welcome { --text: #f8fafc; --muted: #a1a1b5; --border: #2a2540; color-scheme: dark; }
 .cd-welcome-card {
   width: 100%;
   max-width: 420px;
