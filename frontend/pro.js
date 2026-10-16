@@ -8,6 +8,10 @@
 // comes back when either ends. The owner's email always has access.
 (function cryptoPro() {
   const OWNER_EMAIL = "amitkmrai21@gmail.com";
+  // Test account given to Google Play's app reviewers: full access, no trial
+  // or payment needed (they can't start trials or buy plans).
+  const REVIEW_EMAILS = ["amitkmrai47@gmail.com"];
+  const hasFullAccess = (mail) => mail === OWNER_EMAIL || REVIEW_EMAILS.includes(mail);
   const PRO_TABS = {
     positions: "Paper Trading",
     orders: "Paper Trading",
@@ -65,7 +69,7 @@
   // { ok, reason: owner | paid | trial | fresh | signin | expired | plan-expired | checking }
   function access() {
     if (!email) return { ok: false, reason: "signin" };
-    if (email === OWNER_EMAIL) return { ok: true, reason: "owner" };
+    if (hasFullAccess(email)) return { ok: true, reason: "owner" };
     if (!status) { sync(); return { ok: false, reason: "checking" }; }
     const now = Date.now() / 1000;
     if (status.is_paid && (!status.valid_until_ts || status.valid_until_ts > now)) return { ok: true, reason: "paid" };
@@ -242,7 +246,7 @@
     el("cdUpgradeBtn").hidden = acc.reason === "owner" || acc.reason === "paid" || acc.reason === "trial";
     const mine = el("cdMyPlanState");
     if (mine) {
-      mine.textContent = { owner: "Owner · active", paid: "Active", trial: `Trial · ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left`, fresh: "Free trial available", expired: "Trial ended", "plan-expired": "Plan expired", checking: "Checking…" }[acc.reason] || "--";
+      mine.textContent = { owner: email === OWNER_EMAIL ? "Owner · active" : "Full access · active", paid: "Active", trial: `Trial · ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left`, fresh: "Free trial available", expired: "Trial ended", "plan-expired": "Plan expired", checking: "Checking…" }[acc.reason] || "--";
       mine.className = acc.ok ? "is-on" : acc.reason === "fresh" ? "is-new" : "is-off";
     }
   }
@@ -264,9 +268,10 @@
     secondary.hidden = true;
     primary.className = "cdp-primary";
     if (acc.reason === "owner") {
-      tone = "ok"; icon = "👑"; title = "Owner access · ACTIVE ✓"; sub = "Every Pro feature, always on."; dates = "No plan needed for this account.";
+      const isOwner = email === OWNER_EMAIL;
+      tone = "ok"; icon = "👑"; title = isOwner ? "Owner access · ACTIVE ✓" : "Full access · ACTIVE ✓"; sub = "Every Pro feature, always on."; dates = "No plan needed for this account.";
       note = "You have full access to CryptoDock Pro."; primary.textContent = "Close"; primary.onclick = () => hide("cdProStatus");
-      nextHead = "PLANS USERS SEE"; nextNote = "Owner: nothing to pay.";
+      nextHead = "PLANS USERS SEE"; nextNote = isOwner ? "Owner: nothing to pay." : "This account needs no plan.";
     } else if (acc.reason === "paid") {
       const left = Math.max(0, Math.ceil((status.valid_until_ts - now) / 86400));
       const plan = status.plan || "Plan";
