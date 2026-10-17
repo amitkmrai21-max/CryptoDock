@@ -47,6 +47,13 @@
         <span class="cd-more-icon">👑</span>
         <span>Upgrade</span>
       </button>`);
+    // Links that open another website (ETF Flows), straight from the sidebar's own button.
+    document.querySelectorAll(".sidebar [data-ext-link]").forEach((b) => {
+      tiles.push(`<button type="button" class="cd-more-tile" data-ext-link="${b.dataset.extLink}">
+          <span class="cd-more-icon">${b.querySelector(".nav-icon")?.innerHTML || ""}</span>
+          <span>${b.dataset.extLabel || label(b)} &#8599;</span>
+        </button>`);
+    });
     tiles.push(`<button type="button" class="cd-more-tile" data-more-settings="1">
         <span class="cd-more-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
         <span>Settings</span>
@@ -74,7 +81,23 @@
     closeMore();
     if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
     else if (tile.dataset.moreSettings) document.getElementById("topSettingsMenuButton")?.click();
+    else if (tile.dataset.extLink) { /* opened by the link handler below */ }
     else go(tile.dataset.more);
+  });
+
+  // [data-ext-link] opens that website: Capacitor's in-app browser tab inside
+  // the Android app, a new tab on the web. https links only.
+  function openExternal(url) {
+    if (!/^https:\/\//.test(url || "")) return;
+    const native = window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.Browser;
+    if (native) native.open({ url }).catch(() => window.open(url, "_blank", "noopener"));
+    else window.open(url, "_blank", "noopener");
+  }
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-ext-link]");
+    if (!link) return;
+    event.preventDefault();
+    openExternal(link.dataset.extLink);
   });
   document.getElementById("cdMoreClose").addEventListener("click", closeMore);
   sheet.addEventListener("click", (event) => { if (event.target === sheet) closeMore(); });
