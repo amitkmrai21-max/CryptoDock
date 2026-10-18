@@ -237,6 +237,8 @@
   function placeOrder({ base, side, type, qty, limitPrice, leverage }) {
     const market = priceOf(base);
     if (!market) return { error: "Live price not available yet. Please try again in a moment." };
+    // On the backup feed, coins it doesn't carry keep their last price: no new trades on a frozen price.
+    if (coinOf(base)?.stale) return { error: "This coin's live price is paused for a moment. Please try again shortly." };
     qty = roundQty(qty);
     if (!(qty > 0)) return { error: "Enter a size." };
     const lev = Math.min(200, Math.max(1, Number(leverage) || 1));
