@@ -97,6 +97,13 @@ def _binance_used_locked(now):
     return max(ours, theirs)
 
 
+def binance_calls_last_minute():
+    with _binance_lock:
+        now = time.time()
+        _binance_used_locked(now)  # drops entries older than a minute
+        return len(_binance_calls)
+
+
 def binance_usage_share():
     with _binance_lock:
         return _binance_used_locked(time.time()) / BINANCE_WEIGHT_LIMIT
@@ -3104,10 +3111,11 @@ def stream_stats():
     return {
         "pubsub_subscribers_connected": market_hub.subscriber_count,
         "upstream_interval_seconds": 2.0,
-        "upstream_requests_per_minute": 30,
-        "binance_weight_usage_per_minute": 60,
-        "binance_weight_limit": 6000,
-        "binance_load_percentage": "1.0%",
+        # Real numbers from the guard's own record of our calls in the last minute.
+        "binance_calls_last_minute": binance_calls_last_minute(),
+        "binance_weight_usage_per_minute": round(binance_usage_share() * BINANCE_WEIGHT_LIMIT),
+        "binance_weight_limit": BINANCE_WEIGHT_LIMIT,
+        "binance_load_percentage": f"{binance_usage_share() * 100:.1f}%",
         "last_broadcast_at": int(price_cache.get("updated_at") or 0),
         "data_source": "Bybit (backup)" if on_backup() else "Binance",
         "main_source_failing_for_seconds": int(primary_down_for()),
