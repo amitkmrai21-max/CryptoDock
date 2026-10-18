@@ -1883,8 +1883,13 @@ def _fetch_usdt_inr_rate(now):
 def _market_stats():
     """24h open/high/low/volume per USDT pair, refreshed every 10s."""
     def fetch():
-        symbols = get_usdt_symbols()
-        tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
+        try:
+            symbols = get_usdt_symbols()
+            tickers = binance_get("/api/v3/ticker/24hr", {"type": "MINI"}, weight=80, essential=True, timeout=20)
+        except Exception:
+            _primary_failed()
+            raise
+        _primary_ok()
         stats = {}
         for ticker in tickers:
             alias = _INVERTED_BY_PAIR.get(ticker.get("symbol"))
@@ -1938,7 +1943,140 @@ def _market_row(symbol, base, stat, live):
     }
 
 
+# ================= BACKUP FEED (Bybit) =================
+# Binance is the main source. If it keeps failing (blocked IP, a 418/429
+# ban, an outage), the coin list switches by itself to Bybit's public spot
+# tickers: one call per refresh, cached 2s like Binance's, so the load stays
+# tiny however many people are on. Bybit gives price, 24h open / high / low
+# and volume for every pair; coins it doesn't list keep their last Binance
+# price, marked "stale". Charts, order books and 7D/30D stats stay
+# Binance-only. While on the backup, Binance is tried again every 30s and
+# the list switches back as soon as it answers.
+BYBIT_TICKERS_URL = "https://api.bybit.com/v5/market/tickers"
+BACKUP_AFTER_SECONDS = 20     # Binance failing this long -> use the backup
+BACKUP_PROBE_SECONDS = 30     # on the backup: try Binance again this often
+BACKUP_MAX_AGE_SECONDS = 30   # backup prices older than this are not used
+BYBIT_BLOCK_SECONDS = 60      # after a 403 / 418 / 429 leave Bybit alone for a minute
+_primary = {"fail_since": 0.0, "probe_at": 0.0}
+_last_primary = {"coins": {}, "forex": []}  # latest good Binance list
+_bybit_state = {"blocked_until": 0.0, "last_ok": 0.0, "last_error": ""}
+bybit_cache = {}
+
+
+def _primary_ok():
+    _primary["fail_since"] = 0.0
+
+
+def _primary_failed():
+    if not _primary["fail_since"]:
+        _primary["fail_since"] = time.time()
+
+
+def primary_down_for():
+    """Seconds Binance has been failing (0 while it is fine)."""
+    return time.time() - _primary["fail_since"] if _primary["fail_since"] else 0.0
+
+
+def on_backup():
+    return primary_down_for() >= BACKUP_AFTER_SECONDS
+
+
+def _keep_base(base):
+    return bool(base) and base not in EXCLUDED_BASES and not (len(base) > 4 and base.endswith(LEVERAGED_SUFFIXES))
+
+
+def _bybit_tickers():
+    """Bybit spot tickers as {symbol: (open, high, low, quote_volume, last)}."""
+    def fetch():
+        try:
+            if time.time() < _bybit_state["blocked_until"]:
+                raise ValueError("Bybit is paused for a minute")
+            response = requests.get(BYBIT_TICKERS_URL, params={"category": "spot"}, timeout=8)
+            if response.status_code in (403, 418, 429):
+                _bybit_state["blocked_until"] = time.time() + BYBIT_BLOCK_SECONDS
+            response.raise_for_status()
+            body = response.json()
+            if body.get("retCode") != 0:
+                raise ValueError(f"Bybit answered {body.get('retCode')}: {body.get('retMsg')}")
+            out = {}
+            for item in body["result"]["list"]:
+                symbol = item.get("symbol", "")
+                if not symbol.endswith("USDT"):
+                    continue
+                try:
+                    last = float(item["lastPrice"])
+                    open_price = float(item.get("prevPrice24h") or 0)
+                    high = float(item.get("highPrice24h") or 0)
+                    low = float(item.get("lowPrice24h") or 0)
+                    quote_volume = float(item.get("turnover24h") or 0)
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if last > 0 and quote_volume > 0:
+                    out[symbol] = (open_price, high, low, quote_volume, last)
+            if not out:
+                raise ValueError("Bybit returned no USDT pairs")
+            _bybit_state.update(last_ok=time.time(), last_error="")
+            return out
+        except Exception as error:
+            _bybit_state["last_error"] = str(error)[:120]
+            raise
+    data = cached_call(bybit_cache, "spot", MARKETS_CACHE_SECONDS, fetch, max_entries=2)
+    # cached_call hands back the last value when a refresh fails: don't pass old prices off as live.
+    if time.time() - _bybit_state["last_ok"] > BACKUP_MAX_AGE_SECONDS:
+        raise ValueError("Backup prices are too old")
+    return data
+
+
+def _build_markets_from_backup():
+    tickers = _bybit_tickers()
+    known = _last_primary["coins"]
+    rows = {symbol: {**row, "stale": True} for symbol, row in known.items()}
+    for symbol, stat in tickers.items():
+        base = symbol[:-4]
+        if not _keep_base(base) or (known and symbol not in known):
+            continue  # keep the same list as before the switch
+        row = _market_row(symbol, base, stat, {})
+        if row:
+            rows[symbol] = row
+    coins = sorted(rows.values(), key=lambda coin: coin["volume_usdt"], reverse=True)
+    # Currency pairs aren't on Bybit: keep their last prices for open positions, off the card.
+    forex = [{**row, "thin": True, "stale": True} for row in _last_primary["forex"]]
+    rate, rate_source = get_usdt_inr_rate()
+    return {"coins": coins, "count": len(coins), "forex": forex, "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Bybit (backup)", "backup": True, "updated_at": int(time.time())}
+
+
+def _btc_from_backup(now):
+    """BTC for the live broadcast when Binance fails: from the backup tickers, or None."""
+    try:
+        stat = _bybit_tickers().get("BTCUSDT")
+    except (requests.exceptions.RequestException, ValueError, KeyError, TypeError):
+        return None
+    if not stat:
+        return None
+    open_price, _high, _low, _volume, last = stat
+    previous_close = ((price_cache["data"] or {}).get("bitcoin") or {}).get("previous_daily_close") or open_price
+    change = (last - previous_close) / previous_close * 100 if previous_close else 0.0
+    result = {"bitcoin": {"usd": last, "usd_24h_change": change, "price_change_24h_usd": last - open_price, "open_price_24h_usd": open_price, "previous_daily_close": previous_close}, "source": "Bybit (backup)", "daily_change_basis": "Previous completed UTC daily candle close", "cached": False, "backup": True, "updated_at": int(now)}
+    price_cache["data"], price_cache["updated_at"] = result, now
+    return result
+
+
 def build_markets():
+    if on_backup():
+        now = time.time()
+        if now - _primary["probe_at"] >= BACKUP_PROBE_SECONDS:
+            _primary["probe_at"] = now
+            try:
+                _market_stats()  # a real attempt: success clears the failure mark
+            except Exception:
+                pass
+        if on_backup():
+            try:
+                return _build_markets_from_backup()
+            except (requests.exceptions.RequestException, ValueError, KeyError, TypeError) as error:
+                if str(error) != _bybit_state.get("logged") or time.time() - _bybit_state.get("logged_at", 0) > 300:
+                    _bybit_state.update(logged=str(error), logged_at=time.time())  # the same message at most every 5 min
+                    print(f"Backup feed unavailable: {error}")
     symbols = get_usdt_symbols()
     stats = _market_stats()
     live = _live_prices()
@@ -1953,6 +2091,9 @@ def build_markets():
     for row in forex:
         row["thin"] = row["volume_usdt"] < FOREX_MIN_VOLUME_USDT
     rate, rate_source = get_usdt_inr_rate()
+    if not on_backup():
+        _last_primary["coins"] = {coin["symbol"]: coin for coin in coins}
+        _last_primary["forex"] = forex
     return {"coins": coins, "count": len(coins), "forex": forex, "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Binance", "updated_at": int(time.time())}
 
 
@@ -2804,7 +2945,7 @@ def verify_payment(req: PaymentVerifyRequest):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "message": "CryptoDock backend running", "market_data_source": "Binance"}
+    return {"status": "ok", "message": "CryptoDock backend running", "market_data_source": "Bybit (backup)" if on_backup() else "Binance"}
 
 
 _btc_price_lock = threading.Lock()
@@ -2860,6 +3001,10 @@ def stream_stats():
         "binance_weight_limit": 6000,
         "binance_load_percentage": "1.0%",
         "last_broadcast_at": int(price_cache.get("updated_at") or 0),
+        "data_source": "Bybit (backup)" if on_backup() else "Binance",
+        "main_source_failing_for_seconds": int(primary_down_for()),
+        "backup_last_ok_seconds_ago": int(time.time() - _bybit_state["last_ok"]) if _bybit_state["last_ok"] else None,
+        "backup_last_error": _bybit_state["last_error"] or None,
         "app_in_use": app_in_use(),
         "seconds_since_last_activity": int(time.time() - _app_activity["at"]) if _app_activity["at"] else None,
     }
@@ -2888,6 +3033,9 @@ def _fetch_btc_price(now):
         price_cache["data"], price_cache["updated_at"] = result, now
         return result
     except (requests.exceptions.RequestException, ValueError) as error:
+        backup = _btc_from_backup(now)
+        if backup:
+            return backup
         if price_cache["data"]:
             return {**price_cache["data"], "cached": True, "warning": "Live market feed is temporarily unavailable. Showing last saved price."}
         raise HTTPException(status_code=502, detail=f"Failed to fetch BTC price from Binance: {str(error)}") from error
