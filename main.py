@@ -79,7 +79,10 @@ BINANCE_SOFT_SHARE = 0.60   # above this, optional calls wait for the next minut
 BINANCE_HARD_SHARE = 0.85   # above this, even the price list waits
 _binance_lock = threading.Lock()
 _binance_calls = collections.deque()  # (time, weight) of our calls in the last minute
-_binance_state = {"header_used": 0, "header_at": 0.0, "blocked_until": 0.0}
+_binance_state = {"header_used": 0, "header_at": 0.0, "blocked_until": 0.0, "errors": 0}
+BINANCE_BLOCK_PAUSE = 120    # a 403 / 451 (IP or region blocked): no calls for this long, then one try
+BINANCE_ERROR_PAUSE = 30     # 5 network failures in a row: no calls for this long
+BINANCE_ERRORS_BEFORE_PAUSE = 5
 
 
 class BinanceBusy(requests.exceptions.RequestException):
@@ -114,11 +117,27 @@ def binance_get(path, params=None, weight=2, essential=False, timeout=15):
         if _binance_used_locked(now) + weight > BINANCE_WEIGHT_LIMIT * cap:
             raise BinanceBusy("Holding back to stay under Binance's limit")
         _binance_calls.append((now, weight))
-    response = requests.get(f"{BINANCE_BASE_URL}{path}", params=params, timeout=timeout)
+    try:
+        response = requests.get(f"{BINANCE_BASE_URL}{path}", params=params, timeout=timeout)
+    except requests.exceptions.RequestException:
+        with _binance_lock:
+            _binance_state["errors"] += 1
+            if _binance_state["errors"] >= BINANCE_ERRORS_BEFORE_PAUSE:
+                _binance_state["errors"] = 0
+                _binance_state["blocked_until"] = max(_binance_state["blocked_until"], time.time() + BINANCE_ERROR_PAUSE)
+                print(f"Binance unreachable: pausing calls for {BINANCE_ERROR_PAUSE}s")
+        raise
     used = response.headers.get("X-MBX-USED-WEIGHT-1M") or response.headers.get("x-mbx-used-weight-1m")
     with _binance_lock:
+        _binance_state["errors"] = 0
         if used and str(used).isdigit():
             _binance_state["header_used"], _binance_state["header_at"] = int(used), time.time()
+        if response.status_code in (403, 451):
+            # Our IP or region is blocked: stop asking (every screen would keep retrying and
+            # a block that is hammered tends to get longer), then try again after a pause.
+            _binance_state["blocked_until"] = max(_binance_state["blocked_until"], time.time() + BINANCE_BLOCK_PAUSE)
+            print(f"Binance {response.status_code}: pausing calls for {BINANCE_BLOCK_PAUSE}s")
+            raise BinanceBusy(f"Binance answered {response.status_code}")
         if response.status_code in (418, 429):
             try:
                 wait = int(response.headers.get("Retry-After") or 60)
