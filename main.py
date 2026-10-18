@@ -1974,6 +1974,7 @@ SECOND_REFRESH_SECONDS = 15
 SECOND_MAX_AGE_SECONDS = 90
 SECOND_MIN_VOLUME_USDT = 50_000
 SECOND_PRICE_BAND = (0.5, 2.0)
+BACKUP_DISAGREE = 0.02  # Bybit and Gate this far apart on a coin: take the one nearer the last Binance price
 SECOND_BLOCK_SECONDS = 60
 _gate = {"data": {}, "at": 0.0, "busy": False, "blocked_until": 0.0, "last_error": ""}
 
@@ -2101,18 +2102,28 @@ def _build_markets_from_backup():
             rows[symbol] = row
             live += 1
     second = 0
-    if known and any(row.get("stale") for row in rows.values()):
-        gate = _gate_prices()
-        for symbol, row in list(rows.items()):
-            stat = gate.get(symbol)
-            if not row.get("stale") or not stat or stat[3] < SECOND_MIN_VOLUME_USDT:
-                continue
-            ratio = stat[4] / row["price"] if row["price"] else 0
-            if SECOND_PRICE_BAND[0] <= ratio <= SECOND_PRICE_BAND[1]:
+    gate = _gate_prices() if known else {}
+    for symbol, row in list(rows.items()):
+        stat = gate.get(symbol)
+        if not stat or stat[3] < SECOND_MIN_VOLUME_USDT or not row["price"]:
+            continue
+        if row.get("stale"):
+            # Bybit doesn't carry it: Gate fills in, if its price is believable.
+            if SECOND_PRICE_BAND[0] <= stat[4] / row["price"] <= SECOND_PRICE_BAND[1]:
                 fresh = _market_row(symbol, row["base"], stat, {})
                 if fresh:
                     rows[symbol] = fresh
                     second += 1
+        elif abs(stat[4] / row["price"] - 1) > BACKUP_DISAGREE:
+            # Both carry it but disagree (a thin Bybit pair showing an old trade, say):
+            # trust whichever is nearer the last Binance price.
+            before = known[symbol]["price"]
+            if before and abs(stat[4] / before - 1) < abs(row["price"] / before - 1):
+                fresh = _market_row(symbol, row["base"], stat, {})
+                if fresh:
+                    rows[symbol] = fresh
+                    second += 1
+                    live -= 1
     if not live and not second:
         raise ValueError("No backup prices available")
     coins = sorted(rows.values(), key=lambda coin: coin["volume_usdt"], reverse=True)
