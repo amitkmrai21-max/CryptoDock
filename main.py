@@ -3465,101 +3465,128 @@ def sitemap_xml():
 
 
 # ================= GOOGLE PLAY BILLING VERIFICATION =================
+PLAY_PACKAGE_NAME = "com.cryptodock.app"
+PLAY_API_BASE = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications"
 PLAY_PRODUCT_TO_PLAN = {
     "cryptodock_pro_1m": "Monthly Plan",
     "cryptodock_pro_6m": "Half-Yearly Plan",
     "cryptodock_pro_1y": "Annual Plan",
 }
+# CANCELED still means "paid until expiryTime"; PENDING/ON_HOLD/PAUSED/EXPIRED do not unlock Pro.
+PLAY_ENTITLED_STATES = {
+    "SUBSCRIPTION_STATE_ACTIVE",
+    "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+    "SUBSCRIPTION_STATE_CANCELED",
+}
+_play_session = None
+_play_session_lock = threading.Lock()
+
 
 class PlayPurchaseVerifyRequest(BaseModel):
     product_id: str
     purchase_token: str
     order_id: str = ""
-    email: str = ""
-    package_name: str = "com.cryptodock.app"
+
+
+def _play_authed_session():
+    """Google-authenticated requests session for the Play Developer API, or None when not configured."""
+    global _play_session
+    _load_env()
+    path = os.environ.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", "").strip()
+    if not path or not os.path.exists(path):
+        return None
+    with _play_session_lock:
+        if _play_session is None:
+            from google.auth.transport.requests import AuthorizedSession
+            from google.oauth2 import service_account
+
+            credentials = service_account.Credentials.from_service_account_file(
+                path, scopes=["https://www.googleapis.com/auth/androidpublisher"]
+            )
+            _play_session = AuthorizedSession(credentials)
+        return _play_session
+
+
+def _parse_play_time(value):
+    try:
+        return int(datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp())
+    except (TypeError, ValueError):
+        return 0
+
 
 @app.post("/api/billing/verify-play-purchase")
-def verify_play_purchase(req: PlayPurchaseVerifyRequest):
-    """Verifies Google Play In-App Purchase/Subscription token and activates Pro."""
-    _load_env()
-    email = _norm_email(req.email)
-    if not email:
-        raise HTTPException(status_code=400, detail="User email is required.")
+def verify_play_purchase(req: PlayPurchaseVerifyRequest, authorization: str = Header(None)):
+    """Checks a Google Play subscription with Google itself and unlocks Pro for the signed-in user."""
+    email = _session_email(authorization)
 
     plan_name = PLAY_PRODUCT_TO_PLAN.get(req.product_id)
     if not plan_name:
-        raise HTTPException(status_code=400, detail=f"Unrecognized Play product: {req.product_id}")
-
+        raise HTTPException(status_code=400, detail="Unrecognized Play product.")
     plan = PLAN_CATALOG.get(plan_name)
-    if not plan:
-        raise HTTPException(status_code=400, detail="Plan catalog mismatch.")
+    token = req.purchase_token.strip()
+    if not plan or not token or len(token) > 2048:
+        raise HTTPException(status_code=400, detail="Invalid purchase.")
+
+    try:
+        session = _play_authed_session()
+    except Exception as error:
+        print(f"Play billing credentials error: {error}")
+        session = None
+    if session is None:
+        raise HTTPException(status_code=503, detail="Play billing is not available right now.")
+
+    quoted = urllib.parse.quote(token, safe="")
+    try:
+        response = session.get(f"{PLAY_API_BASE}/{PLAY_PACKAGE_NAME}/purchases/subscriptionsv2/tokens/{quoted}", timeout=15)
+    except Exception as error:
+        print(f"Play verify request error: {error}")
+        raise HTTPException(status_code=502, detail="Could not reach Google Play. Try again.") from error
+    if response.status_code in (400, 404, 410):
+        raise HTTPException(status_code=402, detail="Google Play does not know this purchase.")
+    if response.status_code != 200:
+        print(f"Play verify HTTP {response.status_code}: {response.text[:300]}")
+        raise HTTPException(status_code=502, detail="Google Play could not confirm the purchase. Try again.")
+    purchase = response.json()
 
     now = int(time.time())
-    token = req.purchase_token.strip()
-    if not token:
-        raise HTTPException(status_code=400, detail="Purchase token is required.")
+    items = [i for i in (purchase.get("lineItems") or []) if i.get("productId") == req.product_id]
+    expiry = max((_parse_play_time(i.get("expiryTime")) for i in items), default=0)
+    if purchase.get("subscriptionState") not in PLAY_ENTITLED_STATES or not items or expiry <= now:
+        raise HTTPException(status_code=402, detail="This subscription is not active.")
 
-    # Check for Google Play Service Account JSON if configured
-    sa_json_path = os.environ.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
-    if sa_json_path and os.path.exists(sa_json_path):
-        try:
-            from google.oauth2 import service_account
-            from googleapiclient.discovery import build
-            credentials = service_account.Credentials.from_service_account_file(
-                sa_json_path,
-                scopes=["https://www.googleapis.com/auth/androidpublisher"]
-            )
-            publisher = build("androidpublisher", "v3", credentials=credentials)
-            # Verify subscription or inapp purchase
-            res = publisher.purchases().subscriptionsv2().get(
-                packageName=req.package_name,
-                token=token
-            ).execute()
-            sub_state = res.get("subscriptionState")
-            if sub_state not in ("SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"):
-                # Check inapp fallback
-                inapp = publisher.purchases().products().get(
-                    packageName=req.package_name,
-                    productId=req.product_id,
-                    token=token
-                ).execute()
-                if inapp.get("purchaseState") != 0:
-                    raise HTTPException(status_code=400, detail="Purchase is not active according to Google Play.")
-        except HTTPException:
-            raise
-        except Exception as e:
-            # If Google API call fails, log error
-            print(f"Play Developer API verification notice: {e}")
-
-    # Record activation in user database
     with users_write_lock():
         users = _load_users_for_update()
+        for owner, record in users.items():
+            if owner != email and token in (record.get("play_purchase_tokens") or []):
+                raise HTTPException(status_code=409, detail="This purchase belongs to another account.")
         user = users.setdefault(email, {"email": email, "registered_at": now})
-        seen = user.setdefault("play_purchase_tokens", [])
-        start = max(user.get("valid_until_ts") or 0, now)
-        valid_until = start + plan["days"] * 86400
-        
         user.setdefault("created_at", now)
+        seen = user.setdefault("play_purchase_tokens", [])
         if token not in seen:
             seen.append(token)
-            user.update(
-                is_paid=True,
-                plan=plan_name,
-                amount=plan["amount"],
-                paid_at=now,
-                payment_id=req.order_id or token[:24],
-                valid_until_ts=valid_until,
-                billing_provider="google_play"
-            )
-            _save_users(users)
-        else:
-            user["is_paid"] = True
-            user["valid_until_ts"] = max(user.get("valid_until_ts", 0), valid_until)
-            _save_users(users)
+            user["paid_at"] = now
+            user["payment_id"] = req.order_id or token[:24]
+        user.update(
+            is_paid=True,
+            plan=plan_name,
+            amount=plan["amount"],
+            valid_until_ts=max(user.get("valid_until_ts") or 0, expiry),
+            billing_provider="google_play",
+        )
+        _save_users(users)
+        valid_until = user["valid_until_ts"]
 
-    return {
-        "verified": True,
-        "plan": plan_name,
-        "valid_until_ts": user.get("valid_until_ts"),
-        "provider": "google_play"
-    }
+    # Google refunds a subscription that is not acknowledged within 3 days.
+    if purchase.get("acknowledgementState") == "ACKNOWLEDGEMENT_STATE_PENDING":
+        try:
+            ack = session.post(
+                f"{PLAY_API_BASE}/{PLAY_PACKAGE_NAME}/purchases/subscriptions/{req.product_id}/tokens/{quoted}:acknowledge",
+                json={},
+                timeout=15,
+            )
+            if ack.status_code not in (200, 204):
+                print(f"Play acknowledge HTTP {ack.status_code}: {ack.text[:300]}")
+        except Exception as error:
+            print(f"Play acknowledge error: {error}")
+
+    return {"verified": True, "plan": plan_name, "valid_until_ts": valid_until, "provider": "google_play"}
