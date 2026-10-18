@@ -52,7 +52,7 @@
 <ul>
   <li><strong>Account:</strong> your email address (and name, if you sign in with Google) to create your account and keep your trial and plan. Sign-in is handled by our authentication provider, Supabase.</li>
   <li><strong>Plan and trial:</strong> when your free trial started, the plan you bought and until when it is valid.</li>
-  <li><strong>Payments:</strong> payments are processed by Razorpay. We receive the order and payment IDs, amount and status — we never see or store your card, UPI or bank details.</li>
+  <li><strong>Payments:</strong> on the website, payments are processed by Razorpay; in the Android app, subscriptions are billed by Google Play. We receive the order or purchase ID, plan, amount and status (for Google Play, a purchase token that we check with Google) — we never see or store your card, UPI or bank details.</li>
   <li><strong>Paper-trading portfolio:</strong> your virtual funds, open positions and orders are saved on our server against your email, so the same portfolio shows on every phone and browser you sign in on. It is virtual money only.</li>
   <li><strong>On your device only:</strong> your watchlist, price alerts and app settings are stored in your browser/app storage on your device, not on our servers.</li>
   <li><strong>Technical logs:</strong> our server keeps standard request logs (IP address, time, page requested) for security and troubleshooting, kept for a limited time.</li>
@@ -68,7 +68,8 @@
 <h2>Services we use</h2>
 <ul>
   <li><strong>Supabase</strong> — sign-in and account management.</li>
-  <li><strong>Razorpay</strong> — subscription payments.</li>
+  <li><strong>Razorpay</strong> — plan payments on the website.</li>
+  <li><strong>Google Play Billing</strong> — subscription payments inside the Android app.</li>
   <li><strong>Public market data feeds</strong> — live coin prices, charts and order books (no personal data is sent).</li>
   <li><strong>CoinGecko / ExchangeRate-API</strong> — the USDT → INR rate (no personal data is sent).</li>
   <li><strong>TradingView</strong> — chart widgets; it receives market data, not your account details.</li>

@@ -1,7 +1,8 @@
 // CryptoDock Pro: every email gets one 7-day trial, started by the user
 // from the trial card or the Pro status card (the server remembers it for
 // good), then a plan — ₹99 / 1 month, ₹299 / 6 months, ₹499 / 1 year, paid
-// through Razorpay. Pro: paper trading (order ticket, Positions, Orders),
+// through Razorpay on the website and Google Play Billing inside the Android
+// app (Play's rules). Pro: paper trading (order ticket, Positions, Orders),
 // Heatmap, Price Alerts, RRG and News (the cards list these), plus Coin
 // Detail. The Scanner stays free for every signed-in user. Upgrade shows
 // until the trial is started, hides during the trial and a paid plan, and
@@ -22,6 +23,12 @@
     coin: "Coin Detail",
   };
   const PLAN_PRICES = { "Monthly Plan": 99, "Half-Yearly Plan": 299, "Annual Plan": 499 };
+  // Inside the Android app plans are Google Play subscriptions (they renew
+  // until cancelled); on the website they are one-time Razorpay payments.
+  const PLAY_PRODUCTS = { "Monthly Plan": "cryptodock_pro_1m", "Half-Yearly Plan": "cryptodock_pro_6m", "Annual Plan": "cryptodock_pro_1y" };
+  const PLAN_PERIOD = { "Monthly Plan": "month", "Half-Yearly Plan": "6 months", "Annual Plan": "year" };
+  const NATIVE = !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === "android");
+  const iap = () => window.Capacitor?.Plugins?.NativePurchases;
 
   const el = (id) => document.getElementById(id);
   if (!el("cdProGate")) return;
@@ -64,6 +71,7 @@
     renderUpgrade();
     renderStatusCard();
     loginNotice();
+    restorePlay();
   }
 
   // { ok, reason: owner | paid | trial | fresh | signin | expired | plan-expired | checking }
@@ -277,12 +285,13 @@
       const plan = status.plan || "Plan";
       tone = "ok"; icon = "👑"; title = "Plan status: ACTIVE ✓"; sub = `CryptoDock Pro · ${plan}${PLAN_PRICES[plan] ? ` (₹${PLAN_PRICES[plan]})` : ""}`;
       dates = `Valid until <b>${fmtDate(status.valid_until_ts)}</b> · ${left} day${left === 1 ? "" : "s"} remaining`;
-      note = "Your plan is active. Buying again adds to the time you have left.";
+      note = NATIVE ? "Your plan is active and renews automatically until you cancel it in Google Play." : "Your plan is active. Buying again adds to the time you have left.";
       const total = status.paid_at ? Math.max(left, Math.round((status.valid_until_ts - status.paid_at) / DAY)) : left;
       days = { total, used: Math.max(0, total - left), left };
       nextHead = "NEXT PRICE · RENEW OR SWITCH"; nextPick = PLAN_PRICES[plan] ? plan : null;
-      nextNote = `Renewing now adds the new plan's days after ${fmtDate(status.valid_until_ts)}. No auto-renewal.`;
-      primary.textContent = "Extend plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
+      nextNote = NATIVE ? "Manage or cancel the subscription in Google Play → Subscriptions." : `Renewing now adds the new plan's days after ${fmtDate(status.valid_until_ts)}. No auto-renewal.`;
+      primary.textContent = NATIVE ? "Manage in Google Play" : "Extend plan →";
+      primary.onclick = NATIVE ? () => { iap()?.manageSubscriptions?.().catch(() => {}); } : () => { hide("cdProStatus"); openPlans(); };
     } else if (acc.reason === "trial") {
       const total = 7 * 86400, start = status.trial_start_ts || now;
       bar = Math.min(1, Math.max(0, (now - start) / total));
@@ -324,7 +333,7 @@
       } else {
         days = { total: TRIAL_DAYS, used: TRIAL_DAYS, left: 0 }; nextHead = "NEXT PRICE";
       }
-      nextNote = "One-time payment · no auto-renewal.";
+      nextNote = NATIVE ? "Subscription · renews until cancelled in Google Play." : "One-time payment · no auto-renewal.";
       primary.textContent = acc.reason === "plan-expired" ? "Renew plan →" : "Choose a plan →"; primary.onclick = () => { hide("cdProStatus"); openPlans(); };
     }
     banner.className = "cdp-state is-" + tone;
@@ -367,11 +376,14 @@
     el("cdPlansError").hidden = !text;
   }
   function renderPlans() {
-    el("cdPlansPay").textContent = `Pay ₹${PLAN_PRICES[selectedPlan()]} securely`;
+    const picked = selectedPlan();
+    el("cdPlansPay").textContent = NATIVE
+      ? `Subscribe · ${playPrice(picked)} / ${PLAN_PERIOD[picked]}`
+      : `Pay ₹${PLAN_PRICES[picked]} securely`;
     const acc = access();
     const until = status && status.valid_until_ts ? new Date(status.valid_until_ts * 1000).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "";
     el("cdPlansStatus").textContent =
-      acc.reason === "paid" ? `Your plan is active until ${until}. Buying again adds to it.` :
+      acc.reason === "paid" ? (NATIVE ? `Your plan is active until ${until}.` : `Your plan is active until ${until}. Buying again adds to it.`) :
       acc.reason === "trial" ? `Free trial: ${acc.daysLeft} day${acc.daysLeft === 1 ? "" : "s"} left.` :
       acc.reason === "plan-expired" ? `Your plan ended on ${until}.` :
       acc.reason === "signin" ? "Sign in first — your plan is tied to your email." :
@@ -381,6 +393,15 @@
     plansError("");
     renderPlans();
     show("cdPlans");
+    if (NATIVE && iap() && !playOffers) loadPlayOffers().then(showPlayPrices).catch(() => {});
+  }
+  // Show the prices Google Play will charge (local currency, taxes included).
+  function showPlayPrices() {
+    document.querySelectorAll('input[name="cdPlan"]').forEach((r) => {
+      const b = r.closest(".cdp-plan")?.querySelector(".cdp-plan-price b");
+      if (b) b.textContent = playPrice(r.value);
+    });
+    renderPlans();
   }
 
   function loadRazorpay() {
@@ -394,12 +415,93 @@
     });
   }
 
+  // ---------- Google Play Billing (Android app only) ----------
+  let playOffers = null; // product id -> { plan, token, price }
+  const playPrice = (planName) => playOffers?.[PLAY_PRODUCTS[planName]]?.price || `₹${PLAN_PRICES[planName]}`;
+  async function loadPlayOffers() {
+    if (playOffers) return playOffers;
+    const { products } = await iap().getProducts({ productIdentifiers: Object.values(PLAY_PRODUCTS), productType: "subs" });
+    const found = {};
+    (products || []).forEach((p) => {
+      const id = p.planIdentifier;
+      // The plain base plan (no promo offer) of each subscription.
+      if (id && !found[id] && !p.offerId) found[id] = { plan: p.identifier, token: p.offerToken, price: p.priceString };
+    });
+    playOffers = found;
+    return found;
+  }
+  async function getAccessToken() {
+    try {
+      const { data } = await window.marketDockSupabase.auth.getSession();
+      return data?.session?.access_token || "";
+    } catch (e) { return ""; }
+  }
+  // Google confirms the purchase to our server; only then is Pro unlocked.
+  async function verifyPlay(productId, purchaseToken, orderId) {
+    const token = await getAccessToken();
+    if (!token) throw new Error("Please sign in again, then reopen this screen.");
+    const res = await fetch("/api/billing/verify-play-purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify({ product_id: productId, purchase_token: purchaseToken, order_id: orderId || "" }),
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(result.detail || "Could not confirm the purchase.");
+    return result;
+  }
+  async function payNative(planName) {
+    const productId = PLAY_PRODUCTS[planName];
+    const offers = await loadPlayOffers();
+    const offer = offers[productId];
+    if (!offer) throw new Error("This plan is not available in Google Play yet. Please try again later.");
+    let tx;
+    try {
+      // The server acknowledges the purchase after Google confirms it.
+      tx = await iap().purchaseProduct({ productIdentifier: productId, planIdentifier: offer.plan, offerToken: offer.token, productType: "subs", autoAcknowledgePurchases: false });
+    } catch (error) {
+      const msg = String(error?.message || error || "");
+      if (/cancel/i.test(msg)) return; // closed the Google Play sheet
+      if (/pending/i.test(msg)) throw new Error("Your payment is pending. Pro unlocks as soon as Google Play confirms it.");
+      if (/already.*(own|subscri)/i.test(msg)) throw new Error("You already have this subscription. Reopen the app to refresh it.");
+      throw new Error(msg || "Google Play could not complete the purchase.");
+    }
+    try {
+      const result = await verifyPlay(productId, tx.purchaseToken, tx.orderId);
+      await sync();
+      hide("cdPlans");
+      showDone(`Subscription started 🎉 CryptoDock Pro is active until ${fmtDate(result.valid_until_ts)}.`);
+    } catch (error) {
+      throw new Error(`${error.message} Your purchase is safe — it is retried when you reopen the app.`);
+    }
+  }
+  // On launch (and sign-in) re-check Google Play purchases: this renews the
+  // plan after each automatic renewal and restores it on a new phone.
+  let restoredFor = "";
+  async function restorePlay() {
+    if (!NATIVE || !iap() || !email || hasFullAccess(email) || restoredFor === email) return;
+    restoredFor = email;
+    try {
+      const { purchases } = await iap().getPurchases({ productType: "subs" });
+      const ids = Object.values(PLAY_PRODUCTS);
+      let changed = false;
+      for (const p of purchases || []) {
+        if (!ids.includes(p.productIdentifier) || String(p.purchaseState) !== "1" || !p.purchaseToken) continue;
+        try { await verifyPlay(p.productIdentifier, p.purchaseToken, p.orderId); changed = true; } catch (e) { /* not ours / expired */ }
+      }
+      if (changed) await sync();
+    } catch (e) { restoredFor = ""; }
+  }
+
   async function pay() {
     if (!email) { hide("cdPlans"); showGate({ reason: "signin" }, "CryptoDock Pro"); return; }
     const planName = selectedPlan();
     const btn = el("cdPlansPay");
     btn.disabled = true;
     plansError("");
+    if (NATIVE) {
+      try { await payNative(planName); } catch (error) { plansError(error.message || "Could not start the purchase."); } finally { btn.disabled = false; renderPlans(); }
+      return;
+    }
     try {
       const res = await fetch("/api/payment/create-order", {
         method: "POST",
@@ -453,6 +555,17 @@
     el("cdProGatePrimary").textContent = "Start paper trading";
     el("cdProGatePrimary").onclick = () => hide("cdProGate");
     show("cdProGate");
+  }
+
+  // ---------- Android app: wording for Google Play subscriptions ----------
+  if (NATIVE) {
+    document.querySelectorAll(".cdp-pay-row").forEach((n) => { n.innerHTML = "<span>🔒 Secured by Google Play</span>"; });
+    document.querySelectorAll(".cdp-trust").forEach((n) => {
+      n.textContent = "🔒 Billed by Google Play · Renews automatically · Cancel any time in Google Play → Subscriptions";
+    });
+    document.querySelectorAll(".cdp-note").forEach((n) => {
+      if (/auto-renewal/i.test(n.textContent)) n.innerHTML = "<span>✓</span>No payment during the trial. Subscribe now or any time later from Upgrade.";
+    });
   }
 
   // ---------- events ----------
