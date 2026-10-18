@@ -3252,6 +3252,7 @@ def delete_account(authorization: str = Header(None)):
         )
         user_response.raise_for_status()
         user_id = user_response.json().get("id")
+        user_email = user_response.json().get("email")
         if not user_id:
             raise HTTPException(status_code=401, detail="Could not verify account session.")
     except HTTPException:
@@ -3277,7 +3278,25 @@ def delete_account(authorization: str = Header(None)):
         print(f"Supabase account delete error: {error}")
         raise HTTPException(status_code=502, detail="Account deletion failed. Please try again.") from error
 
+    # The login is gone; the paper-trading portfolio saved on our server for this email goes too.
+    # (Only the "this email already used its free trial" record stays, as the privacy policy says.)
+    try:
+        _forget_paper_portfolio(user_email)
+    except Exception as error:
+        print(f"Paper portfolio cleanup after account delete failed: {error}")
+
     return {"deleted": True}
+
+
+def _forget_paper_portfolio(email):
+    email = _norm_email(email)
+    if not email:
+        return
+    with paper_write_lock():
+        data = _load_paper()
+        if email in data:
+            del data[email]
+            _save_paper(data)
 
 
 # ---------- Paper trading portfolio sync (one portfolio per signed-in email) ----------
