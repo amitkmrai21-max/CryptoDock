@@ -1961,6 +1961,21 @@ _primary = {"fail_since": 0.0, "probe_at": 0.0}
 _last_primary = {"coins": {}, "forex": []}  # latest good Binance list
 _bybit_state = {"blocked_until": 0.0, "last_ok": 0.0, "last_error": ""}
 bybit_cache = {}
+BACKUP_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; CryptoDock/1.0)"}  # some exchanges refuse the default Python agent
+
+# Second layer: Bybit lacks about half of Binance's coins (ZEC, TAO, ...).
+# Only for coins Bybit doesn't carry, Gate's public spot tickers fill in,
+# with two checks against bad prices on thin pairs or look-alike tickers:
+# at least 50k USDT of 24h volume, and a price within half to double of the
+# last known one. Gate's answer is big (~0.5 MB) and slow (~3 s), so it is
+# fetched in the background every 15s and never waited on.
+GATE_TICKERS_URL = "https://api.gateio.ws/api/v4/spot/tickers"
+SECOND_REFRESH_SECONDS = 15
+SECOND_MAX_AGE_SECONDS = 90
+SECOND_MIN_VOLUME_USDT = 50_000
+SECOND_PRICE_BAND = (0.5, 2.0)
+SECOND_BLOCK_SECONDS = 60
+_gate = {"data": {}, "at": 0.0, "busy": False, "blocked_until": 0.0, "last_error": ""}
 
 
 def _primary_ok():
@@ -1991,7 +2006,7 @@ def _bybit_tickers():
         try:
             if time.time() < _bybit_state["blocked_until"]:
                 raise ValueError("Bybit is paused for a minute")
-            response = requests.get(BYBIT_TICKERS_URL, params={"category": "spot"}, timeout=8)
+            response = requests.get(BYBIT_TICKERS_URL, params={"category": "spot"}, headers=BACKUP_HEADERS, timeout=8)
             if response.status_code in (403, 418, 429):
                 _bybit_state["blocked_until"] = time.time() + BYBIT_BLOCK_SECONDS
             response.raise_for_status()
@@ -2027,10 +2042,56 @@ def _bybit_tickers():
     return data
 
 
+def _gate_refresh():
+    """Runs in a background thread: fetch Gate's spot tickers into _gate."""
+    try:
+        if time.time() < _gate["blocked_until"]:
+            return
+        response = requests.get(GATE_TICKERS_URL, headers=BACKUP_HEADERS, timeout=12)
+        if response.status_code in (403, 418, 429):
+            _gate["blocked_until"] = time.time() + SECOND_BLOCK_SECONDS
+        response.raise_for_status()
+        out = {}
+        for item in response.json():
+            pair = item.get("currency_pair", "")
+            if not pair.endswith("_USDT"):
+                continue
+            try:
+                last = float(item["last"])
+                change = float(item.get("change_percentage") or 0)
+                high = float(item.get("high_24h") or 0)
+                low = float(item.get("low_24h") or 0)
+                quote_volume = float(item.get("quote_volume") or 0)
+            except (KeyError, TypeError, ValueError):
+                continue
+            if last > 0 and quote_volume > 0 and change > -99:
+                out[pair[:-5] + "USDT"] = (last / (1 + change / 100), high, low, quote_volume, last)
+        if not out:
+            raise ValueError("Gate returned no USDT pairs")
+        _gate.update(data=out, at=time.time(), last_error="")
+    except Exception as error:
+        _gate["last_error"] = str(error)[:120]
+    finally:
+        _gate["busy"] = False
+
+
+def _gate_prices():
+    """Gate's latest tickers ({} until the first fetch lands or when they are old). Never waits."""
+    now = time.time()
+    if now - _gate["at"] >= SECOND_REFRESH_SECONDS and not _gate["busy"]:
+        _gate["busy"] = True
+        threading.Thread(target=_gate_refresh, name="gate-backup", daemon=True).start()
+    return _gate["data"] if now - _gate["at"] <= SECOND_MAX_AGE_SECONDS else {}
+
+
 def _build_markets_from_backup():
-    tickers = _bybit_tickers()
+    try:
+        tickers = _bybit_tickers()
+    except (requests.exceptions.RequestException, ValueError, KeyError, TypeError):
+        tickers = {}  # Bybit down too: the second layer may still help
     known = _last_primary["coins"]
     rows = {symbol: {**row, "stale": True} for symbol, row in known.items()}
+    live = 0
     for symbol, stat in tickers.items():
         base = symbol[:-4]
         if not _keep_base(base) or (known and symbol not in known):
@@ -2038,11 +2099,28 @@ def _build_markets_from_backup():
         row = _market_row(symbol, base, stat, {})
         if row:
             rows[symbol] = row
+            live += 1
+    second = 0
+    if known and any(row.get("stale") for row in rows.values()):
+        gate = _gate_prices()
+        for symbol, row in list(rows.items()):
+            stat = gate.get(symbol)
+            if not row.get("stale") or not stat or stat[3] < SECOND_MIN_VOLUME_USDT:
+                continue
+            ratio = stat[4] / row["price"] if row["price"] else 0
+            if SECOND_PRICE_BAND[0] <= ratio <= SECOND_PRICE_BAND[1]:
+                fresh = _market_row(symbol, row["base"], stat, {})
+                if fresh:
+                    rows[symbol] = fresh
+                    second += 1
+    if not live and not second:
+        raise ValueError("No backup prices available")
     coins = sorted(rows.values(), key=lambda coin: coin["volume_usdt"], reverse=True)
-    # Currency pairs aren't on Bybit: keep their last prices for open positions, off the card.
+    # Currency pairs aren't on the backups: keep their last prices for open positions, off the card.
     forex = [{**row, "thin": True, "stale": True} for row in _last_primary["forex"]]
     rate, rate_source = get_usdt_inr_rate()
-    return {"coins": coins, "count": len(coins), "forex": forex, "usdt_inr": rate, "usdt_inr_source": rate_source, "source": "Bybit (backup)", "backup": True, "updated_at": int(time.time())}
+    source = "Bybit + Gate (backup)" if live and second else "Gate (backup)" if second else "Bybit (backup)"
+    return {"coins": coins, "count": len(coins), "forex": forex, "usdt_inr": rate, "usdt_inr_source": rate_source, "source": source, "backup": True, "updated_at": int(time.time())}
 
 
 def _btc_from_backup(now):
@@ -3005,6 +3083,9 @@ def stream_stats():
         "main_source_failing_for_seconds": int(primary_down_for()),
         "backup_last_ok_seconds_ago": int(time.time() - _bybit_state["last_ok"]) if _bybit_state["last_ok"] else None,
         "backup_last_error": _bybit_state["last_error"] or None,
+        "second_backup_coins": len(_gate["data"]),
+        "second_backup_last_ok_seconds_ago": int(time.time() - _gate["at"]) if _gate["at"] else None,
+        "second_backup_last_error": _gate["last_error"] or None,
         "app_in_use": app_in_use(),
         "seconds_since_last_activity": int(time.time() - _app_activity["at"]) if _app_activity["at"] else None,
     }
