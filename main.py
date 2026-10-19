@@ -2876,7 +2876,8 @@ def get_owner_analytics(authorization: str = Header(None)):
     now = int(time.time())
     active_subscribers = 0
     total_paid_ever = 0
-    for u in users.values():
+    subscribers_list = []
+    for email, u in users.items():
         if not isinstance(u, dict):
             continue
         is_paid = bool(u.get("is_paid", False))
@@ -2884,8 +2885,26 @@ def get_owner_analytics(authorization: str = Header(None)):
         has_payments = bool(u.get("payment_ids") or u.get("play_purchase_tokens") or (is_paid and valid_until > 0))
         if has_payments:
             total_paid_ever += 1
+            plan_name = u.get("plan") or "Pro Plan"
+            amount = u.get("amount")
+            if not amount:
+                if "Annual" in str(plan_name):
+                    amount = 499
+                elif "Half" in str(plan_name):
+                    amount = 299
+                else:
+                    amount = 99
+            subscribers_list.append({
+                "email": email,
+                "plan": plan_name,
+                "amount": int(amount),
+                "is_active": bool(is_paid and valid_until > now),
+                "valid_until_ts": valid_until,
+                "paid_at": u.get("paid_at") or 0,
+            })
         if is_paid and valid_until > now:
             active_subscribers += 1
+    subscribers_list.sort(key=lambda s: (s.get("is_active", False), s.get("paid_at", 0)), reverse=True)
     supabase_count = 0
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if service_key:
@@ -2907,6 +2926,7 @@ def get_owner_analytics(authorization: str = Header(None)):
         "total_registered": total_registered,
         "total_subscribers": total_paid_ever,
         "active_subscribers": active_subscribers,
+        "subscribers": subscribers_list,
         "timestamp": now,
     }
 
