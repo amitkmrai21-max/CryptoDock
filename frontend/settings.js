@@ -137,4 +137,19 @@
   window.addEventListener("cd-auth-state", function() {
     setTimeout(checkAndSyncOwnerStats, 150);
   });
+
+  // "Help & Support": opens the user's email app with a ready message to the
+  // developer. Nothing is sent through our server.
+  function updateSupportLink() {
+    const link = document.getElementById("cdSupportLink");
+    if (!link) return;
+    let mail = "";
+    try { mail = window.cdUserEmail || localStorage.getItem("cdUserEmail") || ""; } catch (e) { /* ignore */ }
+    const app = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() ? "Android app" : "website";
+    const body = "Describe your problem here:\n\n\n\n---\nAccount: " + (mail || "not signed in") + "\nUsing: " + app;
+    link.href = "mailto:amitkmrai21@gmail.com?subject=" + encodeURIComponent("CryptoDock Support") + "&body=" + encodeURIComponent(body);
+  }
+  document.addEventListener("DOMContentLoaded", updateSupportLink);
+  window.addEventListener("cd-user-changed", updateSupportLink);
+  window.addEventListener("cd-auth-state", updateSupportLink);
 })();
