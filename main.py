@@ -3438,6 +3438,11 @@ def privacy_page():
     return FileResponse("frontend/legal/privacy.html", media_type="text/html")
 
 
+@app.get("/delete-account")
+def delete_account_page():
+    return FileResponse("frontend/legal/delete-account.html", media_type="text/html")
+
+
 @app.get("/terms")
 def terms_page():
     return FileResponse("frontend/legal/terms.html", media_type="text/html")

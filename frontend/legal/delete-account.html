@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Delete your account — CryptoDock</title>
+<link rel="icon" type="image/png" href="/frontend/favicon.png?v=v3" />
+<style>
+  :root { --bg:#0c0a14; --surface:#14111f; --text:#ede9fe; --muted:#a59cc4; --accent:#a78bfa; --border:#262138; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg:#f5f7fb; --surface:#ffffff; --text:#0f172a; --muted:#4b5875; --accent:#6d28d9; --border:#e2e8f0; } }
+  :root[data-theme="light"], body[data-theme="light"] { --bg:#f5f7fb; --surface:#ffffff; --text:#0f172a; --muted:#4b5875; --accent:#6d28d9; --border:#e2e8f0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  a { color:var(--accent); }
+  h1 { font-size:28px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:28px 0 8px; }
+  .meta { color:var(--muted); font-size:14px; margin:0 0 20px; }
+  .note { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; }
+  ul { padding-left:20px; }
+  footer { margin-top:36px; color:var(--muted); font-size:14px; }
+</style>
+
+<script>
+  (function() {
+    try {
+      const p = JSON.parse(localStorage.getItem("btcAiSignalDashboardPreferences") || "{}");
+      if (p.theme === "light") document.documentElement.setAttribute("data-theme", "light");
+      else if (p.theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    } catch(e) {}
+  })();
+</script>
+<style>
+  html[data-theme="light"], body[data-theme="light"] {
+    --bg: #f8fafc !important;
+    --surface: #ffffff !important;
+    --text: #0f172a !important;
+    --muted: #475569 !important;
+    --accent: #0284c7 !important;
+    --border: #e2e8f0 !important;
+  }
+</style>
+
+</head>
+<body><main>
+<p><a href="/">← Back to CryptoDock</a></p>
+<h1>Delete your CryptoDock account</h1>
+<p class="meta">CryptoDock (crypto.marketdock.in) · Last updated: 19 October 2026</p>
+
+<h2>Option 1 — delete it yourself in the app (fastest)</h2>
+<ol>
+  <li>Open CryptoDock (the Android app or <a href="/">crypto.marketdock.in</a>) and sign in.</li>
+  <li>Open <strong>Settings → Account → Delete Account</strong>.</li>
+  <li>Confirm. Your account is deleted straight away.</li>
+</ol>
+
+<h2>Option 2 — ask us by email</h2>
+<p>If you cannot sign in, email <a href="mailto:amitkmrai21@gmail.com?subject=CryptoDock%20account%20deletion">amitkmrai21@gmail.com</a> from the email address of your account with the subject "CryptoDock account deletion". We delete the account within 7 days and reply when it is done.</p>
+
+<h2>What is deleted</h2>
+<ul>
+  <li>Your login (email address, name and sign-in details).</li>
+  <li>Your paper-trading portfolio saved on our server: virtual funds, positions and orders.</li>
+  <li>Data stored on your device (watchlist, price alerts, settings) is removed when you clear the app's data or uninstall the app.</li>
+</ul>
+
+<h2>What we keep, and for how long</h2>
+<ul>
+  <li>A record that your email address has already used the 7-day free trial, so the trial cannot be repeated. It contains no trading data.</li>
+  <li>Payment records (plan, amount, date and payment or purchase ID), only as long as accounting and tax law require.</li>
+  <li>Standard server request logs are removed automatically after a short time.</li>
+</ul>
+
+<h2>Subscriptions</h2>
+<p>Deleting your account does not cancel a Google Play subscription. Cancel it first in Google Play → Payments &amp; subscriptions → Subscriptions → CryptoDock.</p>
+
+<footer>CryptoDock · crypto.marketdock.in · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Use</a></footer>
+</main></body></html>
