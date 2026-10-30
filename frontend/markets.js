@@ -400,6 +400,15 @@
       ordered.slice(i * WL_SIZE, i === WL_COUNT - 1 ? ordered.length : (i + 1) * WL_SIZE));
   }
 
+  // The track is as tall as its tallest list, so a short list (the last one, say) left a big
+  // empty space under it. Keep the track exactly as tall as the list on screen; the lists next
+  // to it are only clipped, and the height follows as soon as you settle on another one.
+  function syncTrackHeight() {
+    if (!wlTrack || wlTrack.hidden) return;
+    const slide = wlTrack.querySelector(`[data-wl-slide="${wlIndex}"]`);
+    if (slide && slide.offsetHeight) wlTrack.style.height = slide.offsetHeight + "px";
+  }
+
   function buildTrack() {
     if (wlBuilt || !wlTrack) return;
     const head = dashBody.closest("table").querySelector("thead").outerHTML;
@@ -409,6 +418,10 @@
           <tr><td colspan="7" class="cd-empty">Loading coins…</td></tr></tbody></table></div>
       </div>`).join("");
     wlBuilt = true;
+    if (typeof ResizeObserver === "function") {
+      const heightObserver = new ResizeObserver(syncTrackHeight);
+      wlTrack.querySelectorAll(".cd-wl-slide").forEach((slide) => heightObserver.observe(slide));
+    }
     let ticking = false;
     wlTrack.addEventListener("scroll", () => {
       wlScrollingUntil = Date.now() + 250;
@@ -423,6 +436,7 @@
           wlIndex = next;
           syncWlHeader();
           renderWlSlides();
+          syncTrackHeight();
         }
       });
     }, { passive: true });
@@ -440,6 +454,7 @@
     }
     wlAllRendered = true;
     syncWlHeader(lists);
+    syncTrackHeight();
   }
 
   function syncWlHeader(lists) {
