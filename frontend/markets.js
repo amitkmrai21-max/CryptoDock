@@ -143,10 +143,36 @@
     });
   }
 
+  // A small arrow in front of BULLISH / BEARISH when the score is strong (70+ or 30-).
+  // It follows what the price is doing right now, not the score: at 70+ it points up while
+  // the price rises and flips down as soon as it falls (a holder sees the drop even though
+  // the score is still high); at 30- it points down, and flips up when the price rises.
+  // Between 30 and 70 there is no arrow.
+  const momLastPrice = {};
+  const momDirection = {};
+
+  function momArrow(coin) {
+    const key = coin.base || coin.symbol;
+    const price = Number(coin.price);
+    if (key && Number.isFinite(price) && price > 0) {
+      const last = momLastPrice[key];
+      if (last !== undefined && price !== last) momDirection[key] = price > last ? 1 : -1;
+      momLastPrice[key] = price;
+    }
+    const score = Number(coin.momentum);
+    if (!Number.isFinite(score)) return "";
+    const strong = score >= 70 ? 1 : score <= 30 ? -1 : 0;
+    if (!strong) return "";
+    const dir = (key && momDirection[key]) || strong; // no move seen yet: point the way the score points
+    const up = dir > 0;
+    const hint = up ? "Price is rising now" : "Price is falling now";
+    return `<i class="cd-mom-arrow ${up ? "is-up" : "is-down"}" title="${hint}" aria-label="${hint}">${up ? "▲" : "▼"}</i>`;
+  }
+
   function momPill(coin) {
     const label = coin.momentum_label || "NEUTRAL";
     const tone = label === "BULLISH" ? "is-bull" : label === "BEARISH" ? "is-bear" : "is-neutral";
-    return `<span class="cd-mom-pill ${tone}"><span class="cd-mom-txt">${label}</span><b class="cd-mom-bubble">${coin.momentum ?? "--"}</b></span>`;
+    return `<span class="cd-mom-pill ${tone}">${momArrow(coin)}<span class="cd-mom-txt">${label}</span><b class="cd-mom-bubble">${coin.momentum ?? "--"}</b></span>`;
   }
 
   // ---------- rendering ----------
