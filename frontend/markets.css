@@ -2025,15 +2025,10 @@ html.cd-welcome-open, html.cd-welcome-open body { overflow: hidden; }
   position: relative;
   overflow: hidden;
 }
+/* Top colorful line removed */
 .cd-sentiment-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #10b981 100%);
-  opacity: 0.8;
+  display: none !important;
+  content: none !important;
 }
 .cd-sentiment-header {
   display: flex;
@@ -2545,3 +2540,239 @@ body[data-theme="light"] .disclaimer-card a {
 .cd-mom-pill.is-neutral .cd-mom-arrow.is-down { color: #f87171; }
 body[data-theme="light"] .cd-table .cd-mom-pill.is-bull .cd-mom-arrow.is-down,
 body[data-theme="light"] .cd-table .cd-mom-pill.is-bear .cd-mom-arrow.is-up { text-shadow: none; }
+
+
+/* ============================================================
+   Unified Soft Card Background Tints (Dark & Daylight Themes)
+   ============================================================ */
+
+/* --- DARK THEME TINTS --- */
+.cd-ticker-card,
+body:not([data-theme="light"]) .cd-ticker-card {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.65) 0%, rgba(15, 23, 42, 0.82) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.cd-shortcuts-dock,
+body:not([data-theme="light"]) .cd-shortcuts-dock {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.65) 0%, rgba(15, 23, 42, 0.82) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.cd-sentiment-card,
+body:not([data-theme="light"]) .cd-sentiment-card {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.65) 0%, rgba(15, 23, 42, 0.82) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.cd-feature,
+body:not([data-theme="light"]) .cd-feature {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.82) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.cd-panel,
+body:not([data-theme="light"]) .cd-panel {
+  background: linear-gradient(180deg, rgba(30, 27, 75, 0.6) 0%, rgba(15, 23, 42, 0.82) 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Gainers (Soft Green) & Losers (Soft Red) in Dark Theme */
+.cd-mover-panel.is-up,
+body:not([data-theme="light"]) .cd-mover-panel.is-up {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.18) 0%, rgba(15, 23, 42, 0.85) 75%) !important;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.22), 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+.cd-mover-panel.is-down,
+body:not([data-theme="light"]) .cd-mover-panel.is-down {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.18) 0%, rgba(15, 23, 42, 0.85) 75%) !important;
+  border: 1.5px solid #ef4444 !important;
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.22), 0 8px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* Mini coins inside panel (Dark) */
+body:not([data-theme="light"]) .cd-mini-coin {
+  background: rgba(30, 27, 75, 0.5) !important;
+  border: 1px solid rgba(139, 92, 246, 0.25) !important;
+}
+body:not([data-theme="light"]) .cd-mini-coin.is-up {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.16) 0%, rgba(20, 17, 34, 0.85) 100%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+body:not([data-theme="light"]) .cd-mini-coin.is-down {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.16) 0%, rgba(20, 17, 34, 0.85) 100%) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+
+/* --- DAY LIGHT (LIGHT THEME) SOFT TINTS --- */
+body[data-theme="light"] .cd-hero {
+  background: radial-gradient(120% 140% at 100% 100%, rgba(16, 185, 129, 0.12), transparent 55%),
+              radial-gradient(120% 140% at 0% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
+              linear-gradient(135deg, #ede9fe 0%, #f5f3ff 50%, #e0e7ff 100%) !important;
+  border: 1px solid #c7d2fe !important;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.1) !important;
+}
+body[data-theme="light"] .cd-hero h2 { color: #1e1b4b !important; }
+body[data-theme="light"] .cd-hero p { color: #4338ca !important; }
+
+body[data-theme="light"] .cd-ticker-card {
+  background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 100%) !important;
+  border: 1px solid #c7d2fe !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08) !important;
+}
+
+body[data-theme="light"] .cd-shortcuts-dock {
+  background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%) !important;
+  border: 1px solid #c7d2fe !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08) !important;
+}
+body[data-theme="light"] .cd-shortcuts-dock .cd-shortcut-btn {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+body[data-theme="light"] .cd-sentiment-card {
+  background: linear-gradient(180deg, #faf5ff 0%, #ffffff 100%) !important;
+  border: 1px solid #e9d5ff !important;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.08) !important;
+}
+
+body[data-theme="light"] .cd-feature {
+  background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%) !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08) !important;
+}
+
+/* Gainers (Soft Green) & Losers (Soft Red) in Light Theme */
+body[data-theme="light"] .cd-mover-panel.is-up {
+  background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 75%) !important;
+  border: 1.5px solid #10b981 !important;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.18) !important;
+}
+
+body[data-theme="light"] .cd-mover-panel.is-down {
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 75%) !important;
+  border: 1.5px solid #ef4444 !important;
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.18) !important;
+}
+
+body[data-theme="light"] .cd-panel {
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%) !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08) !important;
+}
+
+/* Mini coins inside panel (Light) */
+body[data-theme="light"] .cd-mini-coin {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+body[data-theme="light"] .cd-mini-coin.is-up {
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%) !important;
+  border: 1px solid #bbf7d0 !important;
+}
+body[data-theme="light"] .cd-mini-coin.is-down {
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%) !important;
+  border: 1px solid #fecaca !important;
+}
+
+
+/* ===== GAINERS & LOSERS SUBTLE BORDER TINT ===== */
+.top-gainers-card,
+[data-card="gainers"],
+.gainers-card,
+#topGainersCard {
+    border: 1px solid rgba(34, 197, 94, 0.28) !important;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.05) !important;
+}
+
+.top-losers-card,
+[data-card="losers"],
+.losers-card,
+#topLosersCard {
+    border: 1px solid rgba(239, 68, 68, 0.28) !important;
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.05) !important;
+}
+
+[data-theme="light"] .top-gainers-card,
+[data-theme="light"] [data-card="gainers"],
+[data-theme="light"] .gainers-card,
+[data-theme="light"] #topGainersCard {
+    border: 1px solid rgba(34, 197, 94, 0.35) !important;
+    box-shadow: 0 2px 12px rgba(34, 197, 94, 0.08) !important;
+}
+
+[data-theme="light"] .top-losers-card,
+[data-theme="light"] [data-card="losers"],
+[data-theme="light"] .losers-card,
+[data-theme="light"] #topLosersCard {
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.08) !important;
+}
+
+/* Softer Gainers/Losers borders: keep existing green/red card backgrounds */
+.cd-mover-panel.is-up {
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+  box-shadow: none !important;
+}
+.cd-mover-panel.is-down {
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+  box-shadow: none !important;
+}
+body[data-theme="light"] .cd-mover-panel.is-up {
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+  box-shadow: none !important;
+}
+body[data-theme="light"] .cd-mover-panel.is-down {
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+  box-shadow: none !important;
+}
+
+/* Restore a soft green/red shadow while keeping the border thin */
+.cd-mover-panel.is-up {
+  border: 1px solid rgba(16, 185, 129, 0.22) !important;
+  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.08) !important;
+}
+.cd-mover-panel.is-down {
+  border: 1px solid rgba(239, 68, 68, 0.22) !important;
+  box-shadow: 0 3px 12px rgba(239, 68, 68, 0.08) !important;
+}
+
+
+/* ===== DAY LIGHT THEME: RESTORE FULL CARD DEPTH & SHADOWS ===== */
+body[data-theme="light"] .cd-ticker-card,
+body[data-theme="light"] .cd-hero,
+body[data-theme="light"] .cd-shortcuts-dock,
+body[data-theme="light"] .cd-sentiment-card,
+body[data-theme="light"] .cd-feature,
+body[data-theme="light"] .cd-mover-panel,
+body[data-theme="light"] .cd-panel,
+body[data-theme="light"] .card,
+body[data-theme="light"] .cd-table-card,
+body[data-theme="light"] .cd-pos-card,
+body[data-theme="light"] .cd-set-card {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Individual coin boxes inside Forex, Commodity, Crypto Market */
+body[data-theme="light"] .cd-mini-coin {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Gainers (Soft Green) & Losers (Soft Red) with matching subtle shadows */
+body[data-theme="light"] .cd-mover-panel.is-up {
+  border: 1px solid rgba(16, 185, 129, 0.28) !important;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.12), 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+body[data-theme="light"] .cd-mover-panel.is-down {
+  border: 1px solid rgba(239, 68, 68, 0.28) !important;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.12), 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
