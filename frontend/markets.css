@@ -2776,3 +2776,26 @@ body[data-theme="light"] .cd-mover-panel.is-down {
   border: 1px solid rgba(239, 68, 68, 0.28) !important;
   box-shadow: 0 4px 20px rgba(239, 68, 68, 0.12), 0 1px 4px rgba(0, 0, 0, 0.04) !important;
 }
+
+/* Orders > Trades: Entry / Exit boxes in the light theme (they stayed near-black) */
+body[data-theme="light"] .cd-trade-legs > div {
+  background: #f1f5f9;
+  border: 1px solid #dbe3ee;
+  box-shadow: none;
+}
+body[data-theme="light"] .cd-trade-legs > div:first-child { background: #eef4ff; border-color: #cfdcf5; }
+body[data-theme="light"] .cd-trade-legs span { color: #64748b; }
+body[data-theme="light"] .cd-trade-legs strong { color: #0f172a; }
+body[data-theme="light"] .cd-trade-legs small { color: #64748b; }
+body[data-theme="light"] .cd-trade-status { background: #e8edf5; color: #475569; }
+body[data-theme="light"] .cd-trade-status.is-running { background: #dbeafe; color: #1d4ed8; }
+body[data-theme="light"] .cd-trade-status.is-liq { background: #fee2e2; color: #b91c1c; }
+body[data-theme="light"] .cd-pos-grid span,
+body[data-theme="light"] .cd-pos-foot span { color: #64748b; }
+body[data-theme="light"] .cd-pos-grid strong { color: #0f172a; }
+body[data-theme="light"] .cd-pos-grid strong.cd-pos-liq { color: #b45309; }
+body[data-theme="light"] .cd-pos-foot { border-top-color: #e2e8f0; }
+body[data-theme="light"] .cd-pos-foot b.is-up { color: #059669; }
+body[data-theme="light"] .cd-pos-foot b.is-down { color: #dc2626; }
+/* Midnight keeps a dark box, but in its own indigo instead of near-black */
+body[data-theme="midnight"] .cd-trade-legs > div { background: #0a1030; border-color: rgba(99, 102, 241, 0.28); }
