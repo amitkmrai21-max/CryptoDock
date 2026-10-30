@@ -208,7 +208,7 @@
     const box = el("cdKeyCoins");
     if (!box) return;
     box.innerHTML = KEY_COINS.map((base) => coinsByBase.get(base)).filter(Boolean).map((coin) => `
-      <div class="cd-mini-coin" data-base="${escapeHtml(coin.base)}">
+      <div class="cd-mini-coin ${coin.change_percent >= 0 ? "is-up" : "is-down"}" data-base="${escapeHtml(coin.base)}">
         <div class="cd-mini-top">${avatar(coin.base)}<strong>${escapeHtml(coin.base)}</strong></div>
         <div class="cd-mini-price">${fmtUsd(coin.price)}</div>
         <div class="cd-mini-pct ${pctClass(coin.change_percent)}">${fmtPct(coin.change_percent)}</div>
@@ -227,7 +227,7 @@
       return `1 USD = ${rate.toLocaleString("en-US", { maximumFractionDigits: rate >= 100 ? 1 : 3 })} ${coin.base}`;
     };
     box.innerHTML = rows.map(({ item, coin }) => `
-      <div class="cd-mini-coin" data-base="${escapeHtml(coin.base)}">
+      <div class="cd-mini-coin ${coin.change_percent >= 0 ? "is-up" : "is-down"}" data-base="${escapeHtml(coin.base)}">
         <div class="cd-mini-top">${item.flag ? `<span class="cd-mini-flag">${item.flag}</span>` : avatar(coin.base)}<strong>${escapeHtml(item.label)}</strong></div>
         <small class="cd-mini-name">${escapeHtml(item.perUsd ? perUsd(coin) : item.name)}</small>
         <div class="cd-mini-price">${fmtUsd(coin.price)}</div>
