@@ -23,7 +23,7 @@
       panel === "dashboard" ? "home" :
       panel === "watchlist" ? "watch" :
       panel === "scanner" ? "scanner" :
-      panel === "positions" || panel === "orders" ? "portfolio" : "more";
+      panel === "positions" ? "portfolio" : "more"; // Orders lives under More
     bar.querySelectorAll("[data-tabbar]").forEach((b) => b.classList.toggle("is-active", b.dataset.tabbar === current));
   }
 
