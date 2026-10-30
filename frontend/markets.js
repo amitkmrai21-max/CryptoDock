@@ -140,32 +140,46 @@
     list.forEach((coin) => {
       coin.momentum = momentumOf(coin);
       coin.momentum_label = momentumLabel(coin.momentum);
+      momFeed(coin.base || coin.symbol, coin.price);
     });
   }
 
   // A small arrow in front of BULLISH / BEARISH when the score is strong (70+ or 30-).
-  // It follows what the price is doing right now, not the score: at 70+ it points up while
-  // the price rises and flips down as soon as it falls (a holder sees the drop even though
-  // the score is still high); at 30- it points down, and flips up when the price rises.
-  // Between 30 and 70 there is no arrow.
-  const momLastPrice = {};
-  const momDirection = {};
+  // It shows the real direction the price is moving, not the last tick: it only turns when
+  // the price has reversed by MOM_REVERSAL from its latest high (to down) or low (to up), so
+  // small wiggles never flip it. At 70+ it points up while the price climbs and turns down once
+  // it really falls; at 30- it points down and turns up once it really rises. Until a real move
+  // is seen it points the way the score points. Between 30 and 70 there is no arrow.
+  const MOM_REVERSAL = 0.0015; // 0.15%
+  const momTrend = {}; // base -> { dir: 1 | -1 | 0, anchor }
+
+  // Called with fresh prices only (addMomentum, on every new market refresh).
+  function momFeed(key, price) {
+    const p = Number(price);
+    if (!key || !Number.isFinite(p) || p <= 0) return;
+    const t = momTrend[key];
+    if (!t) { momTrend[key] = { dir: 0, anchor: p }; return; }
+    if (t.dir === 0) {
+      if (p >= t.anchor * (1 + MOM_REVERSAL)) { t.dir = 1; t.anchor = p; }
+      else if (p <= t.anchor * (1 - MOM_REVERSAL)) { t.dir = -1; t.anchor = p; }
+    } else if (t.dir === 1) {
+      if (p > t.anchor) t.anchor = p;
+      else if (p <= t.anchor * (1 - MOM_REVERSAL)) { t.dir = -1; t.anchor = p; }
+    } else {
+      if (p < t.anchor) t.anchor = p;
+      else if (p >= t.anchor * (1 + MOM_REVERSAL)) { t.dir = 1; t.anchor = p; }
+    }
+  }
 
   function momArrow(coin) {
-    const key = coin.base || coin.symbol;
-    const price = Number(coin.price);
-    if (key && Number.isFinite(price) && price > 0) {
-      const last = momLastPrice[key];
-      if (last !== undefined && price !== last) momDirection[key] = price > last ? 1 : -1;
-      momLastPrice[key] = price;
-    }
     const score = Number(coin.momentum);
     if (!Number.isFinite(score)) return "";
     const strong = score >= 70 ? 1 : score <= 30 ? -1 : 0;
     if (!strong) return "";
-    const dir = (key && momDirection[key]) || strong; // no move seen yet: point the way the score points
+    const key = coin.base || coin.symbol;
+    const dir = (key && momTrend[key] && momTrend[key].dir) || strong;
     const up = dir > 0;
-    const hint = up ? "Price is rising now" : "Price is falling now";
+    const hint = up ? "Price is moving up" : "Price is moving down";
     return `<i class="cd-mom-arrow ${up ? "is-up" : "is-down"}" title="${hint}" aria-label="${hint}">${up ? "▲" : "▼"}</i>`;
   }
 
