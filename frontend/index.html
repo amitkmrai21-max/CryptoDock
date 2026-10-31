@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261113-trade-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261116-fx-1">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261110-soft-1">
   <link rel="stylesheet" href="/frontend/community.css?v=20261114-cm-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -329,6 +329,13 @@
             <span id="cdBreadthUp" style="display:none;"></span>
             <span id="cdBreadthDown" style="display:none;"></span>
           </div>
+        </section>
+
+        <!-- Futures mood: long / short crowd, funding and open interest (home.js) -->
+        <section class="cd-panel" id="cdHomeFuturesCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#2563eb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16M8 4v8M16 12v8"/></svg></span><h3>Long / Short mood</h3>
+            <div class="cd-pills cd-fx-pills" id="cdFxCoins"><button type="button" class="cd-pill is-active" data-fx="BTC">BTC</button><button type="button" class="cd-pill" data-fx="ETH">ETH</button></div></div>
+          <div id="cdFxBody" class="cd-fx-body"></div>
         </section>
 
         <!-- Crypto market -->
@@ -2080,7 +2087,7 @@
       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
-  <script src="/frontend/home.js?v=20261113-trade-1"></script>
+  <script src="/frontend/home.js?v=20261116-fx-1"></script>
   <script src="/frontend/community.js?v=20261114-cm-2"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261016-fix-1"></script>
