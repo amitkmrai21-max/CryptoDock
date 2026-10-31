@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261111-legs-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261111-margin-1">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261110-soft-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -459,6 +459,7 @@
           <div>
             <h2>Watchlist</h2>
           </div>
+          <button type="button" class="cd-mm-open" id="cdMarginOpen" aria-label="Margin mode" title="Margin mode (Cross / Isolated)"><span id="cdMarginOpenLabel">Isolated</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
         </div>
         <div class="cd-pills cd-wl-tabs" id="cdWatchTabs">
           <button type="button" class="cd-pill is-active" data-watch-tab="all" data-wl="0">Watchlist 1</button>
@@ -1674,6 +1675,10 @@
       <!-- Margin & Fee Summary -->
       <div class="cd-ticket-summary">
         <div class="cd-summary-row">
+          <span>Margin mode:</span>
+          <button type="button" class="cd-mm-inline" id="cdTicketMode" aria-label="Change margin mode">Isolated ▾</button>
+        </div>
+        <div class="cd-summary-row">
           <span>Available Margin:</span>
           <strong id="cdTicketAvail">$0.00</strong>
         </div>
@@ -1698,7 +1703,7 @@
     </div>
   </div>
   <script src="/frontend/markets.js?v=20261110-wlheight-1"></script>
-  <script src="/frontend/paper.js?v=20261018-stale-1"></script>
+  <script src="/frontend/paper.js?v=20261111-margin-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
@@ -1718,6 +1723,37 @@
       <div class="cd-sheet-handle"></div>
       <div class="cd-ticket-head"><strong>More</strong><button id="cdMoreClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
       <div id="cdMoreGrid" class="cd-more-grid"></div>
+    </div>
+  </div>
+  <!-- Margin mode sheet: Cross / Isolated (paper.js) -->
+  <div id="cdMarginSheet" class="cd-ticket-overlay cd-off" hidden>
+    <div class="cd-ticket cd-more cd-mm" role="dialog" aria-modal="true" aria-label="Margin mode">
+      <div class="cd-sheet-handle"></div>
+      <div class="cd-ticket-head"><strong>Manage margin mode</strong><button id="cdMarginClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
+      <div class="cd-mm-summary">
+        <div><span>Account in use</span><strong>Paper account</strong></div>
+        <div><span>Available margin</span><strong id="cdMarginAvail">$0.00</strong></div>
+      </div>
+      <p class="cd-mm-title">MARGIN MODE</p>
+      <button type="button" class="cd-mm-card" data-margin-mode="cross">
+        <span class="cd-mm-head"><strong>Cross</strong><em class="cd-mm-current" hidden>Current</em><i class="cd-mm-radio"></i></span>
+        <ul>
+          <li>Your whole balance backs all positions</li>
+          <li>Liquidation price stays far away</li>
+          <li>Profit and loss of positions offset each other</li>
+          <li class="is-warn">If liquidated, the whole balance can be lost</li>
+        </ul>
+      </button>
+      <button type="button" class="cd-mm-card" data-margin-mode="isolated">
+        <span class="cd-mm-head"><strong>Isolated</strong><em class="cd-mm-current" hidden>Current</em><i class="cd-mm-radio"></i></span>
+        <ul>
+          <li>Every position has its own margin</li>
+          <li>If one is liquidated, only its margin is lost</li>
+          <li>The rest of your balance stays safe</li>
+        </ul>
+      </button>
+      <p id="cdMarginNote" class="cd-mm-note" role="status" hidden></p>
+      <button type="button" class="cd-mm-dismiss" id="cdMarginDismiss">Dismiss</button>
     </div>
   </div>
   <!-- Coin sheet: tap any coin (coin-sheet.js) -->

@@ -2799,3 +2799,45 @@ body[data-theme="light"] .cd-pos-foot b.is-up { color: #059669; }
 body[data-theme="light"] .cd-pos-foot b.is-down { color: #dc2626; }
 /* Midnight keeps a dark box, but in its own indigo instead of near-black */
 body[data-theme="midnight"] .cd-trade-legs > div { background: #0a1030; border-color: rgba(99, 102, 241, 0.28); }
+
+
+/* ================= Margin mode (Cross / Isolated) ================= */
+.cd-dash-head { gap: 10px; }
+.cd-mm-open {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto; align-self: center;
+  padding: 6px 10px 6px 12px; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--text); background: var(--surface-soft); border: 1px solid var(--border); cursor: pointer;
+}
+.cd-mm-open svg { opacity: 0.8; }
+.cd-mm-inline { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--cd-accent, #38bdf8); cursor: pointer; }
+.cd-pos-mode {
+  font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap;
+  background: rgba(148, 163, 184, 0.16); color: #94a3b8;
+}
+.cd-mm { max-height: 92vh; overflow-y: auto; }
+.cd-mm-summary { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); margin: 4px 0 14px; }
+.cd-mm-summary > div { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px; font-size: 14px; }
+.cd-mm-summary > div + div { border-top: 1px solid var(--border); }
+.cd-mm-summary span { color: var(--muted); }
+.cd-mm-title { margin: 0 0 8px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; color: var(--muted); }
+.cd-mm-card {
+  display: block; width: 100%; text-align: left; margin: 0 0 10px; padding: 14px; border-radius: 12px; cursor: pointer;
+  font: inherit; color: var(--text); background: var(--surface-soft); border: 1.5px solid var(--border);
+}
+.cd-mm-card.is-selected { border-color: var(--cd-accent, #38bdf8); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12); }
+.cd-mm-head { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.cd-mm-head strong { font-size: 17px; }
+.cd-mm-current { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; color: var(--cd-accent, #38bdf8); border: 1px solid currentColor; }
+.cd-mm-radio { margin-left: auto; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); box-sizing: border-box; position: relative; }
+.cd-mm-card.is-selected .cd-mm-radio { border-color: var(--cd-accent, #38bdf8); background: var(--cd-accent, #38bdf8); }
+.cd-mm-card.is-selected .cd-mm-radio::after { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.cd-mm-card ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.cd-mm-card li { position: relative; padding-left: 24px; font-size: 13.5px; line-height: 1.35; }
+.cd-mm-card li::before { content: "✓"; position: absolute; left: 2px; top: 0; font-weight: 800; color: #10b981; }
+.cd-mm-card li.is-warn::before { content: "!"; color: #f59e0b; left: 6px; }
+.cd-mm-note { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; color: #b45309; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); }
+.cd-mm-dismiss { width: 100%; padding: 12px; border-radius: 12px; font: inherit; font-weight: 800; cursor: pointer; color: var(--cd-accent, #38bdf8); background: transparent; border: 1.5px solid var(--cd-accent, #38bdf8); }
+body[data-theme="light"] .cd-pos-mode { background: #e2e8f0; color: #475569; }
+body[data-theme="light"] .cd-mm-card { background: #f8fafc; }
+body[data-theme="light"] .cd-mm-summary { background: #f8fafc; }
+body[data-theme="light"] .cd-mm-open { background: #eef2f7; }
