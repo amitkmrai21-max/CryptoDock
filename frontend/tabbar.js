@@ -106,5 +106,14 @@
   document.addEventListener("click", (event) => {
     if (event.target.closest(".app-tab, #cdWatchTabs, [data-go]")) setTimeout(sync, 0);
   });
+  // Pages change from many places (restoring the last page on reload, toasts, other scripts), so
+  // follow the page itself: whenever a panel gains/loses "active" the highlight is recomputed.
+  const panelsHost = document.querySelectorAll(".tab-panel");
+  if (typeof MutationObserver === "function") {
+    const watcher = new MutationObserver(sync);
+    panelsHost.forEach((p) => watcher.observe(p, { attributes: true, attributeFilter: ["class", "hidden"] }));
+  }
+  document.addEventListener("visibilitychange", sync);
+  window.addEventListener("pageshow", sync);
   sync();
 })();
