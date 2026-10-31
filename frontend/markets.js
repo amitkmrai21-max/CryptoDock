@@ -232,12 +232,14 @@
     const btc = list.find((c) => c.base === "BTC");
     const btcChange = btc ? Number(btc.change_percent) || 0 : 0;
     list.forEach((coin) => {
-      const v1 = momentumOf(coin);
+      // Everyone gets the improved score (v2). Only the owner also keeps the old one (v1)
+      // next to it for the 4h hit-rate check below.
+      const v2 = momentumV2(coin, btcChange);
       if (owner) {
-        coin.momentum_v1 = v1;
-        coin.momentum_v2 = momentumV2(coin, btcChange);
+        coin.momentum_v1 = momentumOf(coin);
+        coin.momentum_v2 = v2;
       }
-      coin.momentum = owner ? coin.momentum_v2 : v1;
+      coin.momentum = v2;
       coin.momentum_label = momentumLabel(coin.momentum);
       momFeed(coin.base || coin.symbol, coin.price);
     });
