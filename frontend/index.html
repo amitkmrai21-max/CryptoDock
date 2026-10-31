@@ -275,6 +275,13 @@
           <section class="cd-feature" data-base="ETH" id="cdFeatureETH"></section>
         </div>
 
+        <!-- Futures mood: long / short crowd, funding and open interest (home.js) -->
+        <section class="cd-panel" id="cdHomeFuturesCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#2563eb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16M8 4v8M16 12v8"/></svg></span><h3>Long / Short mood</h3>
+            <div class="cd-pills cd-fx-pills" id="cdFxCoins"><button type="button" class="cd-pill is-active" data-fx="BTC">BTC</button><button type="button" class="cd-pill" data-fx="ETH">ETH</button></div></div>
+          <div id="cdFxBody" class="cd-fx-body"></div>
+        </section>
+
         <!-- Movers -->
         <div class="cd-mover-pair">
           <section class="cd-mover-panel is-up">
@@ -331,12 +338,6 @@
           </div>
         </section>
 
-        <!-- Futures mood: long / short crowd, funding and open interest (home.js) -->
-        <section class="cd-panel" id="cdHomeFuturesCard" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#2563eb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16M8 4v8M16 12v8"/></svg></span><h3>Long / Short mood</h3>
-            <div class="cd-pills cd-fx-pills" id="cdFxCoins"><button type="button" class="cd-pill is-active" data-fx="BTC">BTC</button><button type="button" class="cd-pill" data-fx="ETH">ETH</button></div></div>
-          <div id="cdFxBody" class="cd-fx-body"></div>
-        </section>
 
         <!-- Crypto market -->
         <section class="cd-panel">
@@ -2087,7 +2088,7 @@
       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
-  <script src="/frontend/home.js?v=20261116-fx-1"></script>
+  <script src="/frontend/home.js?v=20261116-fx-2"></script>
   <script src="/frontend/community.js?v=20261114-cm-2"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261016-fix-1"></script>
