@@ -2,3 +2,4 @@ user_subscriptions.json*
 __pycache__/
 .env
 paper_portfolios.json*
+community.json*

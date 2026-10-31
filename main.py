@@ -3440,6 +3440,286 @@ def put_paper_portfolio(payload: PaperPortfolioRequest, authorization: str = Hea
     return {"rev": current + 1}
 
 
+# ---------- Community: nicknames, paper-trader leaderboard and the public Messenger ----------
+# Everyone sees every message (no private chats). Emails never leave the server:
+# people are shown only by the nickname they chose. Links, phone numbers and
+# contact handles are refused so the feed cannot be used for spam or scams.
+COMMUNITY_DB_FILE = os.getenv("CRYPTODOCK_COMMUNITY_DB") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "community.json")
+COMMUNITY_OWNER = "amitkmrai21@gmail.com"
+COMMUNITY_MAX_POSTS = 2000
+COMMUNITY_TEXT_MAX = 400
+COMMUNITY_POST_GAP_S = 15
+COMMUNITY_POSTS_PER_DAY = 40
+COMMUNITY_NICK_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
+COMMUNITY_RESERVED = ("admin", "owner", "support", "moderator", "marketdock", "cryptodock", "binance", "official", "staff")
+COMMUNITY_START_USDT = 10000.0
+LEADERBOARD_MIN_ORDERS = 3
+_community_lock = threading.RLock()
+_leaderboard_cache = {"at": 0.0, "rows": []}
+
+
+@contextlib.contextmanager
+def community_write_lock():
+    with _community_lock:
+        handle = None
+        try:
+            if fcntl:
+                handle = open(COMMUNITY_DB_FILE + ".lock", "a")
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+        finally:
+            if handle:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                handle.close()
+
+
+def _load_community():
+    for path in (COMMUNITY_DB_FILE, COMMUNITY_DB_FILE + ".bak"):
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict):
+                    data.setdefault("users", {})
+                    data.setdefault("posts", [])
+                    data.setdefault("next_id", 1)
+                    return data
+            except (OSError, ValueError):
+                continue
+    return {"users": {}, "posts": [], "next_id": 1}
+
+
+def _save_community(data):
+    tmp = f"{COMMUNITY_DB_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, separators=(",", ":"))
+        f.flush()
+        os.fsync(f.fileno())
+    if os.path.exists(COMMUNITY_DB_FILE):
+        shutil.copyfile(COMMUNITY_DB_FILE, COMMUNITY_DB_FILE + ".bak")
+    os.replace(tmp, COMMUNITY_DB_FILE)
+
+
+def _community_nick_taken(users, nick, email):
+    low = nick.lower()
+    return any(u.get("nick", "").lower() == low and e != email for e, u in users.items())
+
+
+_URL_RE = re.compile(r"(https?:|www\.|\b[a-z0-9-]+\.(com|in|io|net|org|co|me|ly|app|xyz|info|link|gg)\b|t\.me|wa\.me)", re.I)
+_CONTACT_WORDS_RE = re.compile(r"(telegram|whatsapp|whats app|discord|instagram|signal app|call me|dm me|inbox)", re.I)
+
+
+def _community_check_text(text, users):
+    """Return an error message if the text breaks the safety rules, else ''."""
+    if _URL_RE.search(text):
+        return "Links are not allowed."
+    if _CONTACT_WORDS_RE.search(text):
+        return "Contact details (Telegram, WhatsApp, etc.) are not allowed."
+    if re.search(r"\d{10,}", re.sub(r"[\s\-\.\(\)\+]", "", text)):
+        return "Phone numbers are not allowed."
+    known = {u.get("nick", "").lower() for u in users.values()}
+    for handle in re.findall(r"@([A-Za-z0-9_.]+)", text):
+        if handle.lower().rstrip(".") not in known:
+            return "Only @nicknames of CryptoDock traders can be tagged."
+    return ""
+
+
+def _community_equity(record):
+    """Latest account value saved with the paper portfolio (falls back to funds)."""
+    state = (record or {}).get("state") or {}
+    log = state.get("eq") or []
+    try:
+        if log:
+            value = float(log[-1][1])
+        else:
+            value = float(state.get("cash"))
+    except (TypeError, ValueError, IndexError):
+        return None
+    return value if 0 < value < 1e9 else None
+
+
+def _community_leaderboard(community):
+    now = time.time()
+    if now - _leaderboard_cache["at"] < 60 and _leaderboard_cache["rows"]:
+        return _leaderboard_cache["rows"]
+    paper = _load_paper()
+    rows = []
+    for email, user in community["users"].items():
+        if not user.get("on_board"):
+            continue
+        record = paper.get(email)
+        equity = _community_equity(record)
+        orders = len(((record or {}).get("state") or {}).get("orders") or [])
+        if equity is None or orders < LEADERBOARD_MIN_ORDERS:
+            continue
+        rows.append({
+            "email": email,
+            "nick": user["nick"],
+            "ret": round((equity / COMMUNITY_START_USDT - 1) * 100, 2),
+            "orders": orders,
+            "updated_at": int((record or {}).get("updated_at") or 0),
+        })
+    rows.sort(key=lambda r: r["ret"], reverse=True)
+    _leaderboard_cache.update(at=now, rows=rows)
+    return rows
+
+
+class CommunityProfileRequest(BaseModel):
+    nick: str
+    on_board: bool = True
+
+
+@app.get("/api/community/me")
+def community_me(authorization: str = Header(None)):
+    email = _session_email(authorization)
+    user = _load_community()["users"].get(email) or {}
+    return {"nick": user.get("nick", ""), "on_board": bool(user.get("on_board", False)), "is_owner": email == COMMUNITY_OWNER}
+
+
+@app.put("/api/community/me")
+def community_set_profile(payload: CommunityProfileRequest, authorization: str = Header(None)):
+    email = _session_email(authorization)
+    nick = payload.nick.strip()
+    if not COMMUNITY_NICK_RE.match(nick):
+        raise HTTPException(status_code=400, detail="Nickname must be 3-16 letters, numbers or _ (no spaces).")
+    if any(word in nick.lower() for word in COMMUNITY_RESERVED) and email != COMMUNITY_OWNER:
+        raise HTTPException(status_code=400, detail="This nickname is not available.")
+    with community_write_lock():
+        data = _load_community()
+        if _community_nick_taken(data["users"], nick, email):
+            raise HTTPException(status_code=409, detail="This nickname is already taken.")
+        user = data["users"].get(email) or {}
+        if user.get("nick") and user["nick"] != nick and time.time() - user.get("nick_at", 0) < 86400:
+            raise HTTPException(status_code=429, detail="You can change your nickname once a day.")
+        if user.get("nick") != nick:
+            user["nick_at"] = int(time.time())
+        user.update(nick=nick, on_board=bool(payload.on_board))
+        data["users"][email] = user
+        _save_community(data)
+    _leaderboard_cache["at"] = 0.0
+    return {"nick": nick, "on_board": bool(payload.on_board)}
+
+
+@app.get("/api/community/leaderboard")
+def community_leaderboard(authorization: str = Header(None)):
+    email = _session_email(authorization)
+    rows = _community_leaderboard(_load_community())
+    top = [{"rank": i + 1, "nick": r["nick"], "ret": r["ret"], "orders": r["orders"], "updated_at": r["updated_at"]} for i, r in enumerate(rows[:20])]
+    me = next(({"rank": i + 1, "nick": r["nick"], "ret": r["ret"], "orders": r["orders"]} for i, r in enumerate(rows) if r["email"] == email), None)
+    return {"top": top, "me": me, "total": len(rows), "min_orders": LEADERBOARD_MIN_ORDERS}
+
+
+class CommunityIdea(BaseModel):
+    coin: str = ""
+    side: str = ""
+    entry: float = 0
+    exit: float = 0
+    result: float = 0
+
+
+class CommunityPostRequest(BaseModel):
+    text: str = ""
+    reply_to: int = 0
+    idea: CommunityIdea | None = None
+
+
+def _community_public(post, users, viewer):
+    author = users.get(post["email"]) or {}
+    out = {
+        "id": post["id"],
+        "nick": author.get("nick", "trader"),
+        "is_owner": post["email"] == COMMUNITY_OWNER,
+        "text": post["text"],
+        "reply_to": post.get("reply_to", 0),
+        "idea": post.get("idea"),
+        "at": post["at"],
+        "mine": post["email"] == viewer,
+    }
+    return out
+
+
+@app.get("/api/community/posts")
+def community_posts(authorization: str = Header(None), limit: int = 40, before: int = 0):
+    email = _session_email(authorization)
+    data = _load_community()
+    limit = max(1, min(limit, 100))
+    tops = [p for p in data["posts"] if not p.get("reply_to")]
+    if before:
+        tops = [p for p in tops if p["id"] < before]
+    page = sorted(tops, key=lambda p: p["id"], reverse=True)[:limit]
+    ids = {p["id"] for p in page}
+    replies = sorted((p for p in data["posts"] if p.get("reply_to") in ids), key=lambda p: p["id"])
+    return {
+        "posts": [_community_public(p, data["users"], email) for p in page],
+        "replies": [_community_public(p, data["users"], email) for p in replies],
+        "more": len([p for p in tops if p["id"] < (page[-1]["id"] if page else 0)]) > 0,
+    }
+
+
+@app.post("/api/community/posts")
+def community_post(payload: CommunityPostRequest, authorization: str = Header(None)):
+    email = _session_email(authorization)
+    text = re.sub(r"\s+", " ", payload.text or "").strip()
+    idea = None
+    if payload.idea and payload.idea.coin.strip():
+        coin = re.sub(r"[^A-Za-z0-9]", "", payload.idea.coin).upper()[:10]
+        side = payload.idea.side.upper()
+        values = (payload.idea.entry, payload.idea.exit, payload.idea.result)
+        if not coin or side not in ("BUY", "SELL") or any(not math.isfinite(v) for v in values):
+            raise HTTPException(status_code=400, detail="Check the trade idea fields.")
+        if payload.idea.entry < 0 or payload.idea.exit < 0 or abs(payload.idea.result) > 1e9:
+            raise HTTPException(status_code=400, detail="Check the trade idea numbers.")
+        idea = {"coin": coin, "side": side, "entry": payload.idea.entry, "exit": payload.idea.exit, "result": payload.idea.result}
+    if not text and not idea:
+        raise HTTPException(status_code=400, detail="Write something first.")
+    if len(text) > COMMUNITY_TEXT_MAX:
+        raise HTTPException(status_code=400, detail=f"Keep it under {COMMUNITY_TEXT_MAX} characters.")
+    with community_write_lock():
+        data = _load_community()
+        user = data["users"].get(email)
+        if not user or not user.get("nick"):
+            raise HTTPException(status_code=403, detail="Choose a nickname first.")
+        problem = _community_check_text(text, data["users"])
+        if problem:
+            raise HTTPException(status_code=400, detail=problem)
+        now = int(time.time())
+        mine = [p for p in data["posts"] if p["email"] == email]
+        if mine and now - mine[-1]["at"] < COMMUNITY_POST_GAP_S:
+            raise HTTPException(status_code=429, detail="Please wait a few seconds before posting again.")
+        if len([p for p in mine if now - p["at"] < 86400]) >= COMMUNITY_POSTS_PER_DAY:
+            raise HTTPException(status_code=429, detail="Daily message limit reached.")
+        parent = 0
+        if payload.reply_to:
+            target = next((p for p in data["posts"] if p["id"] == payload.reply_to), None)
+            if not target:
+                raise HTTPException(status_code=404, detail="That message no longer exists.")
+            parent = target.get("reply_to") or target["id"]
+        post = {"id": data["next_id"], "email": email, "text": text, "at": now, "reply_to": parent}
+        if idea:
+            post["idea"] = idea
+        data["next_id"] += 1
+        data["posts"].append(post)
+        if len(data["posts"]) > COMMUNITY_MAX_POSTS:
+            data["posts"] = data["posts"][-COMMUNITY_MAX_POSTS:]
+        _save_community(data)
+        return _community_public(post, data["users"], email)
+
+
+@app.delete("/api/community/posts/{post_id}")
+def community_delete(post_id: int, authorization: str = Header(None)):
+    email = _session_email(authorization)
+    with community_write_lock():
+        data = _load_community()
+        post = next((p for p in data["posts"] if p["id"] == post_id), None)
+        if not post:
+            return {"ok": True}
+        if post["email"] != email and email != COMMUNITY_OWNER:
+            raise HTTPException(status_code=403, detail="You can only delete your own messages.")
+        data["posts"] = [p for p in data["posts"] if p["id"] != post_id and p.get("reply_to") != post_id]
+        _save_community(data)
+    return {"ok": True}
+
+
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 
