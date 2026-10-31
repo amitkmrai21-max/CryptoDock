@@ -136,12 +136,112 @@
     return score >= 60 ? "BULLISH" : score <= 40 ? "BEARISH" : "NEUTRAL";
   }
 
+  // ---------- momentum v2 (owner account only, for now) ----------
+  // Same 0-100 scale, built from more than the 24h move, using the data the list already has:
+  //   24h move (24) + where the price sits in the 24h range (16) + strength against BTC (10),
+  // cut in half when the move and the range position disagree (a rise that is already fading),
+  // and pulled toward 50 for thinly traded coins, whose moves are mostly noise.
+  // It describes what the price did; it is not a buy / sell signal and nothing here predicts.
+  const OWNER_EMAIL = "amitkmrai21@gmail.com";
+  function isOwnerUser() {
+    let email = window.cdUserEmail;
+    if (typeof email !== "string") { try { email = localStorage.getItem("cdUserEmail") || ""; } catch (e) { email = ""; } }
+    return String(email).trim().toLowerCase() === OWNER_EMAIL;
+  }
+  const clampTo = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  function momentumV2(coin, btcChange) {
+    const change = Number(coin.change_percent) || 0;
+    const span = coin.high - coin.low;
+    const rangePos = span > 0 ? clampTo((coin.price - coin.low) / span, 0, 1) : 0.5;
+    const move = clampTo(change, -8, 8) / 8;
+    const position = (rangePos - 0.5) * 2;
+    const relative = coin.base === "BTC" ? 0 : clampTo(change - btcChange, -6, 6) / 6;
+    let deviation = 24 * move + 16 * position + 10 * relative;
+    if (Math.abs(move) > 0.15 && Math.abs(position) > 0.3 && Math.sign(move) !== Math.sign(position)) deviation *= 0.5; // fading
+    const volume = Math.max(Number(coin.volume_usdt) || 0, 1);
+    const liquidity = clampTo((Math.log10(volume) - 5.5) / 2, 0.3, 1); // below ~$0.3M a day: 0.3, from ~$30M: 1
+    return clampTo(Math.round(50 + deviation * liquidity), 1, 99);
+  }
+
+  // ---------- owner check: does a strong score really go the way it says? ----------
+  // Every 15 minutes the owner's browser notes the coins whose old or new score was strong
+  // (70+ or 30-) with their price; 4 hours later it compares the price. No extra Binance calls.
+  const MOM_TRACK_KEY = "cdMomTrackV1";
+  const MOM_SNAP_MS = 15 * 60 * 1000;
+  const MOM_CHECK_MS = 4 * 60 * 60 * 1000;
+  const MOM_KEEP_MS = 10 * 60 * 60 * 1000;
+  const MOM_MAX_OPEN = 900;
+  function momTrackLoad() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MOM_TRACK_KEY) || "null");
+      if (saved && Array.isArray(saved.open)) return saved;
+    } catch (e) { /* ignore */ }
+    return { open: [], last: 0, res: { v1: { n: 0, hit: 0 }, v2: { n: 0, hit: 0 } }, since: Date.now() };
+  }
+  const momStrong = (score) => (score >= 70 ? 1 : score <= 30 ? -1 : 0);
+
+  function momTrack(list) {
+    const now = Date.now();
+    const t = momTrackLoad();
+    let changed = false;
+    // 1) settle the notes that are 4 hours old
+    const byBase = new Map(list.map((c) => [c.base, c]));
+    t.open = t.open.filter((n) => {
+      const age = now - n.t;
+      if (age >= MOM_CHECK_MS && age <= MOM_KEEP_MS) {
+        const c = byBase.get(n.b);
+        if (c && c.price > 0) {
+          ["v1", "v2"].forEach((k) => {
+            const dir = momStrong(n[k]);
+            if (!dir) return;
+            t.res[k].n += 1;
+            if ((c.price - n.p) * dir > 0) t.res[k].hit += 1;
+          });
+          changed = true;
+        }
+        return false;
+      }
+      return age < MOM_KEEP_MS;
+    });
+    // 2) note the strong ones now
+    if (now - t.last >= MOM_SNAP_MS) {
+      const recent = new Set(t.open.filter((n) => now - n.t < 60 * 60 * 1000).map((n) => n.b));
+      list.forEach((c) => {
+        if (c.momentum_v1 === undefined || recent.has(c.base) || t.open.length >= MOM_MAX_OPEN) return;
+        if (!momStrong(c.momentum_v1) && !momStrong(c.momentum_v2)) return;
+        t.open.push({ b: c.base, t: now, p: c.price, v1: c.momentum_v1, v2: c.momentum_v2 });
+      });
+      t.last = now;
+      changed = true;
+    }
+    if (changed) { try { localStorage.setItem(MOM_TRACK_KEY, JSON.stringify(t)); } catch (e) { /* ignore */ } }
+    return t;
+  }
+
+  function renderMomCheck(t) {
+    const box = el("cdMomCheck");
+    if (!box) return;
+    const part = (name, r) => (r.n ? `${name} ${Math.round((r.hit / r.n) * 100)}% of ${r.n}` : `${name} --`);
+    const few = Math.min(t.res.v1.n, t.res.v2.n) < 50 ? " · too few signals yet, do not trust it" : "";
+    box.textContent = `Strong scores that went the same way after 4h: ${part("old", t.res.v1)} · ${part("new", t.res.v2)}${few}`;
+  }
+
   function addMomentum(list) {
+    const owner = isOwnerUser();
+    const btc = list.find((c) => c.base === "BTC");
+    const btcChange = btc ? Number(btc.change_percent) || 0 : 0;
     list.forEach((coin) => {
-      coin.momentum = momentumOf(coin);
+      const v1 = momentumOf(coin);
+      if (owner) {
+        coin.momentum_v1 = v1;
+        coin.momentum_v2 = momentumV2(coin, btcChange);
+      }
+      coin.momentum = owner ? coin.momentum_v2 : v1;
       coin.momentum_label = momentumLabel(coin.momentum);
       momFeed(coin.base || coin.symbol, coin.price);
     });
+    if (owner) renderMomCheck(momTrack(list));
   }
 
   // A small arrow in front of BULLISH / BEARISH when the score is strong (70+ or 30-).
@@ -692,6 +792,13 @@
   el("cdWatchSearch")?.addEventListener("input", renderWatchlist);
   el("cdShowMore")?.addEventListener("click", () => { shown += PAGE_SIZE; renderAllCoins(); });
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { refresh(); schedule(); } });
+
+  // Signing in or out switches the score version (the new one is owner-only).
+  window.addEventListener("cd-user-changed", () => {
+    if (!coins.length) return;
+    addMomentum(coins);
+    render();
+  });
 
   window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow, momPill };
   window.cdToggleWatch = toggleWatch;

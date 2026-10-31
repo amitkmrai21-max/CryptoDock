@@ -2841,3 +2841,7 @@ body[data-theme="light"] .cd-pos-mode { background: #e2e8f0; color: #475569; }
 body[data-theme="light"] .cd-mm-card { background: #f8fafc; }
 body[data-theme="light"] .cd-mm-summary { background: #f8fafc; }
 body[data-theme="light"] .cd-mm-open { background: #eef2f7; }
+
+/* Owner card: new-vs-old momentum check */
+.cd-mom-check { margin: 10px 0 0; font-size: 0.7rem; line-height: 1.45; color: #94a3b8; }
+body[data-theme="light"] .cd-mom-check { color: #64748b; }
