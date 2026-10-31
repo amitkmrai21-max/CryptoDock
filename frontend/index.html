@@ -28,6 +28,7 @@
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
   <link rel="stylesheet" href="/frontend/markets.css?v=20261113-trade-1">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261110-soft-1">
+  <link rel="stylesheet" href="/frontend/community.css?v=20261114-cm-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -131,6 +132,11 @@
         <button class="nav-button app-tab" type="button" data-tab="orders">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 4h10l2 3v13H5V7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 15h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           Orders
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="community">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H9l-5 4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Messenger
         </button>
 
         <button class="nav-button app-tab" type="button" data-tab="coin">
@@ -290,6 +296,11 @@
         <section class="cd-panel cd-hx" id="cdHomeSetupsCard" hidden>
           <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#e11d48"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".8"/></svg></span><h3>Top setups today</h3><span class="cd-panel-note" id="cdHomeSetupsNote"></span></div>
           <ul id="cdHomeSetups" class="cd-hx-cards"></ul>
+        </section>
+
+        <section class="cd-panel cd-hx" id="cdHomeBoardCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#d97706"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v1a3 3 0 0 0 4 3M16 6h4v1a3 3 0 0 1-4 3M12 13v4M8 21h8M9 17h6"/></svg></span><h3>Top paper traders</h3><button type="button" class="cd-view-all" data-go="community">View All ›</button></div>
+          <ul id="cdHomeBoard" class="cd-lb-list"></ul>
         </section>
 
         <section class="cd-sentiment-card">
@@ -581,6 +592,66 @@
           <p id="cdHoldEmpty" class="cd-empty" hidden>No open positions. Tap any coin on the Dashboard or Watchlist, then Buy (Long) or Sell (Short).</p>
         </section>
         <ul class="cd-page-notes"><li>Virtual USDT only</li><li>No real orders</li><li>Tap Close Market to exit a position</li></ul>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="community">
+      <div class="cd-dash cd-cm">
+        <div class="cd-dash-head">
+          <div>
+            <h2>Messenger</h2>
+            <p class="cd-meta">Public chat of paper traders. Share trade ideas and ask questions. Paper trading, educational, not financial advice.</p>
+          </div>
+          <button type="button" class="cd-ghost-btn" id="cdCmRefresh">↻ Refresh</button>
+        </div>
+
+        <section class="cd-panel" id="cdCmGuest" hidden>
+          <p class="cd-meta">Sign in to join the leaderboard and chat with other paper traders.</p>
+          <button type="button" class="cd-submit is-buy" id="cdCmSignIn">Sign in</button>
+        </section>
+
+        <div id="cdCmMain" hidden>
+          <section class="cd-panel" id="cdCmJoin" hidden>
+            <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#6d5ef0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h3>Choose your nickname</h3></div>
+            <p class="cd-meta">Only your nickname is shown. Your email stays private. 3-16 letters, numbers or _</p>
+            <input id="cdCmNick" class="cd-cm-input" maxlength="16" autocomplete="off" placeholder="e.g. sol_hunter" />
+            <label class="cd-cm-check"><input type="checkbox" id="cdCmOnBoard" checked /> Show me on the leaderboard</label>
+            <p class="cd-ticket-error" id="cdCmJoinErr"></p>
+            <button type="button" class="cd-submit is-buy" id="cdCmSave">Save nickname</button>
+          </section>
+
+          <div class="cd-cm-me" id="cdCmMeLine" hidden>
+            <span>You are <b id="cdCmMeNick"></b></span>
+            <button type="button" class="cd-ghost-btn" id="cdCmEdit">Edit</button>
+          </div>
+
+          <section class="cd-panel">
+            <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#d97706"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v1a3 3 0 0 0 4 3M16 6h4v1a3 3 0 0 1-4 3M12 13v4M8 21h8M9 17h6"/></svg></span><h3>Top paper traders</h3><span class="cd-panel-note">tap a name to ask</span></div>
+            <ul id="cdCmBoardList" class="cd-lb-list"></ul>
+            <p class="cd-meta" id="cdCmBoardHint"></p>
+          </section>
+
+          <section class="cd-panel" id="cdCmCompose" hidden>
+            <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#2563eb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></span><h3>Post</h3></div>
+            <div class="cd-cm-reply" id="cdCmReplyBar" hidden>Replying to <b id="cdCmReplyTo"></b> <button type="button" id="cdCmReplyX" aria-label="Cancel reply">×</button></div>
+            <div class="cd-pills" id="cdCmMode">
+              <button type="button" class="cd-pill is-active" data-mode="text">Message</button>
+              <button type="button" class="cd-pill" data-mode="idea">Trade idea</button>
+            </div>
+            <div class="cd-cm-idea-form" id="cdCmIdea" hidden>
+              <input id="cdCmCoin" class="cd-cm-input" maxlength="10" placeholder="Coin (BTC)" autocomplete="off" />
+              <select id="cdCmSide" class="cd-cm-input"><option value="BUY">Buy</option><option value="SELL">Sell</option></select>
+              <input id="cdCmEntry" class="cd-cm-input" type="number" inputmode="decimal" step="any" placeholder="Entry price" />
+              <input id="cdCmExit" class="cd-cm-input" type="number" inputmode="decimal" step="any" placeholder="Exit / target price" />
+              <input id="cdCmResult" class="cd-cm-input cd-cm-wide" type="number" inputmode="decimal" step="any" placeholder="Result in USDT (+ profit, - loss), optional" />
+            </div>
+            <textarea id="cdCmText" class="cd-cm-input" rows="3" maxlength="400" placeholder="Write your view: when to buy, when to sell, profit or loss. No links or phone numbers."></textarea>
+            <div class="cd-cm-compose-foot"><span class="cd-meta" id="cdCmCount">0/400</span><span class="cd-cm-status" id="cdCmStatus"></span><button type="button" class="cd-submit is-buy" id="cdCmSend">Post</button></div>
+          </section>
+
+          <div id="cdCmFeed" class="cd-cm-feed" aria-live="polite"></div>
+          <button type="button" class="cd-show-more" id="cdCmMore" hidden>Show older messages</button>
+        </div>
       </div>
     </section>
 
@@ -2008,6 +2079,7 @@
     </div>
   </div>
   <script src="/frontend/home.js?v=20261113-trade-1"></script>
+  <script src="/frontend/community.js?v=20261114-cm-1"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261016-fix-1"></script>
   <script src="/frontend/coin-stats.js?v=20261113-trade-1"></script>

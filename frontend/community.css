@@ -1,0 +1,52 @@
+/* Messenger + leaderboard (community.js) */
+.cd-lb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cd-lb-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 9px 4px; border-top: 1px solid var(--border); font-size: 13px; }
+.cd-lb-row:first-child { border-top: 0; }
+.cd-lb-row.is-me { background: color-mix(in srgb, #8b5cf6 12%, transparent); border-radius: 10px; border-top-color: transparent; padding-inline: 8px; }
+.cd-lb-rank { font-weight: 800; color: var(--muted); text-align: center; }
+.cd-lb-nick { background: none; border: 0; padding: 0; font: inherit; font-weight: 800; color: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.cd-lb-nick:hover { color: #8b5cf6; text-decoration: underline; }
+.cd-lb-orders { font-size: 11px; color: var(--muted); }
+.cd-lb-row b { font-family: var(--cd-num-font, monospace); }
+.cd-up { color: var(--green, #10b981); }
+.cd-down { color: var(--red, #ef4444); }
+
+.cd-cm { display: flex; flex-direction: column; gap: 12px; }
+#cdCmMain { display: flex; flex-direction: column; gap: 12px; }
+#cdCmMain[hidden], #cdCmGuest[hidden] { display: none; }
+.cd-cm-me { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--surface-soft); font-size: 14px; }
+.cd-cm-input { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); font: inherit; font-size: 14px; }
+textarea.cd-cm-input { resize: vertical; margin-top: 10px; min-height: 76px; }
+.cd-cm-check { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 13px; color: var(--muted); }
+.cd-cm-idea-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.cd-cm-idea-form[hidden] { display: none; }
+.cd-cm-wide { grid-column: 1 / -1; }
+.cd-cm-compose-foot { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.cd-cm-compose-foot .cd-submit { margin-left: auto; padding: 10px 26px; }
+.cd-cm-status { font-size: 12px; color: var(--green, #10b981); flex: 1; }
+.cd-cm-status.is-bad { color: var(--red, #ef4444); }
+.cd-cm-reply { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 6px 10px; border-radius: 10px; background: var(--surface-soft); font-size: 12.5px; }
+.cd-cm-reply[hidden] { display: none; }
+.cd-cm-reply button { margin-left: auto; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+
+.cd-cm-feed { display: flex; flex-direction: column; gap: 10px; }
+.cd-cm-thread { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 4px 12px; }
+.cd-cm-post { padding: 10px 0; }
+.cd-cm-post.is-reply { margin-left: 14px; padding-left: 12px; border-left: 2px solid color-mix(in srgb, #8b5cf6 40%, transparent); border-top: 1px solid var(--border); }
+.cd-cm-post header { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.cd-cm-post time { margin-left: auto; font-size: 11px; color: var(--muted); }
+.cd-cm-post p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; word-break: break-word; }
+.cd-cm-post footer { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.cd-cm-act { border: 0; background: none; padding: 0; font: inherit; font-size: 12px; font-weight: 700; color: #8b5cf6; cursor: pointer; }
+.cd-cm-act.is-del { color: var(--red, #ef4444); }
+.cd-cm-note { margin-left: auto; font-size: 10px; color: var(--muted); }
+.cd-cm-badge { padding: 1px 7px; border-radius: 99px; font-size: 10px; font-weight: 800; background: rgba(251, 191, 36, 0.2); color: #b45309; }
+.cd-cm-tag { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: #8b5cf6; cursor: pointer; }
+.cd-cm-idea { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; padding: 8px 10px; border-radius: 12px; font-size: 12.5px; background: var(--surface-soft); border-left: 4px solid var(--muted); }
+.cd-cm-idea.is-buy { border-left-color: var(--green, #10b981); }
+.cd-cm-idea.is-sell { border-left-color: var(--red, #ef4444); }
+.cd-cm-side { font-size: 13px; }
+.cd-cm-idea.is-buy .cd-cm-side { color: var(--green, #10b981); }
+.cd-cm-idea.is-sell .cd-cm-side { color: var(--red, #ef4444); }
+.cd-cm-result { font-weight: 800; }
+body[data-theme="light"] .cd-cm-badge { color: #92400e; }
