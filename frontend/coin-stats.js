@@ -157,6 +157,9 @@
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && base) close(); });
   el("cdStatsChart").addEventListener("click", () => then((b) => window.cdOpenTradingView && window.cdOpenTradingView(b)));
   el("cdStatsAlert").addEventListener("click", () => then((b) => window.cdNewAlert && window.cdNewAlert(b)));
+  // Buy / Sell straight from the stats card: closes it and opens the order ticket.
+  el("cdStatsBuy").addEventListener("click", () => then((b) => window.cdOpenTicket && window.cdOpenTicket(b, "BUY")));
+  el("cdStatsSell").addEventListener("click", () => then((b) => window.cdOpenTicket && window.cdOpenTicket(b, "SELL")));
   el("cdStatsStar").addEventListener("click", () => { if (window.cdToggleWatch && base) { window.cdToggleWatch(base); render(); } });
 
   window.addEventListener("cd-markets-updated", render);
