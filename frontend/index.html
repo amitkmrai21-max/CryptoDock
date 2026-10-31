@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261112-home-3">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261112-home-4">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261110-soft-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -263,6 +263,24 @@
           </div>
         </section>
 
+        <!-- BTC / ETH -->
+        <div class="cd-feature-row">
+          <section class="cd-feature" data-base="BTC" id="cdFeatureBTC"></section>
+          <section class="cd-feature" data-base="ETH" id="cdFeatureETH"></section>
+        </div>
+
+        <!-- Movers -->
+        <div class="cd-mover-pair">
+          <section class="cd-mover-panel is-up">
+            <div class="cd-mover-head"><span class="cd-mover-icon">↗</span><div><h3>Top Gainers</h3><small>Last 24 hours</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="gainers">View All ›</button></div>
+            <ul id="cdTopGainers" class="cd-mover-list"></ul>
+          </section>
+          <section class="cd-mover-panel is-down">
+            <div class="cd-mover-head"><span class="cd-mover-icon">↘</span><div><h3>Top Losers</h3><small>Last 24 hours</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="losers">View All ›</button></div>
+            <ul id="cdTopLosers" class="cd-mover-list"></ul>
+          </section>
+        </div>
+
         <!-- Crypto Market Mood & Sentiment Card -->
         <!-- Home extras (home.js): mood and setups for the owner, news / alerts / stats for Pro -->
         <section class="cd-panel cd-hx" id="cdHomeMoodCard" hidden>
@@ -309,24 +327,6 @@
             <span id="cdBreadthDown" style="display:none;"></span>
           </div>
         </section>
-
-        <!-- BTC / ETH -->
-        <div class="cd-feature-row">
-          <section class="cd-feature" data-base="BTC" id="cdFeatureBTC"></section>
-          <section class="cd-feature" data-base="ETH" id="cdFeatureETH"></section>
-        </div>
-
-        <!-- Movers -->
-        <div class="cd-mover-pair">
-          <section class="cd-mover-panel is-up">
-            <div class="cd-mover-head"><span class="cd-mover-icon">↗</span><div><h3>Top Gainers</h3><small>Last 24 hours</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="gainers">View All ›</button></div>
-            <ul id="cdTopGainers" class="cd-mover-list"></ul>
-          </section>
-          <section class="cd-mover-panel is-down">
-            <div class="cd-mover-head"><span class="cd-mover-icon">↘</span><div><h3>Top Losers</h3><small>Last 24 hours</small></div><button type="button" class="cd-view-all" data-go="scanner" data-scan-go="losers">View All ›</button></div>
-            <ul id="cdTopLosers" class="cd-mover-list"></ul>
-          </section>
-        </div>
 
         <!-- Crypto market -->
         <section class="cd-panel">
@@ -1737,12 +1737,12 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261112-home-3"></script>
-  <script src="/frontend/paper.js?v=20261112-home-3"></script>
+  <script src="/frontend/markets.js?v=20261112-home-4"></script>
+  <script src="/frontend/paper.js?v=20261112-home-4"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
-  <script src="/frontend/alerts.js?v=20261112-home-3"></script>
+  <script src="/frontend/alerts.js?v=20261112-home-4"></script>
 
 
   <!-- Phone tab bar + More sheet (tabbar.js) -->
@@ -2002,7 +2002,7 @@
       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
-  <script src="/frontend/home.js?v=20261112-home-3"></script>
+  <script src="/frontend/home.js?v=20261112-home-4"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261016-fix-1"></script>
   <script src="/frontend/coin-stats.js?v=20261005-tv-2"></script>
