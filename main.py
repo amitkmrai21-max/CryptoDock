@@ -3440,6 +3440,83 @@ def put_paper_portfolio(payload: PaperPortfolioRequest, authorization: str = Hea
     return {"rev": current + 1}
 
 
+# ---------- Futures mood: long / short crowd, funding and open interest (BTC, ETH) ----------
+# One shared copy per coin, refreshed at most once a minute no matter how many users
+# are online, so this adds only a handful of Binance calls an hour. Binance futures first;
+# Bybit if Binance refuses this server. If both fail the card simply hides itself.
+FUTURES_COINS = ("BTC", "ETH")
+FUTURES_TTL_S = 60
+_futures_cache = {}  # coin -> {"at": ts, "data": {...} | None}
+_futures_lock = threading.Lock()
+
+
+def _futures_json(url, params):
+    response = requests.get(url, params=params, timeout=8, headers={"User-Agent": "CryptoDock/1.0"})
+    response.raise_for_status()
+    return response.json()
+
+
+def _futures_from_binance(coin):
+    symbol = f"{coin}USDT"
+    ratio = _futures_json("https://fapi.binance.com/futures/data/globalLongShortAccountRatio",
+                          {"symbol": symbol, "period": "5m", "limit": 1})[0]
+    premium = _futures_json("https://fapi.binance.com/fapi/v1/premiumIndex", {"symbol": symbol})
+    oi = _futures_json("https://fapi.binance.com/fapi/v1/openInterest", {"symbol": symbol})
+    long_pct = float(ratio["longAccount"]) * 100
+    return {
+        "long_pct": long_pct,
+        "short_pct": float(ratio["shortAccount"]) * 100,
+        "funding_pct": float(premium["lastFundingRate"]) * 100,
+        "oi_usd": float(oi["openInterest"]) * float(premium["markPrice"]),
+        "source": "Binance",
+    }
+
+
+def _futures_from_bybit(coin):
+    symbol = f"{coin}USDT"
+    ratio = _futures_json("https://api.bybit.com/v5/market/account-ratio",
+                          {"category": "linear", "symbol": symbol, "period": "5min", "limit": 1})["result"]["list"][0]
+    ticker = _futures_json("https://api.bybit.com/v5/market/tickers", {"category": "linear", "symbol": symbol})["result"]["list"][0]
+    return {
+        "long_pct": float(ratio["buyRatio"]) * 100,
+        "short_pct": float(ratio["sellRatio"]) * 100,
+        "funding_pct": float(ticker["fundingRate"]) * 100,
+        "oi_usd": float(ticker["openInterestValue"]),
+        "source": "Bybit",
+    }
+
+
+def _futures_fetch(coin):
+    for loader in (_futures_from_binance, _futures_from_bybit):
+        try:
+            data = loader(coin)
+            if all(math.isfinite(data[k]) for k in ("long_pct", "short_pct", "funding_pct", "oi_usd")) and data["long_pct"] + data["short_pct"] > 0:
+                total = data["long_pct"] + data["short_pct"]
+                data["long_pct"] = round(data["long_pct"] / total * 100, 1)
+                data["short_pct"] = round(100 - data["long_pct"], 1)
+                data["funding_pct"] = round(data["funding_pct"], 4)
+                data["oi_usd"] = round(data["oi_usd"])
+                return data
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError) as error:
+            print(f"Futures mood {coin} via {loader.__name__} failed: {error}")
+    return None
+
+
+@app.get("/api/futures/mood")
+def futures_mood(coin: str = "BTC"):
+    coin = coin.upper()
+    if coin not in FUTURES_COINS:
+        raise HTTPException(status_code=400, detail="Only BTC and ETH are available.")
+    now = time.time()
+    with _futures_lock:
+        entry = _futures_cache.get(coin)
+        if entry and now - entry["at"] < (FUTURES_TTL_S if entry["data"] else 20):
+            return {"coin": coin, "data": entry["data"], "at": int(entry["at"])}
+        data = _futures_fetch(coin)
+        _futures_cache[coin] = {"at": now, "data": data}
+    return {"coin": coin, "data": data, "at": int(now)}
+
+
 # ---------- Community: nicknames, paper-trader leaderboard and the public Messenger ----------
 # Everyone sees every message (no private chats). Emails never leave the server:
 # people are shown only by the nickname they chose. Links, phone numbers and

@@ -2910,3 +2910,17 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 
 #cdStats .cd-stats-trade { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 0; padding: 0; border-top: 0; background: none; }
 #cdStats .cd-stats-trade .cd-submit { padding: 10px; font-size: 14px; }
+
+/* Long / Short mood card */
+.cd-fx-pills { margin-left: auto; }
+.cd-fx-pills .cd-pill { padding: 4px 12px; font-size: 12px; }
+.cd-fx-bar { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: var(--surface-soft); }
+.cd-fx-bar i { display: block; height: 100%; }
+.cd-fx-bar .is-long { background: var(--green, #10b981); }
+.cd-fx-bar .is-short { background: var(--red, #ef4444); }
+.cd-fx-split { display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px; font-weight: 800; }
+.cd-fx-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.cd-fx-stats div { padding: 9px 6px; border-radius: 12px; background: var(--surface-soft); border: 1px solid var(--border); text-align: center; }
+.cd-fx-stats span { display: block; font-size: 11px; color: var(--muted); }
+.cd-fx-stats b { display: block; margin-top: 2px; font-size: 13.5px; }
+.cd-fx-note { margin: 10px 0 0; font-size: 11px; line-height: 1.45; }

@@ -147,6 +147,47 @@
     if (pro) { renderAlerts(); renderStats(); loadNews(); }
   }
 
+
+  // ---------- Long / Short mood (futures crowd, funding, open interest) ----------
+  // Served by /api/futures/mood: one shared copy per coin, refreshed about once a minute.
+  const fx = { coin: "BTC", data: {}, at: {} };
+  const fmtBig = (n) => n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : `$${(n / 1e6).toFixed(0)}M`;
+  function renderFutures() {
+    const card = el("cdHomeFuturesCard");
+    const d = fx.data[fx.coin];
+    card.hidden = !d && !Object.values(fx.data).some(Boolean);
+    document.querySelectorAll("#cdFxCoins button").forEach((b) => b.classList.toggle("is-active", b.dataset.fx === fx.coin));
+    const body = el("cdFxBody");
+    if (!d) { body.innerHTML = '<p class="cd-meta">Data for this coin is not available right now.</p>'; return; }
+    const crowd = d.long_pct >= 55 ? "Long-heavy" : d.long_pct <= 45 ? "Short-heavy" : "Balanced";
+    const fundCls = d.funding_pct > 0 ? "cd-up" : d.funding_pct < 0 ? "cd-down" : "";
+    body.innerHTML = `
+      <div class="cd-fx-bar"><i class="is-long" style="width:${d.long_pct}%"></i><i class="is-short" style="width:${d.short_pct}%"></i></div>
+      <div class="cd-fx-split"><span class="cd-up">Long ${d.long_pct}%</span><span class="cd-down">Short ${d.short_pct}%</span></div>
+      <div class="cd-fx-stats">
+        <div><span>Funding</span><b class="${fundCls}">${d.funding_pct > 0 ? "+" : ""}${d.funding_pct}%</b></div>
+        <div><span>Open interest</span><b>${fmtBig(d.oi_usd)}</b></div>
+        <div><span>Crowd</span><b>${crowd}</b></div>
+      </div>
+      <p class="cd-meta cd-fx-note">${esc(fx.coin)} futures accounts, ${esc(d.source)}. Positive funding means longs pay shorts. It shows who is crowded, not where price goes next. Educational, not advice.</p>`;
+  }
+  async function loadFutures(coin, force) {
+    const now = Date.now();
+    if (!force && fx.at[coin] && now - fx.at[coin] < 55000) { renderFutures(); return; }
+    fx.at[coin] = now;
+    try {
+      const res = await fetch(`/api/futures/mood?coin=${coin}`, { cache: "no-store" });
+      if (res.ok) fx.data[coin] = (await res.json()).data || null;
+    } catch (e) { /* keep the last copy */ }
+    renderFutures();
+  }
+  document.addEventListener("click", (event) => {
+    const b = event.target.closest("#cdFxCoins button[data-fx]");
+    if (b) { fx.coin = b.dataset.fx; renderFutures(); loadFutures(fx.coin); }
+  });
+  setInterval(() => { if (document.querySelector(".tab-panel.active")?.dataset.panel === "dashboard" && !document.hidden) loadFutures(fx.coin); }, 60000);
+  setTimeout(() => loadFutures("BTC"), 2500);
+
   window.addEventListener("cd-markets-updated", render);
   window.addEventListener("cd-user-changed", () => setTimeout(render, 300));
   window.addEventListener("cd-auth-state", () => setTimeout(render, 300));
