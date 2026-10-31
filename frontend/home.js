@@ -26,8 +26,8 @@
     const dir = F().momDir ? F().momDir("BTC") : 0; // 1 price rising, -1 falling, 0 not known yet
     const score = btc.momentum;
     let side = "wait", text = "Wait, no new trades", sub = "BTC has not picked a side yet.";
-    if (score >= BUY_MIN && dir >= 0) { side = "buy"; text = "Look for Buy setups"; sub = "BTC is strong and its price is not falling."; }
-    else if (score <= SELL_MAX && dir <= 0) { side = "sell"; text = "Look for Sell setups"; sub = "BTC is weak and its price is not rising."; }
+    if (score >= BUY_MIN && dir >= 0) { side = "buy"; text = "Look for Bullish setups"; sub = "BTC is strong and its price is not falling."; }
+    else if (score <= SELL_MAX && dir <= 0) { side = "sell"; text = "Look for Bearish setups"; sub = "BTC is weak and its price is not rising."; }
     else if (score >= BUY_MIN) sub = "BTC score is high but its price is falling.";
     else if (score <= SELL_MAX) sub = "BTC score is low but its price is rising.";
     return { side, text, sub, score };
