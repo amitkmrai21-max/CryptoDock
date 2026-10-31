@@ -59,9 +59,15 @@
       return buy ? c.momentum >= SETUP_BUY && dir > 0 && c.change_percent < SETUP_MAX_MOVE
                  : c.momentum <= SETUP_SELL && dir < 0 && c.change_percent > -SETUP_MAX_MOVE;
     }).sort((a, b) => (buy ? b.momentum - a.momentum : a.momentum - b.momentum)).slice(0, 5);
-    list.innerHTML = picked.map((c) =>
-      `<li data-base="${esc(c.base)}"><span class="cd-mover-name">${F().avatar(c.base)}<span>${esc(c.base)}</span></span><span class="cd-mover-right">${F().fmtUsd(c.price)}<br>${F().momPill(c)}</span></li>`
-    ).join("") || `<li class="cd-meta cd-hx-empty">No coin fits right now. That is normal; do not force a trade.</li>`;
+    list.innerHTML = picked.map((c) => {
+      const score = Math.round(c.momentum);
+      return `<li class="cd-hx-card ${buy ? "is-up" : "is-down"}" data-base="${esc(c.base)}">
+        <div class="cd-hx-card-top">${F().avatar(c.base)}<strong>${esc(c.base)}</strong></div>
+        <div class="cd-hx-ring" style="--s:${Math.max(0, Math.min(100, score))}"><i>${score}</i></div>
+        <div class="cd-hx-card-price">${F().fmtUsd(c.price)}</div>
+        <div class="cd-hx-card-chg ${F().pctClass(c.change_percent)}">${F().fmtPct(c.change_percent)} · 24h</div>
+      </li>`;
+    }).join("") || `<li class="cd-meta cd-hx-empty">No coin fits right now. That is normal; do not force a trade.</li>`;
   }
 
   // ---------- Latest news ----------

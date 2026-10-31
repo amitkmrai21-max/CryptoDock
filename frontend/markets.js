@@ -728,7 +728,7 @@
     }
     // Tapping a coin anywhere (Dashboard, Watchlist, Scanner) opens its coin
     // sheet — price, market depth, range — with Buy / Sell at the bottom.
-    const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base], .cd-mini-coin[data-base], .cd-tick[data-base], .cd-feature[data-base]");
+    const coinEl = event.target.closest("tr[data-base], .cd-key-card[data-base], .cd-mover-list li[data-base], .cd-hx-card[data-base], .cd-mini-coin[data-base], .cd-tick[data-base], .cd-feature[data-base]");
     if (coinEl) {
       // Scanner rows show the coin's market stats rather than Buy / Sell.
       if (coinEl.closest("#cdScanBody") && typeof window.cdOpenStats === "function") window.cdOpenStats(coinEl.dataset.base);
