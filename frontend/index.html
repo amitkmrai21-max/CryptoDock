@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261111-momv2-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261112-home-1">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261110-soft-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -264,6 +264,24 @@
         </section>
 
         <!-- Crypto Market Mood & Sentiment Card -->
+        <!-- Home extras (home.js): mood and setups for the owner, news / alerts / stats for Pro -->
+        <section class="cd-panel cd-hx" id="cdHomeMoodCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">◎</span><h3>Market mood</h3><span class="cd-panel-note">based on BTC</span></div>
+          <div id="cdHomeMood" class="cd-hx-mood"></div>
+        </section>
+        <section class="cd-panel cd-hx" id="cdHomeSetupsCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">★</span><h3>Top setups today</h3><span class="cd-panel-note" id="cdHomeSetupsNote"></span></div>
+          <ul id="cdHomeSetups" class="cd-mover-list"></ul>
+        </section>
+        <section class="cd-panel cd-hx" id="cdHomeNewsCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">▤</span><h3>Latest news</h3><button type="button" class="cd-view-all" data-go="news">View All ›</button></div>
+          <div id="cdHomeNews" class="cd-hx-news"></div>
+        </section>
+        <section class="cd-panel cd-hx" id="cdHomeAlertsCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">◔</span><h3>Price alerts</h3><button type="button" class="cd-view-all" data-go="alerts">View All ›</button></div>
+          <div id="cdHomeAlerts" class="cd-hx-alerts"></div>
+        </section>
+
         <section class="cd-sentiment-card">
           <div class="cd-sentiment-header">
             <div class="cd-sentiment-title-wrap">
@@ -335,6 +353,12 @@
 
         <!-- Market mood -->
         <!-- Bottom cd-mood upgraded to primary sentiment card above -->
+
+        <!-- My trading stats: last on the page -->
+        <section class="cd-panel cd-hx" id="cdHomeStatsCard" hidden>
+          <div class="cd-panel-head"><span class="cd-panel-icon">▥</span><h3>My trading stats</h3><span class="cd-panel-note">last 30 days</span></div>
+          <div id="cdHomeStats" class="cd-hx-stats"></div>
+        </section>
       </div>
 
       <div class="cd-legacy-dashboard" hidden>
@@ -534,6 +558,14 @@
           </div>
           <button id="cdResetFunds" class="cd-ghost-btn" type="button">Reset funds</button>
         </div>
+        <section class="card cd-acct-card" id="cdAcctCard">
+          <div class="cd-acct-top">
+            <div><span class="cd-acct-lbl">Total value</span><strong id="cdAcctValue" class="cd-acct-big">--</strong></div>
+            <div class="cd-acct-r"><span class="cd-acct-lbl">Today</span><strong id="cdAcctToday" class="cd-acct-big">--</strong></div>
+          </div>
+          <svg id="cdAcctSpark" class="cd-acct-spark" viewBox="0 0 300 44" preserveAspectRatio="none" role="img" aria-label="Account value, last 7 days"></svg>
+          <div class="cd-acct-chips"><span id="cdAcctOpen" class="cd-acct-chip">0 open positions</span><span id="cdAcctFree" class="cd-acct-chip">--</span><button type="button" id="cdAcctMode" class="cd-acct-chip cd-acct-btn">Isolated ▾</button></div>
+        </section>
         <div class="cd-funds-grid">
           <div class="cd-fund"><span>Available</span><strong id="cdFundAvailable">--</strong><small id="cdFundAvailableInr"></small></div>
           <div class="cd-fund"><span>Invested</span><strong id="cdFundInvested">--</strong><small id="cdFundLocked"></small></div>
@@ -1703,12 +1735,12 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261111-momv2-1"></script>
-  <script src="/frontend/paper.js?v=20261111-margin-1"></script>
+  <script src="/frontend/markets.js?v=20261112-home-1"></script>
+  <script src="/frontend/paper.js?v=20261112-home-1"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
-  <script src="/frontend/alerts.js?v=20261004-sheet-1"></script>
+  <script src="/frontend/alerts.js?v=20261112-home-1"></script>
 
 
   <!-- Phone tab bar + More sheet (tabbar.js) -->
@@ -1968,6 +2000,7 @@
       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
+  <script src="/frontend/home.js?v=20261112-home-1"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261016-fix-1"></script>
   <script src="/frontend/coin-stats.js?v=20261005-tv-2"></script>

@@ -412,8 +412,80 @@
     return { posRows, spotRows, invested, reserved, unrealized, equity, total, booked: total - unrealized };
   }
 
+  // ---------- account history (for "My Account" and "My trading stats") ----------
+  const EQ_EVERY_MS = 30 * 60 * 1000;
+  function sampleEquity(value) {
+    if (!(value > 0) || !window.cdMarkets) return;
+    const log = (state.eq = state.eq || []);
+    const now = Date.now();
+    const last = log[log.length - 1];
+    if (last && now - last[0] < EQ_EVERY_MS) return;
+    log.push([now, Math.round(value * 100) / 100]);
+    const cutoff = now - 8 * 86400000;
+    while (log.length && log[0][0] < cutoff) log.shift();
+    save();
+  }
+
+  // Net result of a closed trade, the same way the Orders > Trades card works it out.
+  function tradeNet(t) {
+    const o = t.open, c = t.close;
+    if (Number.isFinite(c.net)) return c.net;
+    const long = o.side === "BUY";
+    const margin = (o.qty * o.fillPrice) / (o.leverage || 1);
+    const openFee = o.fee || 0;
+    if (c.action === "LIQUIDATED") return -(margin + openFee);
+    const pnl = (long ? c.fillPrice - o.fillPrice : o.fillPrice - c.fillPrice) * o.qty;
+    return Math.max(0, margin + pnl - (c.fee || 0)) - margin - openFee;
+  }
+
+  function tradingStats(days) {
+    const since = Date.now() - days * 86400000;
+    const nets = buildTrades().filter((t) => t.close && (t.close.filledAt || t.close.createdAt) >= since).map(tradeNet);
+    if (!nets.length) return null;
+    return { n: nets.length, wins: nets.filter((v) => v > 0).length, best: Math.max(...nets), worst: Math.min(...nets) };
+  }
+
+  function accountSummary() {
+    const t = accountTotals();
+    const log = state.eq || [];
+    const dayStart = new Date().setHours(0, 0, 0, 0);
+    const before = log.filter((p) => p[0] < dayStart);
+    const base = before.length ? before[before.length - 1] : log[0];
+    return {
+      equity: t.equity,
+      today: base ? t.equity - base[1] : null,
+      series: log.filter((p) => p[0] > Date.now() - 7 * 86400000).map((p) => p[1]).concat(t.equity),
+      free: state.cash,
+      open: positions().length,
+      mode: marginMode(),
+    };
+  }
+  window.cdPaperApi = { stats: tradingStats, account: accountSummary };
+
+  function renderAccountCard() {
+    if (!el("cdAcctValue")) return;
+    const a = accountSummary();
+    el("cdAcctValue").textContent = fmtMoney(a.equity);
+    const today = el("cdAcctToday");
+    today.textContent = a.today === null ? "--" : signed(fmtMoney(Math.abs(a.today)), a.today);
+    today.className = a.today === null ? "" : pctClass(a.today);
+    el("cdAcctOpen").textContent = a.open === 1 ? "1 open position" : `${a.open} open positions`;
+    el("cdAcctFree").textContent = `${fmtMoney(a.free)} free`;
+    el("cdAcctMode").textContent = (a.mode === "cross" ? "Cross" : "Isolated") + " ▾";
+    const svg = el("cdAcctSpark");
+    const pts = a.series.filter((v) => Number.isFinite(v));
+    if (pts.length < 2) { svg.innerHTML = ""; return; }
+    const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+    const xy = pts.map((v, i) => `${((i / (pts.length - 1)) * 296 + 2).toFixed(1)},${(38 - ((v - lo) / span) * 32).toFixed(1)}`);
+    const up = pts[pts.length - 1] >= pts[0];
+    const last = xy[xy.length - 1].split(",");
+    svg.innerHTML = `<polyline points="${xy.join(" ")}" fill="none" class="${up ? "is-up" : "is-down"}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${last[0]}" cy="${last[1]}" r="3.5" class="${up ? "is-up" : "is-down"}"/>`;
+  }
+
   function renderPositions() {
     const t = accountTotals();
+    sampleEquity(t.equity);
+    renderAccountCard();
     const setText = (id, text, cls) => { const node = el(id); if (!node) return; node.textContent = text; if (cls !== undefined) node.className = cls; };
     setText("cdFundAvailable", fmtMoney(state.cash));
     setText("cdFundAvailableInr", fmtInr(state.cash));
@@ -732,7 +804,7 @@
   // One listener for the whole feature: the sheet's markup comes after this script on the page.
   document.addEventListener("click", (event) => {
     const t = event.target;
-    if (t.closest("#cdMarginOpen, #cdTicketMode")) { openMarginSheet(); return; }
+    if (t.closest("#cdMarginOpen, #cdTicketMode, #cdAcctMode")) { openMarginSheet(); return; }
     if (t.closest("#cdMarginClose, #cdMarginDismiss") || t.id === "cdMarginSheet") { closeMarginSheet(); return; }
     const card = t.closest("#cdMarginSheet [data-margin-mode]");
     if (card) chooseMarginMode(card.dataset.marginMode);

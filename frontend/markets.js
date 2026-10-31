@@ -800,7 +800,7 @@
     render();
   });
 
-  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow, momPill };
+  window.cdFormat = { fmtUsd, fmtInr, fmtPct, pctClass, avatar, escapeHtml, fmtVolume, coinRow, momPill, isOwner: isOwnerUser, momDir: (base) => (momTrend[base] && momTrend[base].dir) || 0 };
   window.cdToggleWatch = toggleWatch;
   window.cdVolumeRank = (base) => {
     const sorted = coins.slice().sort((a, b) => (b.volume_usdt || 0) - (a.volume_usdt || 0));
