@@ -32,6 +32,7 @@
   function save() {
     try { localStorage.setItem(storageKey(), JSON.stringify(alerts)); } catch (e) { /* ignore */ }
   }
+  window.cdAlertsApi = { active: () => alerts.filter((a) => a.status === "ACTIVE") };
 
   function message(text) {
     el("cdAlertMsg").textContent = text || "";
