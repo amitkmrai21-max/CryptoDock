@@ -216,18 +216,44 @@
 
   // ---------- futures (Long / Short with leverage) ----------
   const positions = () => (state.positions = state.positions || []);
+  // Margin mode: "isolated" (default) = every position has its own margin and only that is lost
+  // when it is liquidated. "cross" = the whole available balance backs all cross positions, so
+  // they are liquidated much later, but a liquidation can take the whole balance.
+  const marginMode = () => (state.marginMode === "cross" ? "cross" : "isolated");
+  const isCross = (p) => p && p.mode === "cross";
+  const CROSS_MAINT = 0.05; // liquidated when equity falls to 5% of the margin in use (same as isolated)
+
+  // Equity of the cross account: free balance + margin + profit/loss of the cross positions.
+  function crossAccount() {
+    const list = positions().filter(isCross);
+    let margin = 0, pnl = 0;
+    list.forEach((p) => { margin += p.margin; pnl += pnlOf(p, priceOf(p.base) || p.entryPrice); });
+    const equity = state.cash + margin + pnl;
+    return { list, margin, pnl, equity, buffer: equity - CROSS_MAINT * margin };
+  }
+  // The price at which this position is liquidated. Isolated: fixed at open. Cross: moves with
+  // the account (assumes the other positions stay where they are); null = out of reach.
+  function liqFor(p) {
+    if (!isCross(p)) return p.liqPrice;
+    const mark = priceOf(p.base) || p.entryPrice;
+    const room = crossAccount().buffer / p.qty;
+    const price = p.side === "LONG" ? mark - room : mark + room;
+    return price > 0 ? price : null;
+  }
+  const fmtLiq = (p) => { const v = liqFor(p); return v === null ? "--" : fmtUsd(v); };
+
   const liqPriceOf = (side, entry, lev) => (side === "LONG" ? entry * (1 - 0.95 / lev) : entry * (1 + 0.95 / lev));
   const pnlOf = (p, mark) => (p.side === "LONG" ? mark - p.entryPrice : p.entryPrice - mark) * p.qty;
   const maxNotional = (lev) => state.cash / (1 / lev + FUT_FEE_RATE);
 
-  function openPosition(base, side, qty, price, leverage, margin, fee) {
+  function openPosition(base, side, qty, price, leverage, margin, fee, mode) {
     const pos = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      base, side, qty, entryPrice: price, leverage, margin,
+      base, side, qty, entryPrice: price, leverage, margin, mode: mode || marginMode(),
       liqPrice: liqPriceOf(side, price, leverage), openFee: fee, openedAt: Date.now(),
     };
     positions().unshift(pos);
-    state.orders.unshift(newOrder({ base, side: side === "LONG" ? "BUY" : "SELL", action: "OPEN", leverage, type: "MARKET", qty, status: "FILLED", fillPrice: price, fee, filledAt: Date.now(), posId: pos.id }));
+    state.orders.unshift(newOrder({ base, side: side === "LONG" ? "BUY" : "SELL", action: "OPEN", leverage, type: "MARKET", qty, status: "FILLED", fillPrice: price, fee, filledAt: Date.now(), posId: pos.id, mode: pos.mode }));
     return pos;
   }
 
@@ -255,11 +281,11 @@
     }
     state.cash -= margin + fee;
     if (fillsNow) {
-      const pos = openPosition(base, posSide, qty, market, lev, margin, fee);
+      const pos = openPosition(base, posSide, qty, market, lev, margin, fee, marginMode());
       save();
       return { position: pos };
     }
-    const order = newOrder({ base, side, action: "OPEN", leverage: lev, type: "LIMIT", qty, limitPrice, status: "OPEN", reserved: margin + fee });
+    const order = newOrder({ base, side, action: "OPEN", leverage: lev, type: "LIMIT", qty, limitPrice, status: "OPEN", reserved: margin + fee, mode: marginMode() });
     state.orders.unshift(order);
     save();
     return { order };
@@ -271,14 +297,18 @@
     const idx = list.findIndex((p) => p.id === id);
     if (idx === -1) return;
     const p = list[idx];
-    const mark = liquidated ? p.liqPrice : priceOf(p.base) || p.entryPrice;
+    const cross = isCross(p);
+    // A cross position is liquidated at the market price (the account ran out), an isolated one at its own liquidation price.
+    const mark = liquidated && !cross ? p.liqPrice : priceOf(p.base) || p.entryPrice;
     const pnl = pnlOf(p, mark);
     const fee = liquidated ? 0 : p.qty * mark * FUT_FEE_RATE;
-    const back = liquidated ? 0 : Math.max(0, p.margin + pnl - fee);
+    // Isolated can never lose more than its margin; cross may, from the free balance.
+    const back = liquidated && !cross ? 0 : cross ? p.margin + pnl - fee : Math.max(0, p.margin + pnl - fee);
     state.cash += back;
+    if (state.cash < 0) state.cash = 0;
     state.realized += back - p.margin;
     list.splice(idx, 1);
-    state.orders.unshift(newOrder({ base: p.base, side: p.side === "LONG" ? "SELL" : "BUY", action: liquidated ? "LIQUIDATED" : "CLOSE", leverage: p.leverage, type: "MARKET", qty: p.qty, status: "FILLED", fillPrice: mark, fee, filledAt: Date.now(), posId: p.id, entryPrice: p.entryPrice, net: back - p.margin - (p.openFee || 0) }));
+    state.orders.unshift(newOrder({ base: p.base, side: p.side === "LONG" ? "SELL" : "BUY", action: liquidated ? "LIQUIDATED" : "CLOSE", leverage: p.leverage, type: "MARKET", qty: p.qty, status: "FILLED", fillPrice: mark, fee, filledAt: Date.now(), posId: p.id, entryPrice: p.entryPrice, mode: p.mode, net: back - p.margin - (p.openFee || 0) }));
     save();
     renderAll();
     toast(liquidated
@@ -333,7 +363,7 @@
           order.filledAt = Date.now();
           order.reserved = 0;
           order.posId = order.id;
-          const pos = { id: order.id, base: order.base, side: long ? "LONG" : "SHORT", qty: order.qty, entryPrice: order.limitPrice, leverage: order.leverage, margin, liqPrice: liqPriceOf(long ? "LONG" : "SHORT", order.limitPrice, order.leverage), openFee: notional * FUT_FEE_RATE, openedAt: Date.now() };
+          const pos = { id: order.id, base: order.base, side: long ? "LONG" : "SHORT", qty: order.qty, entryPrice: order.limitPrice, leverage: order.leverage, margin, mode: order.mode === "cross" ? "cross" : "isolated", liqPrice: liqPriceOf(long ? "LONG" : "SHORT", order.limitPrice, order.leverage), openFee: notional * FUT_FEE_RATE, openedAt: Date.now() };
           positions().unshift(pos);
           changed = true;
           toast(`${pos.side} ${fmtQty(pos.qty)} ${pos.base} opened at ${fmtUsd(pos.entryPrice)} (limit)`);
@@ -345,10 +375,16 @@
     });
     if (changed) save();
     positions().slice().forEach((p) => {
+      if (isCross(p)) return;
       const mark = priceOf(p.base);
       if (!mark) return;
       if ((p.side === "LONG" && mark <= p.liqPrice) || (p.side === "SHORT" && mark >= p.liqPrice)) closePosition(p.id, { liquidated: true });
     });
+    // Cross: once the whole account is down to its maintenance level, every cross position goes.
+    const cross = crossAccount();
+    if (cross.list.length && cross.list.every((p) => priceOf(p.base)) && cross.equity <= CROSS_MAINT * cross.margin) {
+      cross.list.slice().forEach((p) => closePosition(p.id, { liquidated: true }));
+    }
   }
 
   // ---------- Positions page ----------
@@ -409,6 +445,7 @@
             <div class="cd-pos-name">
               <strong>${escapeHtml(p.base)}/USDT</strong>
               <span class="cd-pos-tag is-${p.side.toLowerCase()}">${p.side} ${p.leverage}x</span>
+              <span class="cd-pos-mode">${isCross(p) ? "Cross" : "Isolated"}</span>
             </div>
             <button type="button" class="cd-pos-close" data-close-pos="${escapeHtml(p.id)}">Close Market</button>
           </div>
@@ -417,7 +454,7 @@
             <div><span>Margin:</span> <strong>${fmtMoney(p.margin)}</strong></div>
             <div><span>Entry Price:</span> <strong>${fmtUsd(p.entryPrice)}</strong></div>
             <div><span>Mark Price:</span> <strong>${fmtUsd(mark)}</strong></div>
-            <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${fmtUsd(p.liqPrice)}</strong></div>
+            <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${fmtLiq(p)}</strong></div>
           </div>
           <div class="cd-pos-foot">
             <span>Unrealized P&amp;L (ROE%):</span>
@@ -491,7 +528,7 @@
       fees += closeFee;
       end = c.filledAt || c.createdAt;
       if (Number.isFinite(c.net)) net = c.net;
-      else if (c.action === "LIQUIDATED") net = -(margin + openFee);
+      else if (c.action === "LIQUIDATED" && o.mode !== "cross") net = -(margin + openFee);
       else {
         const pnl = (long ? c.fillPrice - entry : entry - c.fillPrice) * o.qty;
         net = Math.max(0, margin + pnl - closeFee) - margin - openFee;
@@ -516,7 +553,8 @@
     // liquidation reads -100%. Running: ROE on margin, as on the Positions page.
     const base = c ? margin + openFee : margin;
     const roe = base > 0 && Number.isFinite(net) ? (net / base) * 100 : 0;
-    const liq = p ? p.liqPrice : liqPriceOf(long ? "LONG" : "SHORT", entry, lev);
+    const tradeCross = isCross(p) || o.mode === "cross";
+    const liq = p ? liqFor(p) : tradeCross ? null : liqPriceOf(long ? "LONG" : "SHORT", entry, lev);
     const exitType = c ? (c.action === "LIQUIDATED" ? "Liquidation" : "Close Market") : p ? "--" : "--";
     return `
         <div class="cd-pos-card cd-trade-card">
@@ -524,6 +562,7 @@
             <div class="cd-pos-name">
               <strong>${escapeHtml(o.base)}/USDT</strong>
               <span class="cd-pos-tag is-${long ? "long" : "short"}">${long ? "LONG" : "SHORT"} ${lev}x</span>
+              <span class="cd-pos-mode">${tradeCross ? "Cross" : "Isolated"}</span>
             </div>
             <span class="cd-trade-status ${status.cls}">${status.text}</span>
           </div>
@@ -534,7 +573,7 @@
           <div class="cd-pos-grid">
             <div><span>Size:</span> <strong>${fmtQty(o.qty)} ${escapeHtml(o.base)} (${fmtMoney(notional)})</strong></div>
             <div><span>Margin:</span> <strong>${fmtMoney(margin)}</strong></div>
-            <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${fmtUsd(liq)}</strong></div>
+            <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${liq === null ? "--" : fmtUsd(liq)}</strong></div>
             <div><span>Fees:</span> <strong>${fmtMoney(fees)}</strong></div>
             <div><span>Held for:</span> <strong>${end ? fmtHeld(end - opened) : "--"}</strong></div>
           </div>
@@ -582,6 +621,7 @@
   function renderAll() {
     renderPositions();
     renderOrders();
+    renderMarginMode();
     if (ticket.base) renderTicket();
   }
 
@@ -647,6 +687,56 @@
     submit.classList.toggle("is-long", isLong);
     submit.classList.toggle("is-short", !isLong);
   }
+
+  // ---------- margin mode sheet (Cross / Isolated) ----------
+  function renderMarginMode() {
+    const mode = marginMode();
+    const label = mode === "cross" ? "Cross" : "Isolated";
+    const open = el("cdMarginOpenLabel"); if (open) open.textContent = label;
+    const inline = el("cdTicketMode"); if (inline) inline.textContent = label + " ▾";
+    const avail = el("cdMarginAvail"); if (avail) avail.textContent = fmtMoney(state.cash);
+    document.querySelectorAll("#cdMarginSheet [data-margin-mode]").forEach((card) => {
+      const on = card.dataset.marginMode === mode;
+      card.classList.toggle("is-selected", on);
+      const badge = card.querySelector(".cd-mm-current"); if (badge) badge.hidden = !on;
+      card.setAttribute("aria-pressed", String(on));
+    });
+  }
+
+  function openMarginSheet() {
+    const note = el("cdMarginNote"); if (note) { note.hidden = true; note.textContent = ""; }
+    renderMarginMode();
+    el("cdMarginSheet").hidden = false;
+  }
+  function closeMarginSheet() { el("cdMarginSheet").hidden = true; }
+
+  function chooseMarginMode(next) {
+    if (next === marginMode()) { closeMarginSheet(); return; }
+    // Like an exchange, the mode can only change when nothing is open: running positions and
+    // waiting orders were opened under the current mode.
+    const busy = positions().length > 0 || state.orders.some((o) => o.status === "OPEN" && o.action === "OPEN");
+    if (busy) {
+      const note = el("cdMarginNote");
+      note.textContent = "Close all open positions and cancel open orders first, then you can change the margin mode.";
+      note.hidden = false;
+      return;
+    }
+    state.marginMode = next;
+    save();
+    renderAll();
+    renderMarginMode();
+    toast(`Margin mode: ${next === "cross" ? "Cross" : "Isolated"}`);
+    closeMarginSheet();
+  }
+
+  // One listener for the whole feature: the sheet's markup comes after this script on the page.
+  document.addEventListener("click", (event) => {
+    const t = event.target;
+    if (t.closest("#cdMarginOpen, #cdTicketMode")) { openMarginSheet(); return; }
+    if (t.closest("#cdMarginClose, #cdMarginDismiss") || t.id === "cdMarginSheet") { closeMarginSheet(); return; }
+    const card = t.closest("#cdMarginSheet [data-margin-mode]");
+    if (card) chooseMarginMode(card.dataset.marginMode);
+  });
 
   function showError(message) {
     const box = el("cdTicketError");
