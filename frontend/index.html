@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261112-home-8">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261112-home-9">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261110-soft-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
@@ -284,18 +284,18 @@
         <!-- Crypto Market Mood & Sentiment Card -->
         <!-- Home extras (home.js): mood and setups for the owner, news / alerts / stats for Pro -->
         <section class="cd-panel cd-hx" id="cdHomeMoodCard" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">◎</span><h3>Market mood</h3><span class="cd-panel-note">based on BTC</span></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#6d5ef0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="M12 16l4-5"/><circle cx="12" cy="16" r="1.2"/></svg></span><h3>Market mood</h3><span class="cd-panel-note">based on BTC</span></div>
           <div id="cdHomeMood" class="cd-hx-mood"></div>
         </section>
         <section class="cd-panel cd-hx" id="cdHomeSetupsCard" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">★</span><h3>Top setups today</h3><span class="cd-panel-note" id="cdHomeSetupsNote"></span></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#e11d48"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r=".8"/></svg></span><h3>Top setups today</h3><span class="cd-panel-note" id="cdHomeSetupsNote"></span></div>
           <ul id="cdHomeSetups" class="cd-hx-cards"></ul>
         </section>
 
         <section class="cd-sentiment-card">
           <div class="cd-sentiment-header">
             <div class="cd-sentiment-title-wrap">
-              <span class="cd-sentiment-icon">&#9678;</span>
+              <span class="cd-sentiment-icon cd-ico" style="--ic:#db2777"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></span>
               <h3>Crypto Market Mood</h3>
             </div>
             <span class="cd-sentiment-live-badge">&#8226; REALTIME</span>
@@ -326,26 +326,26 @@
 
         <!-- Crypto market -->
         <section class="cd-panel">
-          <div class="cd-panel-head"><span class="cd-panel-icon">◈</span><h3>Crypto Market</h3><button type="button" class="cd-view-all" data-go="watchlist">View All ›</button></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#0ea5e9"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v3M7 14v3M5.5 7h3v7h-3zM17 8v3M17 17v3M15.5 11h3v6h-3z"/></svg></span><h3>Crypto Market</h3><button type="button" class="cd-view-all" data-go="watchlist">View All ›</button></div>
           <div id="cdKeyCoins" class="cd-mini-coins"></div>
           <p id="cdMarketMeta" class="cd-meta cd-home-meta">Loading live prices…</p>
         </section>
 
         <!-- Forex -->
         <section class="cd-panel" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">$</span><h3>Forex</h3><span class="cd-panel-note">vs USDT</span></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#0d9488"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg></span><h3>Forex</h3><span class="cd-panel-note">vs USDT</span></div>
           <div id="cdForexCoins" class="cd-mini-coins cd-mini-coins-3"></div>
         </section>
 
         <!-- Commodity -->
         <section class="cd-panel" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">◆</span><h3>Commodity</h3><span class="cd-panel-note">Tokenised gold</span></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#d97706"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19l2-7h14l2 7zM8.5 12l1-5h5l1 5"/></svg></span><h3>Commodity</h3><span class="cd-panel-note">Tokenised gold</span></div>
           <div id="cdCommodityCoins" class="cd-mini-coins cd-mini-coins-2"></div>
         </section>
 
         <!-- Latest news: under Commodity -->
         <section class="cd-panel cd-hx" id="cdHomeNewsCard" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">▤</span><h3>Latest news</h3><button type="button" class="cd-view-all" data-go="news">View All ›</button></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#2563eb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h12v14H6a1 1 0 0 1-1-1zM17 9h3v9a1 1 0 0 1-1 1h-2M8 9h6M8 12h6M8 15h4"/></svg></span><h3>Latest news</h3><button type="button" class="cd-view-all" data-go="news">View All ›</button></div>
           <div id="cdHomeNews" class="cd-hx-news"></div>
         </section>
 
@@ -353,13 +353,13 @@
         <!-- Bottom cd-mood upgraded to primary sentiment card above -->
 
         <section class="cd-panel cd-hx" id="cdHomeAlertsCard" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">◔</span><h3>Price alerts</h3><button type="button" class="cd-view-all" data-go="alerts">View All ›</button></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#ea580c"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 1.5h-15zM10 21h4"/></svg></span><h3>Price alerts</h3><button type="button" class="cd-view-all" data-go="alerts">View All ›</button></div>
           <div id="cdHomeAlerts" class="cd-hx-alerts"></div>
         </section>
 
         <!-- My trading stats: last on the page -->
         <section class="cd-panel cd-hx" id="cdHomeStatsCard" hidden>
-          <div class="cd-panel-head"><span class="cd-panel-icon">▥</span><h3>My trading stats</h3><span class="cd-panel-note">last 30 days</span></div>
+          <div class="cd-panel-head"><span class="cd-panel-icon cd-ico" style="--ic:#16a34a"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><h3>My trading stats</h3><span class="cd-panel-note">last 30 days</span></div>
           <div id="cdHomeStats" class="cd-hx-stats"></div>
         </section>
       </div>
@@ -1738,12 +1738,12 @@
       </div>
     </div>
   </div>
-  <script src="/frontend/markets.js?v=20261112-home-8"></script>
-  <script src="/frontend/paper.js?v=20261112-home-8"></script>
+  <script src="/frontend/markets.js?v=20261112-home-9"></script>
+  <script src="/frontend/paper.js?v=20261112-home-9"></script>
   <script src="/frontend/coin-tools.js?v=20261005-live-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
-  <script src="/frontend/alerts.js?v=20261112-home-8"></script>
+  <script src="/frontend/alerts.js?v=20261112-home-9"></script>
 
 
   <!-- Phone tab bar + More sheet (tabbar.js) -->
@@ -2003,7 +2003,7 @@
       <p class="cdp-trust">🔒 Secure payment by Razorpay · No auto-renewal</p>
     </div>
   </div>
-  <script src="/frontend/home.js?v=20261112-home-8"></script>
+  <script src="/frontend/home.js?v=20261112-home-9"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261016-fix-1"></script>
   <script src="/frontend/coin-stats.js?v=20261005-tv-2"></script>
