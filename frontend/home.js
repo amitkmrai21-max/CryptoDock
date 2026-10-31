@@ -61,10 +61,11 @@
     }).sort((a, b) => (buy ? b.momentum - a.momentum : a.momentum - b.momentum)).slice(0, 5);
     list.innerHTML = picked.map((c) => {
       const score = Math.round(c.momentum);
+      const up = (F().momDir ? F().momDir(c.base) || (buy ? 1 : -1) : (buy ? 1 : -1)) > 0;
       return `<li class="cd-hx-card ${buy ? "is-up" : "is-down"}" data-base="${esc(c.base)}">
         <div class="cd-hx-card-top">${F().avatar(c.base)}<strong>${esc(c.base)}</strong></div>
         <div class="cd-hx-ring" style="--s:${Math.max(0, Math.min(100, score))}"><i>${score}</i></div>
-        <div class="cd-hx-card-price">${F().fmtUsd(c.price)}</div>
+        <div class="cd-hx-card-price"><i class="cd-hx-arrow ${up ? "is-up" : "is-down"}" aria-label="${up ? "Price is moving up" : "Price is moving down"}">${up ? "▲" : "▼"}</i>${F().fmtUsd(c.price)}</div>
         <div class="cd-hx-card-chg ${F().pctClass(c.change_percent)}">${F().fmtPct(c.change_percent)} · 24h</div>
       </li>`;
     }).join("") || `<li class="cd-meta cd-hx-empty">No coin fits right now. That is normal; do not force a trade.</li>`;

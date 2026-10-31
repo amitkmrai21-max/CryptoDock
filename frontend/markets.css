@@ -2897,3 +2897,6 @@ body[data-theme="light"] .cd-mom-check { color: #64748b; }
 .cd-hx-ring i { font-style: normal; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--surface, #fff); font: 800 17px var(--cd-num-font, system-ui); }
 .cd-hx-card-price { font-weight: 700; font-size: 14px; }
 .cd-hx-card-chg { font-size: 11px; margin-top: 2px; }
+.cd-hx-arrow { font-style: normal; font-size: 11px; margin-right: 4px; vertical-align: 1px; }
+.cd-hx-arrow.is-up { color: var(--green, #10b981); }
+.cd-hx-arrow.is-down { color: var(--red, #ef4444); }
