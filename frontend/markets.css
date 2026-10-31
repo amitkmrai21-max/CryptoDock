@@ -2884,3 +2884,16 @@ body[data-theme="light"] .cd-mom-check { color: #64748b; }
 .cd-acct-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .cd-acct-chip { font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px; background: var(--surface-soft); color: var(--muted); border: 0; }
 .cd-acct-btn { cursor: pointer; color: var(--text); font-family: inherit; }
+
+/* Top setups today: swipeable cards with a score ring */
+.cd-hx-cards { list-style: none; margin: 0; padding: 2px 0 4px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.cd-hx-cards::-webkit-scrollbar { display: none; }
+.cd-hx-cards .cd-hx-empty { flex: 1 1 auto; }
+.cd-hx-card { flex: 0 0 136px; scroll-snap-align: start; border-radius: 16px; padding: 12px; cursor: pointer; text-align: center; border: 1px solid color-mix(in srgb, var(--green, #10b981) 28%, var(--border)); background: linear-gradient(160deg, color-mix(in srgb, #8b5cf6 9%, var(--surface-soft)), color-mix(in srgb, var(--green, #10b981) 9%, var(--surface-soft))); }
+.cd-hx-card.is-down { border-color: color-mix(in srgb, var(--red, #ef4444) 28%, var(--border)); background: linear-gradient(160deg, color-mix(in srgb, #8b5cf6 9%, var(--surface-soft)), color-mix(in srgb, var(--red, #ef4444) 9%, var(--surface-soft))); }
+.cd-hx-card-top { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.cd-hx-ring { --c: var(--green, #10b981); width: 56px; height: 56px; border-radius: 50%; margin: 10px auto 8px; display: grid; place-items: center; background: conic-gradient(var(--c) calc(var(--s) * 1%), color-mix(in srgb, var(--muted) 25%, transparent) 0); }
+.cd-hx-card.is-down .cd-hx-ring { --c: var(--red, #ef4444); }
+.cd-hx-ring i { font-style: normal; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--surface, #fff); font: 800 17px var(--cd-num-font, system-ui); }
+.cd-hx-card-price { font-weight: 700; font-size: 14px; }
+.cd-hx-card-chg { font-size: 11px; margin-top: 2px; }
