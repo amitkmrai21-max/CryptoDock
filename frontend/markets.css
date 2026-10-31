@@ -2900,3 +2900,10 @@ body[data-theme="light"] .cd-mom-check { color: #64748b; }
 .cd-hx-arrow { font-style: normal; font-size: 11px; margin-right: 4px; vertical-align: 1px; }
 .cd-hx-arrow.is-up { color: var(--green, #10b981); }
 .cd-hx-arrow.is-down { color: var(--red, #ef4444); }
+
+/* Home card logos: line icon on a soft tint of its own colour */
+.cd-ico { width: 32px; height: 32px; border-radius: 10px; flex: 0 0 auto;
+  background: color-mix(in srgb, var(--ic) 18%, transparent) !important;
+  color: color-mix(in srgb, var(--ic) 78%, #ffffff) !important; }
+.cd-ico svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%, #ffffff) !important; color: var(--ic) !important; }
