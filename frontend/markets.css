@@ -2907,3 +2907,6 @@ body[data-theme="light"] .cd-mom-check { color: #64748b; }
   color: color-mix(in srgb, var(--ic) 78%, #ffffff) !important; }
 .cd-ico svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%, #ffffff) !important; color: var(--ic) !important; }
+
+#cdStats .cd-stats-trade { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 0; padding: 0; border-top: 0; background: none; }
+#cdStats .cd-stats-trade .cd-submit { padding: 10px; font-size: 14px; }
