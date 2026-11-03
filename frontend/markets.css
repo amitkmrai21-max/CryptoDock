@@ -3023,7 +3023,7 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 .cd-fr-step small { display: block; margin-top: 2px; font-size: 8.5px; line-height: 1.3; color: var(--text-muted, var(--muted)); }
 .cd-fr-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
 .cd-fr-levels > div { padding: 6px 3px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); text-align: center; min-width: 0; }
-.cd-fr-levels span { display: block; font-size: 9px; color: var(--text-muted, var(--muted)); white-space: nowrap; }
+.cd-fr-levels span { display: inline-block; font-size: 8.5px; font-weight: 700; color: var(--text); padding: 1px 4px; margin-bottom: 2px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); white-space: nowrap; }
 .cd-fr-levels b { display: block; font-size: 11.5px; margin-top: 1px; }
 .cd-fr-levels em { display: block; font-style: normal; font-size: 9.5px; font-weight: 700; min-height: 12px; }
 .cd-fr-ema { color: var(--text-muted, var(--muted)); font-size: 9.5px; text-align: center; }
