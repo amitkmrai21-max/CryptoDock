@@ -44,9 +44,9 @@
     const pts = values.map((v, i) => `${((i / (values.length - 1)) * 100).toFixed(1)},${(30 - ((v - lo) / span) * 28 - 1).toFixed(1)}`).join(" ");
     return `<svg class="cd-fr-spark ${up ? "is-up" : "is-down"}" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
   }
-  function ring(score, label) {
+  function ring(score, label, soft) {
     const has = Number.isFinite(score);
-    return `<div class="cd-fr-ring" style="--s:${has ? score : 0}"><div><b>${has ? score + "%" : "--"}</b><small>${label}</small></div></div>`;
+    return `<div class="cd-fr-ring${soft ? " is-soft" : ""}" style="--s:${has ? score : 0}"><div><b>${has ? score + "%" : "--"}</b><small>${label}</small></div></div>`;
   }
   function step(n, title, sub, state) { // state: ok | live | wait
     const mark = state === "ok" ? "✓" : state === "live" ? "⚡" : "…";
@@ -114,7 +114,7 @@
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, item.price, change, item.spark, bull ? true : false)}
       <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH PULLBACK · LONG" : "↘ BEARISH PULLBACK · SHORT"}</span><span class="cd-fr-tag">1H SETUP</span></div>
-      <div class="cd-fr-mid">${ring(item.score, "Score")}<div class="cd-fr-steps">${steps}</div></div>
+      <div class="cd-fr-mid">${zone ? ring(item.trend_score, "Trend", true) : ring(item.score, "Score")}<div class="cd-fr-steps">${steps}</div></div>
       ${levels}
       <small class="cd-fr-ema">EMA 20 ${money(item.ema20)} · EMA 50 ${money(item.ema50)}</small>
       ${actions(item, bull)}
@@ -189,7 +189,7 @@
       cards = rows.filter((r) => dirFilter === "all" || r.direction.toLowerCase() === dirFilter).map(breakoutCard);
     }
     const note = tab === "swing"
-      ? '<p class="cd-fr-note">Setup score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how clean the setup looks, not the chance of winning.</p>' : "";
+      ? '<p class="cd-fr-note">Setup score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how clean the setup looks, not the chance of winning. Cards still "in the zone" show only the trend strength ("Trend") until a rejection candle forms.</p>' : "";
     results.innerHTML = summary() + (cards.length ? cards.join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
