@@ -123,7 +123,8 @@
     el("cdCoinRangeNote").textContent = `now at ${Math.round(rangePos(coin) * 100)}% of today's range`;
     el("cdCoinRange").innerHTML = row("24H", coin.low, coin.high) +
       row("7D", perf.d7?.low, perf.d7?.high) +
-      row("30D", perf.d30?.low, perf.d30?.high);
+      row("30D", perf.d30?.low, perf.d30?.high) +
+      row(perf.y1 && perf.y1.days < 360 ? "ALL" : "52W", perf.y1?.low, perf.y1?.high);
   }
 
   // Open, average price, bid / ask (with spread), trades, volume and volume rank.
