@@ -2924,3 +2924,31 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 .cd-fx-stats span { display: block; font-size: 11px; color: var(--muted); }
 .cd-fx-stats b { display: block; margin-top: 2px; font-size: 13.5px; }
 .cd-fx-note { margin: 10px 0 0; font-size: 11px; line-height: 1.45; }
+
+/* Owner-only Focus Radar */
+.cd-focus-radar { gap: 12px; max-height: min(86vh, 860px); overflow: auto; }
+.cd-focus-subtitle { margin: 4px 0 0; color: var(--text-muted); font-size: 12px; font-weight: 500; }
+.cd-focus-notice { margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.cd-focus-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; }
+.cd-focus-toolbar button:disabled { opacity: .6; }
+.cd-focus-results { display: grid; gap: 10px; }
+.cd-focus-card { padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-soft); }
+.cd-focus-card.is-up { border-left: 3px solid rgba(16,185,129,.65); }
+.cd-focus-card.is-down { border-left: 3px solid rgba(239,68,68,.65); }
+.cd-focus-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.cd-focus-card-head > div { display: grid; gap: 4px; min-width: 0; }
+.cd-focus-card-head strong { font-size: 15px; }
+.cd-focus-card-head small { color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+.cd-focus-direction { flex: 0 0 auto; padding: 5px 8px; border-radius: 999px; background: rgba(16,185,129,.11); color: #10b981; font-size: 10px; font-weight: 800; }
+.cd-focus-card.is-down .cd-focus-direction { background: rgba(239,68,68,.11); color: #ef4444; }
+.cd-focus-stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; margin: 12px 0; }
+.cd-focus-stats > div { display: grid; gap: 3px; }
+.cd-focus-stats small { color: var(--text-muted); font-size: 10px; }
+.cd-focus-stats b { font-size: 12px; }
+.cd-focus-stats .is-green { color: #10b981; } .cd-focus-stats .is-red { color: #ef4444; }
+.cd-focus-detail { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--text); padding: 9px; font: inherit; font-size: 12px; font-weight: 700; }
+.cd-focus-empty { padding: 20px 14px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
+.cd-focus-empty p, .cd-focus-loading, .cd-focus-error { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.cd-focus-error { color: #ef4444; }
+.cd-more-tile.cd-more-focus { border-color: rgba(99,102,241,.35); }
+@media (max-width: 480px) { .cd-focus-card-head { flex-direction: column; } }

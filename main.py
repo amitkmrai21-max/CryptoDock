@@ -2253,6 +2253,111 @@ def markets(request: Request):
     return Response(content=payload["raw"], media_type="application/json", headers=headers)
 
 
+# ================= OWNER FOCUS RADAR (verified owner session only) =================
+FOCUS_RADAR_OWNER = "amitkmrai21@gmail.com"
+focus_radar_cache = {}
+
+
+def _focus_radar_owner(authorization):
+    if _session_email(authorization) != FOCUS_RADAR_OWNER:
+        raise HTTPException(status_code=403, detail="Focus Radar is available to the owner account only.")
+
+
+@app.get("/api/owner/focus-radar/access")
+def focus_radar_access(authorization: str = Header(None)):
+    _focus_radar_owner(authorization)
+    return {"ok": True, "available": True}
+
+
+def _focus_ema(values, period):
+    if len(values) < period:
+        return None
+    alpha = 2 / (period + 1)
+    ema = sum(values[:period]) / period
+    for value in values[period:]:
+        ema = value * alpha + ema * (1 - alpha)
+    return ema
+
+
+def _build_focus_radar():
+    # Top 60 liquid USDT markets only, one-hour candles, shared 10-minute cache.
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    market_data = json.loads(payload["raw"])
+    candidates = [c for c in market_data.get("coins", [])
+                  if c.get("symbol", "").endswith("USDT") and float(c.get("volume_usdt") or 0) >= 5_000_000]
+    candidates.sort(key=lambda c: float(c.get("volume_usdt") or 0), reverse=True)
+    candidates = candidates[:60]
+    signals = []
+    scanned = 0
+
+    def inspect(coin):
+        symbol = str(coin.get("symbol") or "").upper()
+        if not symbol or not known_market(symbol):
+            return None
+        try:
+            rows = get_klines(symbol, interval="1h", limit=60)
+            # Exclude the in-progress candle; use closed hourly bars for confirmation.
+            bars = rows[:-1]
+            if len(bars) < 27:
+                return None
+            closes = [float(row[4]) for row in bars]
+            highs = [float(row[2]) for row in bars]
+            lows = [float(row[3]) for row in bars]
+            quote_volumes = [float(row[7]) for row in bars]
+            last_close = closes[-1]
+            level_high = max(highs[-25:-1])
+            level_low = min(lows[-25:-1])
+            baseline = sum(quote_volumes[-21:-1]) / 20
+            volume_ratio = quote_volumes[-1] / baseline if baseline > 0 else 0
+            ema20, ema50 = _focus_ema(closes, 20), _focus_ema(closes, 50)
+            if ema20 is None or ema50 is None:
+                # 49 closed candles can produce EMA50 only when 50 are available.
+                ema50 = _focus_ema(closes[-50:], 50) if len(closes) >= 50 else None
+            if not ema20 or not ema50 or volume_ratio < 1.5:
+                return None
+            price = float(coin.get("price") or 0)
+            direction = None
+            level = 0
+            if last_close > level_high and price > level_high and ema20 > ema50:
+                direction, level = "BULLISH", level_high
+            elif last_close < level_low and price < level_low and ema20 < ema50:
+                direction, level = "BEARISH", level_low
+            if not direction:
+                return None
+            return {"base": str(coin.get("base") or symbol[:-4]), "symbol": symbol,
+                    "direction": direction, "price": price, "change_percent": float(coin.get("change_percent") or 0),
+                    "volume_usdt": float(coin.get("volume_usdt") or 0), "volume_ratio": round(volume_ratio, 2),
+                    "break_level": level, "timeframe": "1H",
+                    "reason": "24-candle breakout + elevated volume + EMA trend confirmation"}
+        except (requests.exceptions.RequestException, ValueError, TypeError, IndexError, KeyError, BinanceBusy):
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(inspect, coin) for coin in candidates]
+        for future in concurrent.futures.as_completed(futures):
+            scanned += 1
+            try:
+                result = future.result()
+                if result:
+                    signals.append(result)
+            except Exception:
+                continue
+    signals.sort(key=lambda item: (item["volume_ratio"], item["volume_usdt"]), reverse=True)
+    return {"ok": True, "signals": signals[:20], "scanned": scanned,
+            "universe": len(candidates), "failed": failures, "timeframe": "1H", "updated_at": int(time.time()),
+            "disclaimer": "Rule-based market filter, not a prediction or a guarantee of accuracy. Verify the chart and manage risk yourself."}
+
+
+@app.get("/api/owner/focus-radar")
+def get_owner_focus_radar(authorization: str = Header(None)):
+    _focus_radar_owner(authorization)
+    try:
+        # Shared cache avoids repeating candle scans for each button tap.
+        return cached_call(focus_radar_cache, "v1", 600, _build_focus_radar)
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
+        raise HTTPException(status_code=503, detail="Market scan is temporarily unavailable. Please try again shortly.") from error
+
+
 COIN_CANDLE_INTERVALS = {"15m", "1h", "4h", "1d", "1w"}
 COIN_CANDLES_CACHE_SECONDS = 15
 coin_candles_cache = {}

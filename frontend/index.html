@@ -1842,6 +1842,16 @@
       <div id="cdMoreGrid" class="cd-more-grid"></div>
     </div>
   </div>
+
+  <div id="cdFocusRadar" class="cd-ticket-overlay cd-off" hidden>
+    <section class="cd-ticket cd-focus-radar" role="dialog" aria-modal="true" aria-labelledby="cdFocusTitle">
+      <div class="cd-sheet-handle"></div>
+      <div class="cd-ticket-head"><div><strong id="cdFocusTitle">🎯 Focus Radar</strong><p class="cd-focus-subtitle">Owner-only · 1-hour market filter</p></div><button id="cdFocusClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
+      <p class="cd-focus-notice">Rule-based market filter, not a prediction. No accuracy is guaranteed. Verify the chart and manage risk yourself.</p>
+      <div class="cd-focus-toolbar"><span id="cdFocusMeta">Checking market setup…</span><button id="cdFocusRefresh" class="cd-pill" type="button">↻ Refresh</button></div>
+      <div id="cdFocusResults" class="cd-focus-results" aria-live="polite"></div>
+    </section>
+  </div>
   <!-- Margin mode sheet: Cross / Isolated (paper.js) -->
   <div id="cdMarginSheet" class="cd-ticket-overlay cd-off" hidden>
     <div class="cd-ticket cd-more cd-mm" role="dialog" aria-modal="true" aria-label="Margin mode">
@@ -2099,6 +2109,7 @@
   <script src="/frontend/home.js?v=20261116-fx-2"></script>
   <script src="/frontend/community.js?v=20261114-cm-2"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
+  <script src="/frontend/focus-radar.js?v=20261103-owner-radar-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261120-52w-1"></script>
   <script src="/frontend/coin-stats.js?v=20261120-52w-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261016-fix-1"></script>

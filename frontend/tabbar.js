@@ -35,7 +35,7 @@
   }
 
   // Every other sidebar page (and Settings) as a tile in the More sheet.
-  function buildMore() {
+  async function buildMore() {
     const tiles = [...document.querySelectorAll(".sidebar .app-tab[data-tab]")]
       .filter((b) => !b.hidden && !MAIN_PAGES.includes(b.dataset.tab))
       .map((b) => `<button type="button" class="cd-more-tile" data-more="${b.dataset.tab}">
@@ -59,9 +59,22 @@
         <span>Settings</span>
       </button>`);
     grid.innerHTML = tiles.join("");
+    const supabase = window.marketDockSupabase;
+    if (!supabase?.auth) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token || sheet.hidden) return;
+      const response = await fetch("/api/owner/focus-radar/access", {
+        headers: { Authorization: `Bearer ${token}` }, cache: "no-store"
+      });
+      if (!response.ok || sheet.hidden) return;
+      grid.insertAdjacentHTML("beforeend", `<button type="button" class="cd-more-tile cd-more-focus" data-more-focus="1">
+        <span class="cd-more-icon">🎯</span><span>Focus Radar</span></button>`);
+    } catch (_) { /* Feature stays hidden unless the server verifies the owner session. */ }
   }
 
-  const openMore = () => { buildMore(); sheet.hidden = false; };
+  const openMore = () => { sheet.hidden = false; buildMore(); };
   const closeMore = () => { sheet.hidden = true; };
 
   bar.addEventListener("click", (event) => {
@@ -79,7 +92,8 @@
     const tile = event.target.closest(".cd-more-tile");
     if (!tile) return;
     closeMore();
-    if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
+    if (tile.dataset.moreFocus) { window.cdOpenFocusRadar?.(); }
+    else if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
     else if (tile.dataset.moreSettings) document.getElementById("topSettingsMenuButton")?.click();
     else if (tile.dataset.extLink) { /* opened by the link handler below */ }
     else go(tile.dataset.more);
