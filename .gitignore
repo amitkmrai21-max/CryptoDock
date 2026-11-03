@@ -3,3 +3,4 @@ __pycache__/
 .env
 paper_portfolios.json*
 community.json*
+backtest_report*.txt
