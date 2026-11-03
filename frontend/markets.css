@@ -3053,3 +3053,12 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 /* Focus Radar: "EMA 20" / "EMA 50" sit in a small light-coloured box, text stays in the normal dark colour */
 .cd-fr-ema i { font-style: normal; font-weight: 700; color: var(--text); padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); }
 .cd-fr-ema b { font-weight: 600; color: var(--text); }
+
+/* the ratio next to Target 1 / Target 2 stays outside the light box, as plain text */
+.cd-fr-levels .cd-fr-ratio { display: inline-block; margin-bottom: 2px; font-size: 8.5px; font-weight: 600; color: var(--text-muted, var(--muted)); }
+.cd-fr-levels > div { white-space: nowrap; }
+@media (max-width: 380px) {
+  .cd-fr-levels > div { padding-left: 2px; padding-right: 2px; }
+  .cd-fr-levels span { font-size: 8px; padding: 1px 3px; }
+  .cd-fr-levels .cd-fr-ratio { font-size: 8px; padding: 0; }
+}
