@@ -3042,8 +3042,9 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 .cd-fr-ring.is-soft small { color: var(--c); font-weight: 700; }
 
 /* Focus Radar: spin the target and the refresh arrow while a scan is running */
-.cd-fr-spin { display: inline-block; line-height: 1; }
-.cd-fr-logo { display: inline-block; }
+.cd-fr-spin { width: 18px; height: 18px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform-origin: 50% 50%; }
+.cd-fr-iconbtn { padding: 0; }
+.cd-fr-logo { display: inline-grid; place-items: center; width: 34px; height: 34px; line-height: 1; transform-origin: 50% 50%; }
 @keyframes cdFrSpin { to { transform: rotate(360deg); } }
 #cdFocusRadar.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
 #cdFocusRadar.is-loading .cd-fr-logo { animation: cdFrSpin 1.6s linear infinite; }
