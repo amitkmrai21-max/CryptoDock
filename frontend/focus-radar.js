@@ -224,26 +224,33 @@
     filterBtn.querySelector("span").textContent = FILTER_LABEL[dirFilter];
     render();
   });
-  window.addEventListener("cd-markets-updated", () => { if (!overlay.hidden && data[tab]) render(); });
-  function open() { overlay.hidden = false; load(); }
-  function close() { if (window.cdHideSheetNow) window.cdHideSheetNow(overlay); else overlay.hidden = true; }
+  const pageActive = () => overlay.classList.contains("active");
+  window.addEventListener("cd-markets-updated", () => { if (pageActive() && data[tab]) render(); });
+  // A full page like Scanner or Heatmap: Android back closes a coin sheet or ticket first, then
+  // leaves this page for the one before it (the app's step-by-step back controller does that).
+  function open() {
+    if (!pageActive()) document.querySelector('.sidebar .app-tab[data-tab="focusradar"]')?.click();
+    load();
+  }
+  function back() {
+    const before = window.history.length;
+    window.history.back();
+    // No history to go back to (plain browser tab): fall back to Home.
+    setTimeout(() => { if (pageActive()) document.querySelector('.sidebar .app-tab[data-tab="dashboard"]')?.click(); }, 250);
+  }
   window.cdOpenFocusRadar = open;
-  closeBtn?.addEventListener("click", close);
-  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+  closeBtn?.addEventListener("click", back);
   refreshBtn?.addEventListener("click", load);
   results.addEventListener("click", (event) => {
     const starBtn = event.target.closest("[data-fr-star]");
     if (starBtn) { if (window.cdToggleWatch) window.cdToggleWatch(starBtn.dataset.frStar); render(); return; }
     const ticket = event.target.closest("[data-fr-ticket]");
     if (ticket) {
-      const { frTicket: base, frSide: side } = ticket.dataset;
-      close();
-      setTimeout(() => window.cdOpenTicket?.(base, side), 0);
+      window.cdOpenTicket?.(ticket.dataset.frTicket, ticket.dataset.frSide);
       return;
     }
     const button = event.target.closest("[data-focus-coin]");
     if (!button) return;
-    close();
-    setTimeout(() => window.cdOpenSheet?.(button.dataset.focusCoin), 0);
+    window.cdOpenSheet?.(button.dataset.focusCoin);
   });
 })();

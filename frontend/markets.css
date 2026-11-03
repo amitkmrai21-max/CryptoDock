@@ -3034,3 +3034,7 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 .cd-fr-analysis { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .cd-fr-note { margin: 0; color: var(--text-muted, var(--muted)); font-size: 10px; line-height: 1.45; text-align: center; }
 body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, var(--c) 14%, transparent); }
+
+/* Focus Radar as a full page */
+.cd-fr-page { display: grid; gap: 10px; align-content: start; }
+.sidebar .app-tab[hidden] { display: none !important; }
