@@ -49,7 +49,7 @@
     return `<div class="cd-fr-ring${soft ? " is-soft" : ""}" style="--s:${has ? score : 0}"><div><b>${has ? score + "%" : "--"}</b><small>${label}</small></div></div>`;
   }
   function step(n, title, sub, state) { // state: ok | live | wait
-    const mark = state === "ok" ? "✓" : state === "live" ? "⚡" : "…";
+    const mark = state === "ok" ? "✓" : state === "live" ? "⚡" : "⏳";
     return `<div class="cd-fr-step is-${state}"><b>${title}</b><i>${mark}</i><small>${sub}</small></div>`;
   }
   function star(base) {
@@ -94,10 +94,10 @@
     const s3 = item.state === "triggered" ? ["Trigger", `Active · ${bull ? "long" : "short"} entry live`, "live"]
       : item.state === "target1" ? ["Trigger", "Target 1 hit", "ok"]
       : item.state === "ready" ? ["Trigger", `${bull ? "Above " : "Below "}${money(item.entry)}`, "wait"]
-      : ["Trigger", "Not yet", "wait"];
+      : ["Trigger", "After the rejection candle", "wait"];
     const steps = [
       step(1, bull ? "Uptrend" : "Downtrend", `EMA 20 ${bull ? "above" : "below"} 50`, "ok"),
-      step(2, "EMA Retest", zone ? "In zone, no rejection" : `Rejection ${agoText(item.rejection_at)}`, zone ? "wait" : "ok"),
+      step(2, "EMA Retest", zone ? "In zone · waiting for rejection" : `Rejection ${agoText(item.rejection_at)}`, zone ? "wait" : "ok"),
       step(3, s3[0], s3[1], s3[2]),
     ].join("");
     let levels = "";
@@ -114,7 +114,7 @@
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, item.price, change, item.spark, bull ? true : false)}
       <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH PULLBACK · LONG" : "↘ BEARISH PULLBACK · SHORT"}</span><span class="cd-fr-tag">1H SETUP</span></div>
-      <div class="cd-fr-mid">${zone ? ring(item.trend_score, "Trend", true) : ring(item.score, "Score")}<div class="cd-fr-steps">${steps}</div></div>
+      <div class="cd-fr-mid">${ring(zone ? Math.round(0.4 * item.trend_score) : item.score, "Score", zone)}<div class="cd-fr-steps">${steps}</div></div>
       ${levels}
       <small class="cd-fr-ema">EMA 20 ${money(item.ema20)} · EMA 50 ${money(item.ema50)}</small>
       ${actions(item, bull)}
@@ -189,7 +189,7 @@
       cards = rows.filter((r) => dirFilter === "all" || r.direction.toLowerCase() === dirFilter).map(breakoutCard);
     }
     const note = tab === "swing"
-      ? '<p class="cd-fr-note">Setup score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how clean the setup looks, not the chance of winning. Cards still "in the zone" show only the trend strength ("Trend") until a rejection candle forms.</p>' : "";
+      ? '<p class="cd-fr-note">Score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how complete and clean the setup looks, not the chance of winning. A card still waiting in the zone has earned only the trend part, so its score stays low until a rejection candle forms. Trigger only becomes active after that candle forms and price crosses its high (bullish) or low (bearish).</p>' : "";
     results.innerHTML = summary() + (cards.length ? cards.join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
