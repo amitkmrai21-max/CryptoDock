@@ -17,7 +17,7 @@
       if (!token) throw new Error("Please sign in to access Focus Radar.");
       const response = await fetch("/api/owner/focus-radar", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.detail || "Focus Radar is unavailable.");
+      if (!response.ok) { const error = new Error(body.detail || "Focus Radar is unavailable."); error.status = response.status; throw error; }
       const signals = Array.isArray(body.signals) ? body.signals : [];
       meta.textContent = `Scanned ${body.scanned || 0} liquid markets · Updated ${new Date((body.updated_at || Date.now()/1000) * 1000).toLocaleTimeString()}`;
       results.innerHTML = signals.length ? signals.map((item) => {
@@ -30,7 +30,7 @@
         </article>`;
       }).join("") : '<div class="cd-focus-empty"><strong>No qualifying setups right now</strong><p>Wait for a confirmed 1-hour breakout or breakdown with volume and trend agreement.</p></div>';
     } catch (error) {
-      meta.textContent = "Owner session required";
+      meta.textContent = error.status === 401 || error.status === 403 ? "Owner session required" : "Scan unavailable";
       results.innerHTML = `<p class="cd-focus-error">${esc(error.message || "Could not load Focus Radar.")}</p>`;
     } finally { refreshBtn.disabled = false; }
   }

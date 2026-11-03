@@ -2344,7 +2344,7 @@ def _build_focus_radar():
                 continue
     signals.sort(key=lambda item: (item["volume_ratio"], item["volume_usdt"]), reverse=True)
     return {"ok": True, "signals": signals[:20], "scanned": scanned,
-            "universe": len(candidates), "failed": failures, "timeframe": "1H", "updated_at": int(time.time()),
+            "universe": len(candidates), "timeframe": "1H", "updated_at": int(time.time()),
             "disclaimer": "Rule-based market filter, not a prediction or a guarantee of accuracy. Verify the chart and manage risk yourself."}
 
 
