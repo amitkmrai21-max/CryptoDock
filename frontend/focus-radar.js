@@ -116,7 +116,7 @@
       <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH PULLBACK · LONG" : "↘ BEARISH PULLBACK · SHORT"}</span><span class="cd-fr-tag">1H SETUP</span></div>
       <div class="cd-fr-mid">${ring(zone ? Math.round(0.4 * item.trend_score) : item.score, "Score", zone)}<div class="cd-fr-steps">${steps}</div></div>
       ${levels}
-      <small class="cd-fr-ema">EMA 20 ${money(item.ema20)} · EMA 50 ${money(item.ema50)}</small>
+      <small class="cd-fr-ema"><i>EMA 20</i> <b>${money(item.ema20)}</b> · <i>EMA 50</i> <b>${money(item.ema50)}</b></small>
       ${actions(item, bull)}
     </article>`;
   }
