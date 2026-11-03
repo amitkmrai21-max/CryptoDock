@@ -52,6 +52,16 @@
     el("cdStatsMark").style.left = (span > 0 ? Math.min(100, Math.max(0, ((price - low) / span) * 100)) : 50) + "%";
     el("cdStatsRangePct").textContent = low > 0 && Number.isFinite(span) ? `RANGE ${((span / low) * 100).toFixed(2)}%` : "";
 
+    // 52-week range (from the same daily candles as 7D / 30D; since listing for newer coins).
+    const y = s && s.performance && s.performance.y1;
+    const yLow = y ? Math.min(y.low, price || y.low) : NaN, yHigh = y ? Math.max(y.high, price || y.high) : NaN;
+    el("cdStats52Title").textContent = y && y.days < 360 ? "RANGE SINCE LISTING" : "52-WEEK RANGE";
+    el("cdStats52Low").textContent = usd(yLow);
+    el("cdStats52High").textContent = usd(yHigh);
+    const ySpan = yHigh - yLow;
+    el("cdStats52Mark").style.left = (ySpan > 0 ? Math.min(100, Math.max(0, ((price - yLow) / ySpan) * 100)) : 50) + "%";
+    el("cdStats52Pct").textContent = Number.isFinite(yHigh) && yHigh > 0 && Number.isFinite(price) ? `${(((price - yHigh) / yHigh) * 100).toFixed(1)}% from high` : "";
+
     const fromHigh = high > 0 ? ((price - high) / high) * 100 : NaN;
     const spread = s && s.bid > 0 && s.ask > 0 ? ((s.ask - s.bid) / ((s.ask + s.bid) / 2)) * 100 : NaN;
     el("cdStats24").innerHTML = [

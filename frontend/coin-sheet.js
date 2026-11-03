@@ -43,6 +43,31 @@
     el("cdSheetStar").classList.toggle("is-active", starred);
   }
 
+  // 52-week range: one /api/coin/stats request when the sheet opens (the server keeps the
+  // daily candles for 5 minutes, so opening many coins stays light).
+  function render52(y, price) {
+    const usd = (v) => (Number.isFinite(v) && F().fmtUsd ? F().fmtUsd(v) : "--");
+    const lo = y ? Math.min(y.low, price || y.low) : NaN, hi = y ? Math.max(y.high, price || y.high) : NaN;
+    el("cdRange52Title").textContent = y && y.days < 360 ? "RANGE SINCE LISTING" : "52-WEEK RANGE";
+    el("cdRange52Low").textContent = usd(lo);
+    el("cdRange52High").textContent = usd(hi);
+    const span = hi - lo;
+    el("cdRange52Mark").style.left = (span > 0 ? Math.min(100, Math.max(0, ((price - lo) / span) * 100)) : 50) + "%";
+    el("cdRange52Pct").textContent = Number.isFinite(hi) && hi > 0 && Number.isFinite(price) ? `${(((price - hi) / hi) * 100).toFixed(1)}% from high` : "";
+  }
+  async function load52() {
+    const mine = base;
+    render52(null, NaN);
+    try {
+      const res = await fetch(`/api/coin/stats?symbol=${encodeURIComponent(mine + "USDT")}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (base !== mine) return;
+      const coin = coinOf(mine);
+      render52(data.performance && data.performance.y1, coin ? coin.price : data.price);
+    } catch (e) { /* the row stays on "--" */ }
+  }
+
   function depthRows(rows, side, maxQty) {
     const f = F();
     if (!rows.length) return '<p class="cd-meta" style="margin:6px 0">--</p>';
@@ -93,6 +118,7 @@
     render();
     el("cdSheet").hidden = false;
     setTimeout(loadDepth, 350);
+    setTimeout(load52, 500);
     pollDepth();
   }
 

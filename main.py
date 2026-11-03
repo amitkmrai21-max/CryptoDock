@@ -2315,11 +2315,19 @@ coin_perf_cache = {}
 
 
 def _coin_performance(symbol):
-    """7-day and 30-day change and high/low from daily candles (cached 5 min)."""
+    """7-day and 30-day change and high/low, plus the 52-week (365 daily candles) range,
+    all from one daily-candle request (cached 5 min). Coins listed less than a year ago get
+    the range since listing; "days" tells how many candles it covers."""
     def fetch():
-        raw = get_klines(symbol, "1d", 31)
+        raw = get_klines(symbol, "1d", 365)
         candles = [{"open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4])} for c in raw]
         data = {}
+        if candles:
+            data["y1"] = {
+                "high": max(c["high"] for c in candles),
+                "low": min(c["low"] for c in candles if c["low"] > 0) if any(c["low"] > 0 for c in candles) else None,
+                "days": len(candles),
+            }
         for days in (7, 30):
             window = candles[-days:]
             if len(candles) > days:
