@@ -20,6 +20,8 @@
   const agoText = (ts) => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
 
   let tab = "swing";
+  let dirFilter = "all"; // all | bullish | bearish
+  const FILTER_LABEL = { all: "All", bullish: "Bull", bearish: "Bear" };
   const data = { swing: null, breakouts: null };
   const errors = { swing: "", breakouts: "" };
 
@@ -49,7 +51,7 @@
   }
   function step(n, title, sub, state) { // state: ok | live | wait
     const mark = state === "ok" ? "✓" : state === "live" ? "⚡" : "…";
-    return `<div class="cd-fr-step is-${state}"><b>${n}. ${title} <i>${mark}</i></b><small>${sub}</small></div>`;
+    return `<div class="cd-fr-step is-${state}"><b>${title}</b><i>${mark}</i><small>${sub}</small></div>`;
   }
   function star(base) {
     const on = typeof window.cdIsWatched === "function" && window.cdIsWatched(base);
@@ -90,13 +92,13 @@
     const bull = item.side === "bullish";
     const zone = item.state === "zone";
     const change = Number(item.change_percent) || 0;
-    const s3 = item.state === "triggered" ? ["Trigger Active", `${bull ? "Long" : "Short"} entry live`, "live"]
-      : item.state === "target1" ? ["Target 1 hit", "Trail or book some", "ok"]
-      : item.state === "ready" ? ["Trigger", `Waiting · ${bull ? "above " : "below "}${money(item.entry)}`, "wait"]
+    const s3 = item.state === "triggered" ? ["Trigger", `Active · ${bull ? "long" : "short"} entry live`, "live"]
+      : item.state === "target1" ? ["Trigger", "Target 1 hit", "ok"]
+      : item.state === "ready" ? ["Trigger", `${bull ? "Above " : "Below "}${money(item.entry)}`, "wait"]
       : ["Trigger", "Not yet", "wait"];
     const steps = [
-      step(1, bull ? "Uptrend" : "Downtrend", `EMA 20 ${bull ? "above" : "below"} EMA 50`, "ok"),
-      step(2, "EMA Retest", zone ? "In the zone, no rejection yet" : `Rejection candle ${agoText(item.rejection_at)}`, zone ? "wait" : "ok"),
+      step(1, bull ? "Uptrend" : "Downtrend", `EMA 20 ${bull ? "above" : "below"} 50`, "ok"),
+      step(2, "EMA Retest", zone ? "In zone, no rejection" : `Rejection ${agoText(item.rejection_at)}`, zone ? "wait" : "ok"),
       step(3, s3[0], s3[1], s3[2]),
     ].join("");
     let levels = "";
@@ -104,7 +106,7 @@
       const risk = Math.abs(item.entry - item.stop) / item.entry * 100;
       const g1 = Math.abs(item.t1 - item.entry) / item.entry * 100, g2 = Math.abs(item.t2 - item.entry) / item.entry * 100;
       levels = `<div class="cd-fr-levels">
-        <div><span>Entry</span><b>${money(item.entry)}</b></div>
+        <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
         <div><span>SL</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">(−${risk.toFixed(1)}%)</em></div>
         <div><span>Target 1 · 1:1.5</span><b>${money(item.t1)}</b><em class="cd-up">(+${g1.toFixed(1)}%)</em></div>
         <div><span>Target 2 · 1:2.5</span><b>${money(item.t2)}</b><em class="cd-up">(+${g2.toFixed(1)}%)</em></div>
@@ -113,7 +115,7 @@
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, item.price, change, item.spark, bull ? true : false)}
       <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH PULLBACK · LONG" : "↘ BEARISH PULLBACK · SHORT"}</span><span class="cd-fr-tag">1H SETUP</span></div>
-      <div class="cd-fr-mid">${ring(item.score, "Setup score")}<div class="cd-fr-steps">${steps}</div></div>
+      <div class="cd-fr-mid">${ring(item.score, "Score")}<div class="cd-fr-steps">${steps}</div></div>
       ${levels}
       <small class="cd-fr-ema">EMA 20 ${money(item.ema20)} · EMA 50 ${money(item.ema50)}</small>
       ${actions(item, bull)}
@@ -127,19 +129,19 @@
     const price = coin && Number.isFinite(coin.price) ? coin.price : Number(item.price);
     const change = coin ? Number(coin.change_percent) : Number(item.change_percent) || 0;
     const steps = [
-      step(1, bull ? "Uptrend" : "Downtrend", `EMA 20 ${bull ? "above" : "below"} EMA 50`, "ok"),
-      step(2, "Breakout", `${bull ? "Cleared" : "Broke"} ${money(item.break_level)}`, "ok"),
-      step(3, "Volume", `${Number(item.volume_ratio).toFixed(2)}× the 1H average`, "live"),
+      step(1, bull ? "Uptrend" : "Downtrend", `EMA 20 ${bull ? "above" : "below"} 50`, "ok"),
+      step(2, "Breakout", `${bull ? "Above" : "Below"} ${money(item.break_level)}`, "ok"),
+      step(3, "Volume", `${Number(item.volume_ratio).toFixed(2)}× avg`, "live"),
     ].join("");
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, price, change, null, bull)}
       <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH BREAKOUT · LONG WATCH" : "↘ BEARISH BREAKDOWN · SHORT WATCH"}</span><span class="cd-fr-tag">1H SETUP</span></div>
       <div class="cd-fr-steps cd-fr-steps-wide">${steps}</div>
       <div class="cd-fr-levels">
-        <div><span>Break level</span><b>${money(item.break_level)}</b></div>
-        <div><span>Price</span><b>${money(price)}</b></div>
-        <div><span>Volume vs avg</span><b>${Number(item.volume_ratio).toFixed(2)}×</b></div>
-        <div><span>24h</span><b class="${change >= 0 ? "cd-up" : "cd-down"}">${pct(change, true)}</b></div>
+        <div><span>Break level</span><b>${money(item.break_level)}</b><em></em></div>
+        <div><span>Price</span><b>${money(price)}</b><em></em></div>
+        <div><span>Volume</span><b>${Number(item.volume_ratio).toFixed(2)}×</b><em></em></div>
+        <div><span>24h</span><b class="${change >= 0 ? "cd-up" : "cd-down"}">${pct(change, true)}</b><em></em></div>
       </div>
       ${actions(item, bull)}
     </article>`;
@@ -152,10 +154,13 @@
   };
   function summary() {
     const btc = coinOf("BTC"), eth = coinOf("ETH");
-    const row = (name, c) => (c ? `<div><i class="${c.change_percent >= 0 ? "is-up" : "is-down"}"></i>${name} <b class="${c.change_percent >= 0 ? "cd-up" : "cd-down"}">${pct(Number(c.change_percent), true)}</b></div>` : "");
+    const all = window.cdMarkets && window.cdMarkets.coins ? window.cdMarkets.coins.filter((c) => Number.isFinite(Number(c.change_percent))) : [];
+    const avg = all.length ? all.reduce((t, c) => t + Number(c.change_percent), 0) / all.length : null;
+    const allRow = avg === null ? "" : `<div><span><i class="${avg >= 0 ? "is-up" : "is-down"}"></i>ALL</span> <b class="${avg >= 0 ? "cd-up" : "cd-down"}">${pct(avg, true)}</b></div>`;
+    const row = (name, c) => (c ? `<div><span><i class="${c.change_percent >= 0 ? "is-up" : "is-down"}"></i>${name}</span> <b class="${c.change_percent >= 0 ? "cd-up" : "cd-down"}">${pct(Number(c.change_percent), true)}</b></div>` : "");
     const scanned = (data.swing && data.swing.scanned) || (data.breakouts && data.breakouts.scanned) || 0;
     return `<div class="cd-fr-summary"><svg class="cd-fr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14" /></svg>
-      <div><b>Scanning ${scanned} markets</b><small>Live market opportunities</small></div><div class="cd-fr-ticks">${row("BTC", btc)}${row("ETH", eth)}</div></div>`;
+      <div><b>Scanning ${scanned} markets</b><small>${data[tab] && data[tab].at ? "Updated " + agoText(data[tab].at) : "Live market opportunities"}</small></div><div class="cd-fr-ticks">${row("BTC", btc)}${row("ETH", eth)}${allRow}</div></div>`;
   }
   function counts() {
     const sw = data.swing ? data.swing.setups.map(adjustSwing).filter(Boolean).length : null;
@@ -177,12 +182,12 @@
     if (tab === "swing") {
       const rows = body.setups.map(adjustSwing).filter(Boolean);
       const bull = rows.filter((r) => r.side === "bullish").length;
-      meta.textContent = `Top ${body.scanned} coins · ${bull} bullish, ${rows.length - bull} bearish · updated ${agoText(body.at)}`;
-      cards = rows.map(swingCard);
+      meta.textContent = `Top ${body.scanned} coins · ${bull} bullish, ${rows.length - bull} bearish`;
+      cards = rows.filter((r) => dirFilter === "all" || r.side === dirFilter).map(swingCard);
     } else {
       const rows = body.signals || [];
-      meta.textContent = `Scanned ${body.scanned || 0} liquid markets · Updated ${new Date((body.updated_at || Date.now() / 1000) * 1000).toLocaleTimeString()}`;
-      cards = rows.map(breakoutCard);
+      meta.textContent = `Scanned ${body.scanned || 0} liquid markets · updated ${new Date((body.updated_at || Date.now() / 1000) * 1000).toLocaleTimeString()}`;
+      cards = rows.filter((r) => dirFilter === "all" || r.direction.toLowerCase() === dirFilter).map(breakoutCard);
     }
     const note = tab === "swing"
       ? '<p class="cd-fr-note">Setup score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how clean the setup looks, not the chance of winning.</p>' : "";
@@ -211,6 +216,12 @@
     const button = event.target.closest("button[data-focus-tab]");
     if (!button || button.dataset.focusTab === tab) return;
     tab = button.dataset.focusTab;
+    render();
+  });
+  const filterBtn = document.getElementById("cdFocusFilter");
+  filterBtn?.addEventListener("click", () => {
+    dirFilter = dirFilter === "all" ? "bullish" : dirFilter === "bullish" ? "bearish" : "all";
+    filterBtn.querySelector("span").textContent = FILTER_LABEL[dirFilter];
     render();
   });
   window.addEventListener("cd-markets-updated", () => { if (!overlay.hidden && data[tab]) render(); });
