@@ -201,12 +201,20 @@
       errors[kind] = error.status === 401 || error.status === 403 ? "Owner session required." : (error.message || "Could not load Focus Radar.");
     }
   }
+  // While the scan runs, the target and the refresh arrow spin; they stop when the results show.
+  // A scan answered from the server cache takes a blink, so the spin lasts at least 0.8 s to be seen.
+  let scanning = false;
   async function load() {
+    if (scanning) return;
+    scanning = true;
+    overlay.classList.add("is-loading");
     refreshBtn.disabled = true;
     data.swing = null; data.breakouts = null; render();
     // Both scans in parallel so both tab counts show.
-    await Promise.all([loadOne("swing"), loadOne("breakouts")]);
+    await Promise.all([loadOne("swing"), loadOne("breakouts"), new Promise((done) => setTimeout(done, 800))]);
     refreshBtn.disabled = false;
+    overlay.classList.remove("is-loading");
+    scanning = false;
     render();
   }
 

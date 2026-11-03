@@ -3040,3 +3040,11 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 .sidebar .app-tab[hidden] { display: none !important; }
 .cd-fr-ring.is-soft { opacity: .8; filter: none; }
 .cd-fr-ring.is-soft small { color: var(--c); font-weight: 700; }
+
+/* Focus Radar: spin the target and the refresh arrow while a scan is running */
+.cd-fr-spin { display: inline-block; line-height: 1; }
+.cd-fr-logo { display: inline-block; }
+@keyframes cdFrSpin { to { transform: rotate(360deg); } }
+#cdFocusRadar.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
+#cdFocusRadar.is-loading .cd-fr-logo { animation: cdFrSpin 1.6s linear infinite; }
+@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin, #cdFocusRadar.is-loading .cd-fr-logo { animation: none; } }
