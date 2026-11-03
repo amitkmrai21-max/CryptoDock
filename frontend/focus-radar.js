@@ -44,6 +44,13 @@
     target1: ["Target 1 reached", "is-t1"],
     zone: ["In the pullback zone · waiting for a rejection candle", "is-zone"],
   };
+  // Levels and EMAs: a readable number of decimals for the coin's price size.
+  const lvl = (value) => {
+    const v = Number(value);
+    if (!Number.isFinite(v)) return "--";
+    const digits = v >= 1000 ? 2 : v >= 10 ? 3 : v >= 1 ? 4 : v >= 0.1 ? 5 : 6;
+    return "$" + v.toLocaleString("en-US", { maximumFractionDigits: digits });
+  };
   const agoText = (ts) => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
   // Live price: drop a setup that is already stopped out or past target 2; Ready becomes Triggered once crossed.
   function adjustSwing(item) {
@@ -63,17 +70,17 @@
     const change = Number(item.change_percent) || 0;
     const [label, cls] = SWING_STATE[item.state] || SWING_STATE.zone;
     const levels = item.state === "zone" ? "" : `<div class="cd-focus-levels">
-        <div><small>${bull ? "Entry (above)" : "Entry (below)"}</small><b>${money(item.entry)}</b></div>
-        <div><small>Stop-loss</small><b class="is-red">${money(item.stop)}</b></div>
-        <div><small>Target 1 · 1:1.5</small><b class="is-green">${money(item.t1)}</b></div>
-        <div><small>Target 2 · 1:2.5</small><b class="is-green">${money(item.t2)}</b></div>
+        <div><small>${bull ? "Entry (above)" : "Entry (below)"}</small><b>${lvl(item.entry)}</b></div>
+        <div><small>Stop-loss</small><b class="is-red">${lvl(item.stop)}</b></div>
+        <div><small>Target 1 · 1:1.5</small><b class="is-green">${lvl(item.t1)}</b></div>
+        <div><small>Target 2 · 1:2.5</small><b class="is-green">${lvl(item.t2)}</b></div>
       </div>`;
     return `<article class="cd-focus-card is-${dir}">
       <div class="cd-focus-card-head"><div><strong>${esc(item.base)}/USDT</strong><small>1H · EMA 20/50 pullback swing setup</small></div><span class="cd-focus-direction">${bull ? "BULLISH · LONG WATCH" : "BEARISH · SHORT WATCH"}</span></div>
       <div class="cd-focus-stats"><div><small>Price</small><b>${money(item.price)}</b></div><div><small>24h change</small><b class="${change >= 0 ? "is-green" : "is-red"}">${change > 0 ? "+" : ""}${change.toFixed(2)}%</b></div></div>
       <span class="cd-focus-state ${cls}">${label}</span>
       ${levels}
-      <small class="cd-focus-ema">EMA 20 ${money(item.ema20)} · EMA 50 ${money(item.ema50)}${item.rejection_at ? ` · rejection candle ${agoText(item.rejection_at)}` : ""}</small>
+      <small class="cd-focus-ema">EMA 20 ${lvl(item.ema20)} · EMA 50 ${lvl(item.ema50)}${item.rejection_at ? ` · rejection candle ${agoText(item.rejection_at)}` : ""}</small>
       <button class="cd-focus-detail" type="button" data-focus-coin="${esc(item.base)}">View coin details</button>
     </article>`;
   }
