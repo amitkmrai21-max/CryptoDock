@@ -3049,3 +3049,7 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 #cdFocusRadar.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
 #cdFocusRadar.is-loading .cd-fr-logo { animation: cdFrSpin 1.6s linear infinite; }
 @media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin, #cdFocusRadar.is-loading .cd-fr-logo { animation: none; } }
+
+/* Focus Radar: the EMA 20 / EMA 50 labels are very faint, the numbers keep normal strength */
+.cd-fr-ema i { font-style: normal; opacity: .38; }
+.cd-fr-ema b { font-weight: 600; color: var(--text); }
