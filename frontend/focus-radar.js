@@ -4,7 +4,6 @@
   const overlay = document.getElementById("cdFocusRadar");
   const results = document.getElementById("cdFocusResults");
   const meta = document.getElementById("cdFocusMeta");
-  const closeBtn = document.getElementById("cdFocusClose");
   const refreshBtn = document.getElementById("cdFocusRefresh");
   if (!overlay || !results || !meta) return;
   const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -232,14 +231,7 @@
     if (!pageActive()) document.querySelector('.sidebar .app-tab[data-tab="focusradar"]')?.click();
     load();
   }
-  function back() {
-    const before = window.history.length;
-    window.history.back();
-    // No history to go back to (plain browser tab): fall back to Home.
-    setTimeout(() => { if (pageActive()) document.querySelector('.sidebar .app-tab[data-tab="dashboard"]')?.click(); }, 250);
-  }
   window.cdOpenFocusRadar = open;
-  closeBtn?.addEventListener("click", back);
   refreshBtn?.addEventListener("click", load);
   results.addEventListener("click", (event) => {
     const starBtn = event.target.closest("[data-fr-star]");
