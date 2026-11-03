@@ -69,8 +69,12 @@
         headers: { Authorization: `Bearer ${token}` }, cache: "no-store"
       });
       if (!response.ok || sheet.hidden) return;
-      grid.insertAdjacentHTML("beforeend", `<button type="button" class="cd-more-tile cd-more-focus" data-more-focus="1">
-        <span class="cd-more-icon">🎯</span><span>Focus Radar</span></button>`);
+      // Just before Settings, which always stays the last tile.
+      const tile = `<button type="button" class="cd-more-tile cd-more-focus" data-more-focus="1">
+        <span class="cd-more-icon">🎯</span><span>Focus Radar</span></button>`;
+      const settingsTile = grid.querySelector("[data-more-settings]");
+      if (settingsTile) settingsTile.insertAdjacentHTML("beforebegin", tile);
+      else grid.insertAdjacentHTML("beforeend", tile);
     } catch (_) { /* Feature stays hidden unless the server verifies the owner session. */ }
   }
 
