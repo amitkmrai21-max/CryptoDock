@@ -2395,8 +2395,10 @@ def _swing_setup(candles, price, now):
     else:
         return None
     long = side == "long"
+    # Trend strength 0-1: EMA gap (1% = full) and EMA50 slope over 5 candles (0.4% = full).
+    trend_c = 0.5 * min(1.0, abs(spread) / 0.01) + 0.5 * min(1.0, abs(e50[-1] / e50[-6] - 1) / 0.004)
     base_info = {"side": "bullish" if long else "bearish", "ema20": e20[-1], "ema50": e50[-1],
-                 "spark": [round(v, 8) for v in closes[-24:]]}
+                 "spark": [round(v, 8) for v in closes[-24:]], "trend_score": round(100 * trend_c)}
 
     rej_index = None
     for i in range(len(closed) - 1, len(closed) - 1 - SWING_LOOKBACK_CANDLES, -1):
@@ -2444,7 +2446,6 @@ def _swing_setup(candles, price, now):
     state = "target1" if triggered and t1_hit else "triggered" if triggered else "ready"
     # "Setup score" rates how clean the setup looks (not a chance of winning): trend strength 40%
     # (EMA gap and EMA50 slope), rejection candle quality 35%, tightness of the stop 25%.
-    trend_c = 0.5 * min(1.0, abs(spread) / 0.01) + 0.5 * min(1.0, abs(e50[-1] / e50[-6] - 1) / 0.004)
     rej_c = min(1.0, max(0.0, (wick_ratio - 0.4) / 0.4))
     tight_c = max(0.0, 1 - (risk / entry) / SWING_MAX_RISK)
     score = round(100 * (0.4 * trend_c + 0.35 * rej_c + 0.25 * tight_c))

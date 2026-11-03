@@ -3038,3 +3038,5 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 /* Focus Radar as a full page */
 .cd-fr-page { display: grid; gap: 10px; align-content: start; }
 .sidebar .app-tab[hidden] { display: none !important; }
+.cd-fr-ring.is-soft { opacity: .8; filter: none; }
+.cd-fr-ring.is-soft small { color: var(--c); font-weight: 700; }
