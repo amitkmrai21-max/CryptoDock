@@ -107,8 +107,8 @@
       levels = `<div class="cd-fr-levels">
         <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
         <div><span>SL</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">(−${risk.toFixed(1)}%)</em></div>
-        <div><span>Target 1</span> <small class="cd-fr-ratio">1:1.5</small><b>${money(item.t1)}</b><em class="cd-up">(+${g1.toFixed(1)}%)</em></div>
-        <div><span>Target 2</span> <small class="cd-fr-ratio">1:2.5</small><b>${money(item.t2)}</b><em class="cd-up">(+${g2.toFixed(1)}%)</em></div>
+        <div><span>Target 1</span><b>${money(item.t1)}</b><em class="cd-up">(+${g1.toFixed(1)}%)</em></div>
+        <div><span>Target 2</span><b>${money(item.t2)}</b><em class="cd-up">(+${g2.toFixed(1)}%)</em></div>
       </div>`;
     }
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
