@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261006-clean-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261122-frdesign-1">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261123-frpro-1">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261117-tab-1">
   <link rel="stylesheet" href="/frontend/community.css?v=20261114-cm-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1846,10 +1846,18 @@
   <div id="cdFocusRadar" class="cd-ticket-overlay cd-off" hidden>
     <section class="cd-ticket cd-focus-radar" role="dialog" aria-modal="true" aria-labelledby="cdFocusTitle">
       <div class="cd-sheet-handle"></div>
-      <div class="cd-ticket-head"><div><strong id="cdFocusTitle">🎯 Focus Radar</strong><p class="cd-focus-subtitle">Owner-only · 1-hour market filter</p></div><button id="cdFocusClose" class="cd-ticket-close" type="button" aria-label="Close">×</button></div>
-      <p class="cd-focus-notice">Rule-based market filter, not a prediction. No accuracy is guaranteed. Verify the chart and manage risk yourself.</p>
-      <div class="cd-pills" id="cdFocusTabs"><button type="button" class="cd-pill is-active" data-focus-tab="swing">1H Swings</button><button type="button" class="cd-pill" data-focus-tab="breakouts">Breakouts</button></div>
-      <div class="cd-focus-toolbar"><span id="cdFocusMeta">Checking market setup…</span><button id="cdFocusRefresh" class="cd-pill" type="button">↻ Refresh</button></div>
+      <div class="cd-fr-top">
+        <span class="cd-fr-logo" aria-hidden="true">🎯</span>
+        <div><strong id="cdFocusTitle">FOCUS RADAR</strong><small>TRADE SMARTER. FASTER.</small></div>
+        <button id="cdFocusRefresh" class="cd-fr-iconbtn" type="button" aria-label="Refresh">↻</button>
+        <button id="cdFocusClose" class="cd-fr-iconbtn" type="button" aria-label="Close">×</button>
+      </div>
+      <p class="cd-fr-notice">Owner-only · rule-based filter, not a prediction. Verify the chart and manage risk yourself.</p>
+      <div class="cd-fr-bar">
+        <div class="cd-pills" id="cdFocusTabs"><button type="button" class="cd-pill is-active" data-focus-tab="swing">1H Swings</button><button type="button" class="cd-pill" data-focus-tab="breakouts">Breakouts</button></div>
+        <button id="cdFocusFilter" class="cd-fr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>All</span></button>
+      </div>
+      <p id="cdFocusMeta" class="cd-fr-meta">Checking market setup…</p>
       <div id="cdFocusResults" class="cd-focus-results" aria-live="polite"></div>
     </section>
   </div>
@@ -2110,7 +2118,7 @@
   <script src="/frontend/home.js?v=20261116-fx-2"></script>
   <script src="/frontend/community.js?v=20261114-cm-2"></script>
   <script src="/frontend/tabbar.js?v=20261111-orders-1"></script>
-  <script src="/frontend/focus-radar.js?v=20261122-frdesign-1"></script>
+  <script src="/frontend/focus-radar.js?v=20261123-frpro-1"></script>
   <script src="/frontend/coin-sheet.js?v=20261120-52w-1"></script>
   <script src="/frontend/coin-stats.js?v=20261120-52w-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261016-fix-1"></script>
