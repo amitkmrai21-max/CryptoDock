@@ -2358,6 +2358,124 @@ def get_owner_focus_radar(authorization: str = Header(None)):
         raise HTTPException(status_code=503, detail="Market scan is temporarily unavailable. Please try again shortly.") from error
 
 
+
+# ---------- Focus Radar (owner): 1H EMA 20/50 pullback swing setups, top coins by volume ----------
+# Trend: EMA20 above EMA50 and EMA50 rising (bullish), or the reverse (bearish).
+# Setup: a closed 1H candle dips into the zone between EMA20 and EMA50 and shows a rejection
+# (long wick back out, close on the trend side). Trigger = that candle's high (low for bearish),
+# stop just beyond its other end, targets 1.5R and 2.5R. It describes past candles with fixed
+# rules; it is not a prediction. One shared, cached scan for everyone (top coins, every 5 min).
+SWING_TOP_N = 30
+SWING_TTL_S = 300
+SWING_LOOKBACK_CANDLES = 4       # the rejection candle must be among the last 4 closed hours
+SWING_MAX_RISK = 0.05            # skip setups whose stop is more than 5% away
+swing_cache = {}
+swing_klines_cache = {}
+
+
+def _swing_klines(base):
+    def fetch():
+        raw = binance_get("/api/v3/klines", {"symbol": base + "USDT", "interval": "1h", "limit": 120}, weight=2, timeout=10)
+        return [[int(c[0]) // 1000, float(c[1]), float(c[2]), float(c[3]), float(c[4])] for c in raw]
+    return cached_call(swing_klines_cache, base, SWING_TTL_S, fetch, max_entries=200)
+
+
+def _swing_setup(candles, price, now):
+    """One coin's setup from 1H candles [time, open, high, low, close]; None if no trend / nothing to show."""
+    closed = [c for c in candles if c[0] + 3600 <= now]
+    if len(closed) < 60 or not price or price <= 0:
+        return None
+    closes = [c[4] for c in closed]
+    e20, e50 = _ema(closes, 20), _ema(closes, 50)
+    spread = (e20[-1] - e50[-1]) / e50[-1]
+    if spread > 0.001 and e50[-1] > e50[-6]:
+        side = "long"
+    elif spread < -0.001 and e50[-1] < e50[-6]:
+        side = "short"
+    else:
+        return None
+    long = side == "long"
+    base_info = {"side": "bullish" if long else "bearish", "ema20": e20[-1], "ema50": e50[-1]}
+
+    rej_index = None
+    for i in range(len(closed) - 1, len(closed) - 1 - SWING_LOOKBACK_CANDLES, -1):
+        _, o, h, l, c = closed[i]
+        rng = h - l
+        if rng <= 0:
+            continue
+        body = abs(c - o)
+        if long:
+            wick = min(o, c) - l
+            ok = (l <= e20[i] and l >= e50[i] * 0.995 and c >= e50[i]
+                  and (wick >= 0.5 * rng or wick >= 2 * body) and c >= l + 0.5 * rng)
+        else:
+            wick = h - max(o, c)
+            ok = (h >= e20[i] and h <= e50[i] * 1.005 and c <= e50[i]
+                  and (wick >= 0.5 * rng or wick >= 2 * body) and c <= h - 0.5 * rng)
+        if ok:
+            rej_index = i
+            break
+
+    if rej_index is None:
+        # Trend is intact and price sits inside the pullback zone: wait for the rejection candle.
+        zone_lo, zone_hi = min(e20[-1], e50[-1]), max(e20[-1], e50[-1])
+        if zone_lo <= price <= zone_hi:
+            return {**base_info, "state": "zone"}
+        return None
+
+    _, _, rh, rl, _ = closed[rej_index]
+    entry = rh if long else rl
+    stop = rl * 0.999 if long else rh * 1.001
+    risk = abs(entry - stop)
+    if risk <= 0 or risk / entry > SWING_MAX_RISK:
+        return None
+    sign = 1 if long else -1
+    t1, t2 = entry + sign * 1.5 * risk, entry + sign * 2.5 * risk
+    after = closed[rej_index + 1:]
+    # Already stopped out, or already past the second target: nothing left to show.
+    if (any((c[3] < stop) if long else (c[2] > stop) for c in after)
+            or (price < stop if long else price > stop)
+            or (price >= t2 if long else price <= t2)):
+        return None
+    triggered = (price > entry if long else price < entry) or any((c[2] > entry) if long else (c[3] < entry) for c in after)
+    t1_hit = price >= t1 if long else price <= t1
+    state = "target1" if triggered and t1_hit else "triggered" if triggered else "ready"
+    return {**base_info, "state": state, "entry": entry, "stop": stop, "t1": t1, "t2": t2, "rejection_at": closed[rej_index][0]}
+
+
+def _swing_scan():
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins") or []
+    ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
+              if not _is_stable_like(c.get("base", ""))][:SWING_TOP_N]
+    now = time.time()
+
+    def one(coin):
+        try:
+            found = _swing_setup(_swing_klines(coin["base"]), float(coin.get("price") or 0), now)
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy) as error:
+            print(f"Focus Radar swing skipped {coin.get('base')}: {error}")
+            return None
+        if not found:
+            return None
+        return {"base": coin["base"], "price": coin.get("price"), "change_percent": coin.get("change_percent"), **found}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        results = [r for r in pool.map(one, ranked) if r]
+    order = {"ready": 0, "triggered": 1, "target1": 2, "zone": 3}
+    results.sort(key=lambda r: (order.get(r["state"], 9), -(next((c.get("volume_usdt") or 0 for c in ranked if c["base"] == r["base"]), 0))))
+    return {"at": int(now), "scanned": len(ranked), "setups": results}
+
+
+@app.get("/api/owner/focus-radar/swing")
+def get_owner_focus_radar_swing(authorization: str = Header(None)):
+    _focus_radar_owner(authorization)
+    try:
+        return cached_call(swing_cache, "all", SWING_TTL_S, _swing_scan, max_entries=1)
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
+        raise HTTPException(status_code=503, detail="Swing scan is temporarily unavailable. Please try again shortly.") from error
+
+
 COIN_CANDLE_INTERVALS = {"15m", "1h", "4h", "1d", "1w"}
 COIN_CANDLES_CACHE_SECONDS = 15
 coin_candles_cache = {}
