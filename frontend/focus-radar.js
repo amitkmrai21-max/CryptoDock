@@ -221,9 +221,10 @@
     results.innerHTML = summary() + (cards.length ? cards.join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
-  async function loadOne(kind) {
+  // fresh = the Refresh button / pull down: the server rescans with new candles instead of using its 5-10 minute cache.
+  async function loadOne(kind, fresh) {
     try {
-      data[kind] = await fetchJson(kind === "swing" ? "/api/owner/focus-radar/swing" : "/api/owner/focus-radar");
+      data[kind] = await fetchJson((kind === "swing" ? "/api/owner/focus-radar/swing" : "/api/owner/focus-radar") + (fresh ? "?refresh=1" : ""));
       errors[kind] = "";
     } catch (error) {
       errors[kind] = error.status === 401 || error.status === 403 ? "Owner session required." : (error.message || "Could not load Focus Radar.");
@@ -232,14 +233,22 @@
   // While the scan runs, the target and the refresh arrow spin; they stop when the results show.
   // A scan answered from the server cache takes a blink, so the spin lasts at least 0.8 s to be seen.
   let scanning = false;
-  async function load() {
+  // A browser reload (pull down in the browser, F5, the reload button) means "give me new data": the first load
+  // right after such a reload is a fresh scan too. (Some browsers reload the page on pull-down even though
+  // the page asks them not to.) Opening the page from the menu keeps using the server's short cache.
+  const pageStart = Date.now();
+  let freshAfterReload = false;
+  try { freshAfterReload = performance.getEntriesByType("navigation")[0]?.type === "reload"; } catch (e) { /* ignore */ }
+  async function load(fresh = false) {
     if (scanning) return;
+    if (freshAfterReload && Date.now() - pageStart < 20000) fresh = true;
+    freshAfterReload = false;
     scanning = true;
     overlay.classList.add("is-loading");
     refreshBtn.disabled = true;
     data.swing = null; data.breakouts = null; render();
     // Both scans in parallel so both tab counts show.
-    await Promise.all([loadOne("swing"), loadOne("breakouts"), new Promise((done) => setTimeout(done, 800))]);
+    await Promise.all([loadOne("swing", fresh), loadOne("breakouts", fresh), new Promise((done) => setTimeout(done, 800))]);
     refreshBtn.disabled = false;
     overlay.classList.remove("is-loading");
     scanning = false;
@@ -269,7 +278,7 @@
     load();
   }
   window.cdOpenFocusRadar = open;
-  refreshBtn?.addEventListener("click", load);
+  refreshBtn?.addEventListener("click", () => load(true));
 
   // Whenever the page opens (menu, back, or restored after a reload) load it if there is no fresh result yet.
   let loadedAt = 0;
@@ -301,7 +310,7 @@
       hint.style.height = Math.min(44, dy * 0.5) + "px";
       hint.textContent = dy >= THRESHOLD ? "Release to refresh" : "Pull down to refresh";
     }, { passive: true });
-    overlay.addEventListener("touchend", () => { const go = pulled >= THRESHOLD; reset(); if (go) load(); }, { passive: true });
+    overlay.addEventListener("touchend", () => { const go = pulled >= THRESHOLD; reset(); if (go) load(true); }, { passive: true });
     overlay.addEventListener("touchcancel", reset, { passive: true });
   })();
   results.addEventListener("click", (event) => {

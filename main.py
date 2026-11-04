@@ -2393,12 +2393,16 @@ def _build_focus_radar():
             "disclaimer": "Rule-based market filter, not a prediction or a guarantee of accuracy. Verify the chart and manage risk yourself."}
 
 
+FOCUS_REFRESH_MIN_GAP_S = 15  # the Refresh button forces a new scan, but not more often than this
+
+
 @app.get("/api/owner/focus-radar")
-def get_owner_focus_radar(authorization: str = Header(None)):
+def get_owner_focus_radar(authorization: str = Header(None), refresh: str = ""):
     _focus_radar_owner(authorization)
     try:
-        # Shared cache avoids repeating candle scans for each button tap.
-        return cached_call(focus_radar_cache, "v2", 600, _build_focus_radar)
+        # Opening the page uses the shared cache (10 min); the Refresh button (refresh=1) forces a new scan.
+        ttl = FOCUS_REFRESH_MIN_GAP_S if refresh == "1" else 600
+        return cached_call(focus_radar_cache, "v2", ttl, _build_focus_radar)
     except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
         raise HTTPException(status_code=503, detail="Market scan is temporarily unavailable. Please try again shortly.") from error
 
@@ -2419,11 +2423,11 @@ swing_cache = {}
 swing_klines_cache = {}
 
 
-def _swing_klines(base):
+def _swing_klines(base, ttl=SWING_TTL_S):
     def fetch():
         raw = binance_get("/api/v3/klines", {"symbol": base + "USDT", "interval": "1h", "limit": 120}, weight=2, timeout=10)
         return [[int(c[0]) // 1000, float(c[1]), float(c[2]), float(c[3]), float(c[4])] for c in raw]
-    return cached_call(swing_klines_cache, base, SWING_TTL_S, fetch, max_entries=200)
+    return cached_call(swing_klines_cache, base, ttl, fetch, max_entries=200)
 
 
 def _swing_setup(candles, price, now):
@@ -2499,7 +2503,7 @@ def _swing_setup(candles, price, now):
             "rejection_at": closed[rej_index][0], "score": score}
 
 
-def _swing_scan():
+def _swing_scan(kline_ttl=SWING_TTL_S):
     payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
     coins = json.loads(payload["raw"]).get("coins") or []
     ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
@@ -2508,7 +2512,7 @@ def _swing_scan():
 
     def one(coin):
         try:
-            found = _swing_setup(_swing_klines(coin["base"]), float(coin.get("price") or 0), now)
+            found = _swing_setup(_swing_klines(coin["base"], kline_ttl), float(coin.get("price") or 0), now)
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy) as error:
             print(f"Focus Radar swing skipped {coin.get('base')}: {error}")
             return None
@@ -2524,9 +2528,12 @@ def _swing_scan():
 
 
 @app.get("/api/owner/focus-radar/swing")
-def get_owner_focus_radar_swing(authorization: str = Header(None)):
+def get_owner_focus_radar_swing(authorization: str = Header(None), refresh: str = ""):
     _focus_radar_owner(authorization)
     try:
+        # Opening the page uses the shared cache (5 min); the Refresh button (refresh=1) rescans with fresh candles.
+        if refresh == "1":
+            return cached_call(swing_cache, "all", FOCUS_REFRESH_MIN_GAP_S, lambda: _swing_scan(FOCUS_REFRESH_MIN_GAP_S), max_entries=1)
         return cached_call(swing_cache, "all", SWING_TTL_S, _swing_scan, max_entries=1)
     except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
         raise HTTPException(status_code=503, detail="Swing scan is temporarily unavailable. Please try again shortly.") from error
