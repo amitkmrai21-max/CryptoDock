@@ -3061,3 +3061,8 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 /* Pull down to refresh: the browser's own pull-to-refresh (a full page reload) is switched off on this page. */
 html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-behavior-y: contain; }
 #cdFocusRadar .cd-fr-ptr { height: 0; overflow: hidden; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted, var(--muted)); }
+/* Ticket: optional stop-loss and target */
+.cd-sltp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cd-sltp-row .cd-input-group { margin-bottom: 6px; min-width: 0; }
+.cd-level-hint { margin: 0 0 8px; font-size: 11.5px; font-weight: 600; line-height: 1.4; }
+.cd-level-hint[hidden] { display: none; }

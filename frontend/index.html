@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261135-swipe-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261140-breakout-4">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261140-sltp-1">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261117-tab-1">
   <link rel="stylesheet" href="/frontend/community.css?v=20261114-cm-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1811,6 +1811,19 @@
         <button type="button" data-pct="100">Max</button>
       </div>
 
+      <!-- Optional stop-loss and target (USDT price) -->
+      <div class="cd-sltp-row">
+        <div class="cd-input-group">
+          <label class="cd-input-label" for="cdStopLoss">Stop-loss (optional)</label>
+          <div class="cd-input-with-unit"><input type="number" id="cdStopLoss" step="any" placeholder="Price" inputmode="decimal"></div>
+        </div>
+        <div class="cd-input-group">
+          <label class="cd-input-label" for="cdTarget">Target (optional)</label>
+          <div class="cd-input-with-unit"><input type="number" id="cdTarget" step="any" placeholder="Price" inputmode="decimal"></div>
+        </div>
+      </div>
+      <p id="cdLevelHint" class="cd-level-hint" hidden></p>
+
       <!-- Margin & Fee Summary -->
       <div class="cd-ticket-summary">
         <div class="cd-summary-row">
@@ -1842,7 +1855,7 @@
     </div>
   </div>
   <script src="/frontend/markets.js?v=20261115-mom-1"></script>
-  <script src="/frontend/paper.js?v=20261113-trade-1"></script>
+  <script src="/frontend/paper.js?v=20261140-sltp-1"></script>
   <script src="/frontend/coin-tools.js?v=20261120-52w-1"></script>
   <script src="/frontend/tools.js?v=20261005-tools-2"></script>
   <script src="/frontend/neutral-terms.js?v=20261005-neutral-2"></script>
