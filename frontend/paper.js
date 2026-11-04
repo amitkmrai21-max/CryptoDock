@@ -862,8 +862,10 @@
     ticket.side = side;
     ticket.type = "MARKET";
     el("cdAmount").value = "";
-    el("cdStopLoss").value = levels && levels.stopLoss > 0 ? String(levels.stopLoss) : "";
-    el("cdTarget").value = levels && levels.target > 0 ? String(levels.target) : "";
+    // Rounded to 7 significant digits so a card's long decimals (0.063147995000000012) read cleanly.
+    const tidy = (v) => (v > 0 ? String(Number(Number(v).toPrecision(7))) : "");
+    el("cdStopLoss").value = levels ? tidy(levels.stopLoss) : "";
+    el("cdTarget").value = levels ? tidy(levels.target) : "";
     const price = priceOf(base);
     el("cdLimitPrice").value = price ? String(price) : "";
     showError("");
