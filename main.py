@@ -2571,7 +2571,16 @@ def _lab_swing_checks(closed, setup, now, base, ttl):
     if len(values) >= 2:
         rsi_ok = (min(values) <= 45 and values[-1] > min(values)) if long else (max(values) >= 55 and values[-1] < max(values))
     candle_ok = closed[r][4] > closed[r][1] if long else closed[r][4] < closed[r][1]
-    return {"h4": bool(h4_ok), "rsi": bool(rsi_ok), "candle": bool(candle_ok), "rsi_now": round(values[-1], 1) if values else None}
+    # Engulfing: from the rejection candle on, a candle in the trade's direction whose body covers the body of the
+    # candle before it (a bullish engulfing after a red candle for a long, a bearish one after a green candle for a short).
+    engulf = False
+    for k in range(max(1, r), len(closed)):
+        prev, cur = closed[k - 1], closed[k]
+        if long and prev[4] < prev[1] and cur[4] > cur[1] and cur[1] <= prev[4] and cur[4] >= prev[1]:
+            engulf = True
+        if not long and prev[4] > prev[1] and cur[4] < cur[1] and cur[1] >= prev[4] and cur[4] <= prev[1]:
+            engulf = True
+    return {"h4": bool(h4_ok), "rsi": bool(rsi_ok), "candle": bool(candle_ok), "engulf": engulf, "rsi_now": round(values[-1], 1) if values else None}
 
 
 # Range settings per timeframe: candle length, hours-of-history window, accepted width of the range (share of price),

@@ -134,7 +134,7 @@
       <div class="cd-fr-steps cd-fr-steps-wide">${steps}</div>
       ${levels(item)}
       <small class="cd-fr-ema"><i>EMA 20</i> <b>${money(item.ema20)}</b> · <i>EMA 50</i> <b>${money(item.ema50)}</b> · ${stateText(item, bull)}</small>
-      ${marketLine(item)}
+      <small class="cd-fr-ema"><i>${bull ? "Bullish" : "Bearish"} engulfing</i> <b>${c.engulf ? "yes ✓" : "no"}</b> · ${marketLine(item).replace(/<\/?small[^>]*>/g, "")}</small>
       ${actions(item, bull)}
     </article>`;
   }
