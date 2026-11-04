@@ -227,7 +227,7 @@
   // The order ticket (Buy/Sell from any coin) is paper trading too.
   const openTicket = window.cdOpenTicket;
   if (typeof openTicket === "function") {
-    window.cdOpenTicket = (base, side) => guard("Paper Trading", () => openTicket(base, side));
+    window.cdOpenTicket = (base, side, levels) => guard("Paper Trading", () => openTicket(base, side, levels));
   }
 
   // A page restored from the last session that's now locked goes back to the Dashboard.
