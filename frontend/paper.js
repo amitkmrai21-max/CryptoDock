@@ -246,12 +246,14 @@
   const pnlOf = (p, mark) => (p.side === "LONG" ? mark - p.entryPrice : p.entryPrice - mark) * p.qty;
   const maxNotional = (lev) => state.cash / (1 / lev + FUT_FEE_RATE);
 
-  function openPosition(base, side, qty, price, leverage, margin, fee, mode) {
+  function openPosition(base, side, qty, price, leverage, margin, fee, mode, levels) {
     const pos = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       base, side, qty, entryPrice: price, leverage, margin, mode: mode || marginMode(),
       liqPrice: liqPriceOf(side, price, leverage), openFee: fee, openedAt: Date.now(),
     };
+    if (levels && levels.stopLoss) pos.stopLoss = levels.stopLoss;
+    if (levels && levels.target) pos.target = levels.target;
     positions().unshift(pos);
     state.orders.unshift(newOrder({ base, side: side === "LONG" ? "BUY" : "SELL", action: "OPEN", leverage, type: "MARKET", qty, status: "FILLED", fillPrice: price, fee, filledAt: Date.now(), posId: pos.id, mode: pos.mode }));
     return pos;
@@ -260,7 +262,7 @@
   // Market order, or a Limit order. A Limit that can already fill at the
   // current price fills straight away at the (better) market price.
   // side: "BUY" = Long, "SELL" = Short.
-  function placeOrder({ base, side, type, qty, limitPrice, leverage }) {
+  function placeOrder({ base, side, type, qty, limitPrice, leverage, stopLoss, target }) {
     const market = priceOf(base);
     if (!market) return { error: "Live price not available yet. Please try again in a moment." };
     // On the backup feed, coins it doesn't carry keep their last price: no new trades on a frozen price.
@@ -274,6 +276,17 @@
     if (!(refPrice > 0)) return { error: "Enter a valid limit price." };
     const notional = qty * refPrice;
     if (notional < MIN_ORDER_USDT) return { error: `Minimum order is ${MIN_ORDER_USDT} USDT.` };
+    // Optional stop-loss and target, checked against the price the order opens at.
+    const isLongSide = posSide === "LONG";
+    stopLoss = stopLoss > 0 ? stopLoss : null;
+    target = target > 0 ? target : null;
+    if (stopLoss && (isLongSide ? stopLoss >= refPrice : stopLoss <= refPrice)) return { error: isLongSide ? "Stop-loss must be below the entry price for a Long." : "Stop-loss must be above the entry price for a Short." };
+    if (target && (isLongSide ? target <= refPrice : target >= refPrice)) return { error: isLongSide ? "Target must be above the entry price for a Long." : "Target must be below the entry price for a Short." };
+    if (stopLoss && marginMode() !== "cross") {
+      const liq = liqPriceOf(posSide, refPrice, lev);
+      if (isLongSide ? stopLoss <= liq : stopLoss >= liq) return { error: `Stop-loss is beyond the liquidation price (${fmtUsd(liq)}), so it could never trigger. Use a closer stop-loss or lower leverage.` };
+    }
+    const levels = { stopLoss, target };
     const margin = notional / lev;
     const fee = notional * FUT_FEE_RATE;
     if (margin + fee > state.cash + 1e-9) {
@@ -281,18 +294,18 @@
     }
     state.cash -= margin + fee;
     if (fillsNow) {
-      const pos = openPosition(base, posSide, qty, market, lev, margin, fee, marginMode());
+      const pos = openPosition(base, posSide, qty, market, lev, margin, fee, marginMode(), levels);
       save();
       return { position: pos };
     }
-    const order = newOrder({ base, side, action: "OPEN", leverage: lev, type: "LIMIT", qty, limitPrice, status: "OPEN", reserved: margin + fee, mode: marginMode() });
+    const order = newOrder({ base, side, action: "OPEN", leverage: lev, type: "LIMIT", qty, limitPrice, status: "OPEN", reserved: margin + fee, mode: marginMode(), stopLoss, target });
     state.orders.unshift(order);
     save();
     return { order };
   }
 
   // Close at the market price: margin + P&L − close fee comes back.
-  function closePosition(id, { liquidated = false } = {}) {
+  function closePosition(id, { liquidated = false, reason = "" } = {}) {
     const list = positions();
     const idx = list.findIndex((p) => p.id === id);
     if (idx === -1) return;
@@ -308,12 +321,12 @@
     if (state.cash < 0) state.cash = 0;
     state.realized += back - p.margin;
     list.splice(idx, 1);
-    state.orders.unshift(newOrder({ base: p.base, side: p.side === "LONG" ? "SELL" : "BUY", action: liquidated ? "LIQUIDATED" : "CLOSE", leverage: p.leverage, type: "MARKET", qty: p.qty, status: "FILLED", fillPrice: mark, fee, filledAt: Date.now(), posId: p.id, entryPrice: p.entryPrice, mode: p.mode, net: back - p.margin - (p.openFee || 0) }));
+    state.orders.unshift(newOrder({ base: p.base, side: p.side === "LONG" ? "SELL" : "BUY", action: liquidated ? "LIQUIDATED" : "CLOSE", leverage: p.leverage, type: "MARKET", qty: p.qty, status: "FILLED", fillPrice: mark, fee, filledAt: Date.now(), posId: p.id, entryPrice: p.entryPrice, mode: p.mode, net: back - p.margin - (p.openFee || 0), reason: reason || undefined }));
     save();
     renderAll();
     toast(liquidated
       ? `${p.side} ${p.base} ${p.leverage}x liquidated at ${fmtUsd(mark)}`
-      : `Closed ${p.side} ${p.base} ${p.leverage}x · P&L ${signed(fmtMoney(Math.abs(pnl)), pnl)}`);
+      : `${reason === "STOP" ? "Stop-loss hit · " : reason === "TARGET" ? "Target hit · " : ""}Closed ${p.side} ${p.base} ${p.leverage}x · P&L ${signed(fmtMoney(Math.abs(pnl)), pnl)}`);
   }
 
   // Spot coins bought before futures: sell them all at the market price.
@@ -364,6 +377,8 @@
           order.reserved = 0;
           order.posId = order.id;
           const pos = { id: order.id, base: order.base, side: long ? "LONG" : "SHORT", qty: order.qty, entryPrice: order.limitPrice, leverage: order.leverage, margin, mode: order.mode === "cross" ? "cross" : "isolated", liqPrice: liqPriceOf(long ? "LONG" : "SHORT", order.limitPrice, order.leverage), openFee: notional * FUT_FEE_RATE, openedAt: Date.now() };
+          if (order.stopLoss) pos.stopLoss = order.stopLoss;
+          if (order.target) pos.target = order.target;
           positions().unshift(pos);
           changed = true;
           toast(`${pos.side} ${fmtQty(pos.qty)} ${pos.base} opened at ${fmtUsd(pos.entryPrice)} (limit)`);
@@ -379,6 +394,15 @@
       const mark = priceOf(p.base);
       if (!mark) return;
       if ((p.side === "LONG" && mark <= p.liqPrice) || (p.side === "SHORT" && mark >= p.liqPrice)) closePosition(p.id, { liquidated: true });
+    });
+    // Stop-loss and target: closed at the market price once the mark price reaches them (stop-loss first).
+    positions().slice().forEach((p) => {
+      if (!p.stopLoss && !p.target) return;
+      const mark = priceOf(p.base);
+      if (!mark) return;
+      const long = p.side === "LONG";
+      if (p.stopLoss && (long ? mark <= p.stopLoss : mark >= p.stopLoss)) closePosition(p.id, { reason: "STOP" });
+      else if (p.target && (long ? mark >= p.target : mark <= p.target)) closePosition(p.id, { reason: "TARGET" });
     });
     // Cross: once the whole account is down to its maintenance level, every cross position goes.
     const cross = crossAccount();
@@ -527,6 +551,8 @@
             <div><span>Entry Price:</span> <strong>${fmtUsd(p.entryPrice)}</strong></div>
             <div><span>Mark Price:</span> <strong>${fmtUsd(mark)}</strong></div>
             <div><span>Liq. Price:</span> <strong class="cd-pos-liq">${fmtLiq(p)}</strong></div>
+            ${p.stopLoss ? `<div><span>Stop-loss:</span> <strong class="cd-down">${fmtUsd(p.stopLoss)}</strong></div>` : ""}
+            ${p.target ? `<div><span>Target:</span> <strong class="cd-up">${fmtUsd(p.target)}</strong></div>` : ""}
           </div>
           <div class="cd-pos-foot">
             <span>Unrealized P&amp;L (ROE%):</span>
@@ -627,7 +653,7 @@
     const roe = base > 0 && Number.isFinite(net) ? (net / base) * 100 : 0;
     const tradeCross = isCross(p) || o.mode === "cross";
     const liq = p ? liqFor(p) : tradeCross ? null : liqPriceOf(long ? "LONG" : "SHORT", entry, lev);
-    const exitType = c ? (c.action === "LIQUIDATED" ? "Liquidation" : "Close Market") : p ? "--" : "--";
+    const exitType = c ? (c.action === "LIQUIDATED" ? "Liquidation" : c.reason === "STOP" ? "Stop-loss" : c.reason === "TARGET" ? "Target" : "Close Market") : p ? "--" : "--";
     return `
         <div class="cd-pos-card cd-trade-card">
           <div class="cd-pos-top">
@@ -718,6 +744,9 @@
     return raw;
   }
 
+  // Optional stop-loss / target typed in the ticket (USDT price); null when empty.
+  const ticketLevel = (id) => { const v = parseFloat(el(id).value); return v > 0 ? v : null; };
+
   function unitLabel() {
     if (ticket.unit === "LOT") return `Lot (${lotSize(ticket.base)} ${ticket.base})`;
     if (ticket.unit === "USD") return "USD";
@@ -752,6 +781,16 @@
     el("cdTicketAvail").textContent = fmtMoney(state.cash);
     el("cdTicketMargin").textContent = fmtMoney(margin);
     el("cdTicketFee").textContent = fmtMoney(fee);
+    // What the stop-loss and the target would mean in money, from the price the order opens at.
+    const slV = ticketLevel("cdStopLoss"), tpV = ticketLevel("cdTarget");
+    const hint = el("cdLevelHint");
+    if (hint) {
+      const bits = [];
+      if (price && qty > 0 && slV) bits.push(`<span class="cd-down">Loss at stop-loss: ${fmtMoney(Math.abs((isLong ? slV - price : price - slV) * qty) + fee)}</span>`);
+      if (price && qty > 0 && tpV) bits.push(`<span class="cd-up">Profit at target: ${fmtMoney(Math.max(0, (isLong ? tpV - price : price - tpV) * qty - 2 * fee))}</span>`);
+      hint.innerHTML = bits.join(" · ");
+      hint.hidden = bits.length === 0;
+    }
     const submit = el("cdTicketSubmit");
     const action = isLong ? "Open Long" : "Open Short";
     submit.querySelector(".cd-swipe-text").textContent = `Swipe to ${action}`;
@@ -822,6 +861,8 @@
     ticket.side = side;
     ticket.type = "MARKET";
     el("cdAmount").value = "";
+    el("cdStopLoss").value = "";
+    el("cdTarget").value = "";
     const price = priceOf(base);
     el("cdLimitPrice").value = price ? String(price) : "";
     showError("");
@@ -839,7 +880,7 @@
 
   function submitTicket() {
     const limitPrice = parseFloat(el("cdLimitPrice").value);
-    const result = placeOrder({ base: ticket.base, side: ticket.side, type: ticket.type, qty: ticketQty(), limitPrice, leverage: ticket.leverage });
+    const result = placeOrder({ base: ticket.base, side: ticket.side, type: ticket.type, qty: ticketQty(), limitPrice, leverage: ticket.leverage, stopLoss: ticketLevel("cdStopLoss"), target: ticketLevel("cdTarget") });
     if (result.error) {
       showError(result.error);
       return;
@@ -972,6 +1013,8 @@
   el("cdLeverageSelect").addEventListener("change", (event) => { ticket.leverage = Number(event.target.value) || 1; showError(""); renderTicket(); });
   el("cdAmount").addEventListener("input", () => { showError(""); renderTicket(); });
   el("cdLimitPrice").addEventListener("input", () => renderTicket());
+  el("cdStopLoss").addEventListener("input", () => { showError(""); renderTicket(); });
+  el("cdTarget").addEventListener("input", () => { showError(""); renderTicket(); });
 
   document.addEventListener("click", (event) => {
     const closeBtn = event.target.closest("[data-close-pos]");
