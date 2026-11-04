@@ -855,14 +855,15 @@
     box.hidden = !message;
   }
 
-  function openTicket(base, side = "BUY") {
+  // levels (optional): { stopLoss, target } to prefill the two boxes, e.g. from a Focus Radar card.
+  function openTicket(base, side = "BUY", levels = null) {
     if (!base) return;
     ticket.base = base;
     ticket.side = side;
     ticket.type = "MARKET";
     el("cdAmount").value = "";
-    el("cdStopLoss").value = "";
-    el("cdTarget").value = "";
+    el("cdStopLoss").value = levels && levels.stopLoss > 0 ? String(levels.stopLoss) : "";
+    el("cdTarget").value = levels && levels.target > 0 ? String(levels.target) : "";
     const price = priceOf(base);
     el("cdLimitPrice").value = price ? String(price) : "";
     showError("");

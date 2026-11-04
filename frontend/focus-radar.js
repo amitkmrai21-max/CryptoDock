@@ -91,7 +91,7 @@
   }
   function actions(item, bull) {
     return `<div class="cd-fr-actions">
-      <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="${esc(item.base)}" data-fr-side="${bull ? "BUY" : "SELL"}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+      <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="${esc(item.base)}" data-fr-side="${bull ? "BUY" : "SELL"}"${Number(item.stop) > 0 ? ` data-fr-stop="${esc(item.stop)}"` : ""}${Number(item.t1) > 0 ? ` data-fr-target="${esc(item.t1)}"` : ""}>⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
       <button type="button" class="cd-fr-analysis" data-focus-coin="${esc(item.base)}">📊 Analysis</button>
     </div>`;
   }
@@ -309,7 +309,9 @@
     if (starBtn) { if (window.cdToggleWatch) window.cdToggleWatch(starBtn.dataset.frStar); render(); return; }
     const ticket = event.target.closest("[data-fr-ticket]");
     if (ticket) {
-      window.cdOpenTicket?.(ticket.dataset.frTicket, ticket.dataset.frSide);
+      // The card's own stop-loss and Target 1 fill the ticket's boxes (they can be edited there).
+      const stopLoss = Number(ticket.dataset.frStop), target = Number(ticket.dataset.frTarget);
+      window.cdOpenTicket?.(ticket.dataset.frTicket, ticket.dataset.frSide, { stopLoss: stopLoss > 0 ? stopLoss : null, target: target > 0 ? target : null });
       return;
     }
     const button = event.target.closest("[data-focus-coin]");
