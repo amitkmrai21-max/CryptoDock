@@ -22,7 +22,8 @@
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   let tab = "swing";            // 'swing' | 'range'
-  let mode = "strict";          // swing tab: 'strict' (all 3 checks) | 'any' (1-3 checks)
+  let mode = "any";             // swing tab: 'any' (all setups, most checks first) | 'strict' (all 3 checks)
+  let tf = "4H";                // range tab: '4H' (multi-day swing) | '1H'
   let dirFilter = "all";        // all | bullish | bearish
   const FILTER_LABEL = { all: "All", bullish: "Bull", bearish: "Bear" };
   let data = null;
@@ -142,11 +143,11 @@
     const steps = [
       step("Range", `${Number(item.width_pct).toFixed(1)}% wide`, "ok"),
       step(bull ? "Support bounce" : "Resistance bounce", bull ? "Dip, then back up" : "Spike, then back down", "ok"),
-      step("Volume dry", `${Number(item.volume_ratio).toFixed(2)}× of before`, "live"),
+      step("Volume", `${Number(item.volume_ratio).toFixed(2)}× of before${item.vol_dry ? " · dry" : ""}`, item.vol_dry ? "ok" : "wait"),
     ].join("");
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, bull)}
-      <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BOUNCE FROM SUPPORT · LONG" : "↘ REJECT AT RESISTANCE · SHORT"}</span><span class="cd-fr-tag">RANGE</span></div>
+      <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BOUNCE FROM SUPPORT · LONG" : "↘ REJECT AT RESISTANCE · SHORT"}</span><span class="cd-fr-tag">${esc(item.timeframe)} RANGE${item.tested_twice ? " · TESTED 2×" : ""}</span></div>
       <div class="cd-fr-steps cd-fr-steps-wide">${steps}</div>
       ${levels(item)}
       <small class="cd-fr-ema"><i>Support</i> <b>${money(item.support)}</b> · <i>Resistance</i> <b>${money(item.resistance)}</b> · ${stateText(item, bull)}</small>
@@ -165,8 +166,8 @@
       <div class="cd-fr-ticks"><div><span><i class="${dot}"></i>BTC 1H</span> <b>${label}</b></div></div></div>`;
   }
   const EMPTY = {
-    swing: ["No Swing+ setup right now", "No 1H swing setup passes the extra checks. That is normal; the checks are strict. Try “Any” to see setups that pass only some of them."],
-    range: ["No range bounce right now", "No coin is moving sideways between a clear support and resistance and bouncing at an edge with volume drying up."],
+    swing: ["No Swing+ setup right now", "No 1H swing setup is open right now (ready or triggered). New ones appear when a coin in an uptrend or downtrend pulls back to its EMA zone and a rejection candle forms."],
+    range: ["No range bounce right now", "No coin is moving sideways between a clear support and resistance and bouncing back from an edge. Try the other timeframe."],
   };
   function render() {
     document.querySelectorAll("#cdLabTabs button").forEach((b) => b.classList.toggle("is-active", b.dataset.labTab === tab));
@@ -177,10 +178,16 @@
     }
     const swingAll = data ? data.swing || [] : [];
     const swingList = swingAll.filter((r) => mode === "any" || (r.checks.h4 && r.checks.rsi && r.checks.candle));
-    const rangeList = data ? data.range || [] : [];
+    const rangeAll = data ? data.range || [] : [];
+    const rangeList = rangeAll.filter((r) => r.timeframe === tf);
     const sb = document.querySelector('#cdLabTabs [data-lab-tab="swing"]'), rb = document.querySelector('#cdLabTabs [data-lab-tab="range"]');
     if (sb) sb.textContent = `Swing+${data ? ` (${swingList.length})` : ""}`;
     if (rb) rb.textContent = `Range${data ? ` (${rangeList.length})` : ""}`;
+    const tfRow = document.getElementById("cdLabTf");
+    if (tfRow) {
+      tfRow.hidden = tab !== "range";
+      tfRow.querySelectorAll("button").forEach((b) => b.classList.toggle("is-active", b.dataset.labTf === tf));
+    }
     if (!data) {
       meta.textContent = error ? "Scan unavailable" : "Checking market setup…";
       results.innerHTML = error ? `<p class="cd-focus-error">${esc(error)}</p>` : '<p class="cd-focus-loading">Scanning the top coins… this can take a few seconds.</p>';
@@ -189,10 +196,10 @@
     const list = (tab === "swing" ? swingList : rangeList).filter((r) => dirFilter === "all" || r.side === dirFilter);
     meta.textContent = tab === "swing"
       ? `${swingAll.length} swing setups · ${swingList.length} pass ${mode === "strict" ? "all 3 checks" : "at least one check"}`
-      : `${rangeList.length} range setups · never backtested`;
+      : `${rangeList.length} ${tf} range setups · ${rangeAll.length - rangeList.length} on the other timeframe · never backtested`;
     const note = tab === "swing"
-      ? '<p class="cd-fr-note">Swing+ = the normal 1H swing rule plus three checks: the 4H trend agrees, RSI turned back from 45 (long) / 55 (short) and the rejection candle is green (long) / red (short). A 90-day backtest found that these checks, alone or together, did not give a consistent improvement, so treat this as an experiment to watch, not a proven edge.</p>'
-      : '<p class="cd-fr-note">Range bounce = the last 48 hours stayed between a support and a resistance 2-8% apart (both tested at least twice, EMAs flat), a recent candle dipped to the edge and closed back inside, and volume of the last 6 hours is under 85% of the 24 before. Entry is the bounce candle high/low, SL beyond the edge, Target 1 the middle of the range, Target 2 just before the other edge. This idea has never been backtested.</p>';
+      ? '<p class="cd-fr-note">Swing+ = the normal 1H swing rule plus three checks: the 4H trend agrees, RSI turned back from 45 (long) / 55 (short) and the rejection candle is green (long) / red (short). Setups with the most checks come first. A 90-day backtest found that these checks, alone or together, did not give a consistent improvement, so treat this as an experiment to watch, not a proven edge.</p>'
+      : '<p class="cd-fr-note">Range bounce = a coin that stayed between a support and a resistance (4H: last 7 days, 3-15% wide; 1H: last 48 hours, 1.5-10% wide) with flat EMAs, whose recent candle reached an edge and closed back inside. Entry is the bounce candle high/low, SL beyond the edge, Target 1 the middle of the range, Target 2 just before the other edge. “Tested 2×” (both edges touched at least twice) and “dry” volume are quality marks, not requirements. This idea has never been backtested.</p>';
     results.innerHTML = summary() + (list.length ? list.map(tab === "swing" ? swingCard : rangeCard).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
@@ -226,6 +233,12 @@
     const button = event.target.closest("button[data-lab-tab]");
     if (!button || button.dataset.labTab === tab) return;
     tab = button.dataset.labTab;
+    render();
+  });
+  document.getElementById("cdLabTf")?.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-lab-tf]");
+    if (!button) return;
+    tf = button.dataset.labTf;
     render();
   });
   document.getElementById("cdLabMode")?.addEventListener("click", (event) => {
