@@ -3058,3 +3058,6 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
   .cd-fr-levels > div { padding-left: 2px; padding-right: 2px; }
   .cd-fr-levels span { font-size: 8px; padding: 1px 3px; }
 }
+/* Pull down to refresh: the browser's own pull-to-refresh (a full page reload) is switched off on this page. */
+html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-behavior-y: contain; }
+#cdFocusRadar .cd-fr-ptr { height: 0; overflow: hidden; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--text-muted, var(--muted)); }

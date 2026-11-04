@@ -24,17 +24,40 @@
   const data = { swing: null, breakouts: null };
   const errors = { swing: "", breakouts: "" };
 
+  // After a page reload this can run before the login is restored, so wait a few seconds for the session
+  // instead of failing on the first empty answer.
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   async function token() {
-    const { data: session } = await window.marketDockSupabase.auth.getSession();
-    const t = session?.session?.access_token;
-    if (!t) throw new Error("Please sign in to access Focus Radar.");
-    return t;
+    const until = Date.now() + 6000;
+    for (;;) {
+      try {
+        const { data: session } = await window.marketDockSupabase.auth.getSession();
+        const t = session?.session?.access_token;
+        if (t) return t;
+      } catch (e) { /* the login client may not exist yet */ }
+      if (Date.now() >= until) throw new Error("Please sign in to access Focus Radar.");
+      await sleep(400);
+    }
   }
   async function fetchJson(path) {
-    const response = await fetch(path, { headers: { Authorization: `Bearer ${await token()}` }, cache: "no-store" });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(body.detail || "Focus Radar is unavailable."); error.status = response.status; throw error; }
-    return body;
+    const bearer = await token();
+    // A cold server or a flaky connection right after a reload: try again before showing an error.
+    let last = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(path, { headers: { Authorization: `Bearer ${bearer}` }, cache: "no-store" });
+        const body = await response.json().catch(() => ({}));
+        if (response.ok) return body;
+        const error = new Error(body.detail || "Focus Radar is unavailable."); error.status = response.status;
+        if (response.status < 500) throw error; // 401 / 403 / 4xx are final
+        last = error;
+      } catch (error) {
+        if (error.status && error.status < 500) throw error;
+        last = error;
+      }
+      if (attempt < 2) await sleep(1500 * (attempt + 1));
+    }
+    throw last || new Error("Focus Radar is unavailable.");
   }
 
   // ---------- small building blocks ----------
@@ -220,6 +243,7 @@
     refreshBtn.disabled = false;
     overlay.classList.remove("is-loading");
     scanning = false;
+    loadedAt = Date.now();
     render();
   }
 
@@ -246,6 +270,40 @@
   }
   window.cdOpenFocusRadar = open;
   refreshBtn?.addEventListener("click", load);
+
+  // Whenever the page opens (menu, back, or restored after a reload) load it if there is no fresh result yet.
+  let loadedAt = 0;
+  const STALE_MS = 90 * 1000;
+  function ensureLoaded() {
+    if (!pageActive() || scanning) return;
+    if (!data.swing || !data.breakouts || Date.now() - loadedAt > STALE_MS) load();
+  }
+  new MutationObserver(ensureLoaded).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+  ensureLoaded(); // restored on a reload
+
+  // Pull down at the top of the page to refresh (instead of the browser reloading the whole page).
+  (function pullToRefresh() {
+    const THRESHOLD = 70;
+    let startY = null, pulled = 0;
+    const hint = document.createElement("div");
+    hint.className = "cd-fr-ptr";
+    hint.hidden = true;
+    overlay.prepend(hint);
+    const atTop = () => (document.scrollingElement || document.documentElement).scrollTop <= 0;
+    const reset = () => { startY = null; pulled = 0; hint.hidden = true; hint.style.height = "0px"; };
+    overlay.addEventListener("touchstart", (e) => { startY = pageActive() && atTop() && !scanning && e.touches.length === 1 ? e.touches[0].clientY : null; pulled = 0; }, { passive: true });
+    overlay.addEventListener("touchmove", (e) => {
+      if (startY === null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy <= 0 || !atTop()) { reset(); return; }
+      pulled = dy;
+      hint.hidden = false;
+      hint.style.height = Math.min(44, dy * 0.5) + "px";
+      hint.textContent = dy >= THRESHOLD ? "Release to refresh" : "Pull down to refresh";
+    }, { passive: true });
+    overlay.addEventListener("touchend", () => { const go = pulled >= THRESHOLD; reset(); if (go) load(); }, { passive: true });
+    overlay.addEventListener("touchcancel", reset, { passive: true });
+  })();
   results.addEventListener("click", (event) => {
     const starBtn = event.target.closest("[data-fr-star]");
     if (starBtn) { if (window.cdToggleWatch) window.cdToggleWatch(starBtn.dataset.frStar); render(); return; }
