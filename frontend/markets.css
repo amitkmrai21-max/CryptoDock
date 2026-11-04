@@ -2970,7 +2970,7 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 .cd-focus-radar { gap: 10px; max-height: min(94vh, 920px); overflow: auto; padding-top: 10px; }
 .cd-fr-top { display: flex; align-items: center; gap: 10px; }
 .cd-fr-top > div { flex: 1; min-width: 0; }
-.cd-fr-top strong { display: block; font-size: 17px; letter-spacing: .12em; }
+.cd-fr-top strong { display: block; font-size: 17px; font-weight: 800; letter-spacing: .12em; }
 .cd-fr-top small { display: block; margin-top: 2px; font-size: 9.5px; letter-spacing: .14em; color: var(--text-muted, var(--muted)); }
 .cd-fr-logo { font-size: 26px; line-height: 1; }
 .cd-fr-iconbtn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
@@ -3047,8 +3047,7 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 .cd-fr-logo { display: inline-grid; place-items: center; width: 34px; height: 34px; line-height: 1; transform-origin: 50% 50%; }
 @keyframes cdFrSpin { to { transform: rotate(360deg); } }
 #cdFocusRadar.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
-#cdFocusRadar.is-loading .cd-fr-logo { animation: cdFrSpin 1.6s linear infinite; }
-@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin, #cdFocusRadar.is-loading .cd-fr-logo { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin { animation: none; } }
 
 /* Focus Radar: "EMA 20" / "EMA 50" sit in a small light-coloured box, text stays in the normal dark colour */
 .cd-fr-ema i { font-style: normal; font-weight: 700; color: var(--text); padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); }
