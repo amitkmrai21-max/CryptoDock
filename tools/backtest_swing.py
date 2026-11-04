@@ -107,11 +107,14 @@ def simulate_trade(candles, i, setup, max_wait, max_hold, fee_pct):
     return {"outcome": outcome, "r_a": r_a, "r_b": r_b, "held": held, "gap_fill": fill != entry, "end": exit_candle}
 
 
-def run_coin(base, candles, main, max_wait=12, max_hold=48, fee_pct=0.1):
-    """All taken setups for one coin, oldest first."""
+def run_coin(base, candles, main, max_wait=12, max_hold=48, fee_pct=0.1, accept=None, min_index=60):
+    """All taken setups for one coin, oldest first.
+
+    accept(candles, i, setup) -> bool is an optional extra filter (used by backtest_swing_filters.py);
+    with accept=None this behaves exactly as before. min_index is the first candle that is evaluated."""
     trades, seen = [], set()
     busy_until = -1  # one trade per coin at a time: a new setup is skipped while the last one is still open
-    for i in range(60, len(candles) - 1):
+    for i in range(min_index, len(candles) - 1):
         if i <= busy_until:
             continue
         window = candles[max(0, i - WINDOW + 1): i + 1]
@@ -125,6 +128,8 @@ def run_coin(base, candles, main, max_wait=12, max_hold=48, fee_pct=0.1):
         seen.add(key)
         if setup["state"] != "ready":
             continue  # already triggered when first noticed: nobody could have taken it at the trigger
+        if accept is not None and not accept(candles, i, setup):
+            continue  # an extra filter said no: this setup is not shown, so nobody takes it
         trade = simulate_trade(candles, i, setup, max_wait, max_hold, fee_pct)
         busy_until = trade.get("end", i)
         trade.update(base=base, side=setup["side"], score=setup.get("score"), at=candles[i][0])
