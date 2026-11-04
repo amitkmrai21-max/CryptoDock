@@ -48,9 +48,15 @@
   async function fetchLab(fresh) {
     const bearer = await token();
     let last = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const response = await fetch("/api/owner/lab" + (fresh ? "?refresh=1" : ""), { headers: { Authorization: `Bearer ${bearer}` }, cache: "no-store" });
+        // A scan that never answers must not leave the page stuck: give up after 40 seconds and try again / show an error.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 40000);
+        let response;
+        try {
+          response = await fetch("/api/owner/lab" + (fresh ? "?refresh=1" : ""), { headers: { Authorization: `Bearer ${bearer}` }, cache: "no-store", signal: controller.signal });
+        } finally { clearTimeout(timer); }
         const body = await response.json().catch(() => ({}));
         if (response.ok) return body;
         const err = new Error(body.detail || "Setup Lab is unavailable."); err.status = response.status;
@@ -60,9 +66,9 @@
         if (e.status && e.status < 500) throw e;
         last = e;
       }
-      if (attempt < 2) await sleep(1500 * (attempt + 1));
+      if (attempt < 1) await sleep(1500);
     }
-    throw last || new Error("Setup Lab is unavailable.");
+    throw last && last.name === "AbortError" ? new Error("The scan took too long. Tap the refresh arrow to try again.") : (last || new Error("Setup Lab is unavailable."));
   }
 
   // ---------- small building blocks ----------
@@ -258,7 +264,14 @@
     if (!pageActive() || scanning) return;
     if (!data || Date.now() - loadedAt > STALE_MS) load();
   }
-  new MutationObserver(ensureLoaded).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+  // Only react when the page is OPENED. (The loading spinner also toggles a class on this element: reacting to that
+  // restarted a failed scan again and again, so the refresh button stayed disabled.)
+  let wasActive = false;
+  new MutationObserver(() => {
+    const now = pageActive();
+    if (now && !wasActive) ensureLoaded();
+    wasActive = now;
+  }).observe(overlay, { attributes: true, attributeFilter: ["class"] });
   window.cdOpenSetupLab = function () {
     if (!pageActive()) document.querySelector('.sidebar .app-tab[data-tab="setuplab"]')?.click();
     load();
@@ -276,5 +289,6 @@
     const analysis = event.target.closest("[data-lab-coin]");
     if (analysis) window.cdOpenSheet?.(analysis.dataset.labCoin);
   });
+  wasActive = pageActive();
   ensureLoaded(); // restored on a reload
 })();

@@ -2706,7 +2706,7 @@ def _lab_scan(ttl=LAB_TTL_S):
             print(f"Setup Lab skipped {base}: {error}")
         return out
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         results = [r for r in pool.map(one, ranked) if r]
     swing = [r["swing"] for r in results if r["swing"]]
     rng = [x for r in results for x in r["range"]]
