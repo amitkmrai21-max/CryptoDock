@@ -2527,6 +2527,180 @@ def _swing_scan(kline_ttl=SWING_TTL_S):
     return {"at": int(now), "scanned": len(ranked), "setups": results}
 
 
+# ================= SETUP LAB (owner only) =================
+# Experimental ideas shown next to each other so the owner can judge them live:
+#   Swing+  = the 1H swing rule PLUS three extra checks (4H trend agrees, RSI turning, rejection candle colour).
+#             The swing rule itself (_swing_setup) is not changed; the checks only mark each setup.
+#   Range   = a coin moving sideways between a clear support and resistance, bouncing at an edge after a quick
+#             dip beyond it, with volume drying up. Never backtested.
+# BTC's 1H trend is shown so every card can say whether it goes with or against the market.
+LAB_TTL_S = 300
+LAB_RANGE_BARS = 48              # hours that define the range
+LAB_RANGE_MIN_WIDTH = 0.02       # range height as a share of price: 2% ...
+LAB_RANGE_MAX_WIDTH = 0.08       # ... to 8%
+lab_cache = {}
+lab_klines_cache = {}
+
+
+def _lab_klines(base, interval, limit, ttl):
+    """[t, o, h, l, c, quote_volume] candles, oldest first."""
+    def fetch():
+        raw = binance_get("/api/v3/klines", {"symbol": base + "USDT", "interval": interval, "limit": limit}, weight=2, timeout=10)
+        return [[int(c[0]) // 1000, float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[7])] for c in raw]
+    return cached_call(lab_klines_cache, (base, interval, limit), ttl, fetch, max_entries=400)
+
+
+def _lab_swing_checks(closed, setup, now, base, ttl):
+    """The three extra checks for one swing setup: 4H trend agrees, RSI turning, rejection candle colour."""
+    long = setup["side"] == "bullish"
+    r = next((k for k in range(len(closed) - 1, max(-1, len(closed) - 8), -1) if closed[k][0] == setup.get("rejection_at")), None)
+    if r is None:
+        return None
+    # 4H: completed 4H candles only
+    h4 = [c for c in _lab_klines(base, "4h", 80, ttl) if c[0] + 4 * 3600 <= now]
+    h4_ok = False
+    if len(h4) >= 55:
+        closes4 = [c[4] for c in h4]
+        e20, e50 = _ema(closes4, 20)[-1], _ema(closes4, 50)[-1]
+        h4_ok = e20 > e50 if long else e20 < e50
+    # RSI: dipped to 45 (long) / rose to 55 (short) around the rejection and is now turning back
+    values = []
+    for k in range(max(1, r - 1), len(closed)):
+        try:
+            values.append(rsi([c[4] for c in closed[max(0, k - 40): k + 1]]))
+        except ValueError:
+            continue
+    rsi_ok = False
+    if len(values) >= 2:
+        rsi_ok = (min(values) <= 45 and values[-1] > min(values)) if long else (max(values) >= 55 and values[-1] < max(values))
+    candle_ok = closed[r][4] > closed[r][1] if long else closed[r][4] < closed[r][1]
+    return {"h4": bool(h4_ok), "rsi": bool(rsi_ok), "candle": bool(candle_ok), "rsi_now": round(values[-1], 1) if values else None}
+
+
+def _lab_range_setup(closed, price, now):
+    """Bounce at the edge of a sideways range, or None. closed = closed 1H [t, o, h, l, c, quote_volume]."""
+    if len(closed) < LAB_RANGE_BARS + 12 or not price or price <= 0:
+        return None
+    window, test = closed[-(LAB_RANGE_BARS + 3):-3], closed[-3:]
+    sup, res = min(c[3] for c in window), max(c[2] for c in window)
+    mid = (sup + res) / 2
+    width = (res - sup) / mid
+    if not (LAB_RANGE_MIN_WIDTH <= width <= LAB_RANGE_MAX_WIDTH):
+        return None
+    closes = [c[4] for c in closed]
+    e20, e50 = _ema(closes, 20)[-1], _ema(closes, 50)[-1]
+    if abs(e20 - e50) / e50 > 0.006:
+        return None  # a trend, not a range
+    if abs(window[-1][4] - window[0][4]) > 0.35 * (res - sup):
+        return None  # drifted from one side to the other
+    zone = 0.005 * mid
+    if sum(1 for c in window if c[3] <= sup + zone) < 2 or sum(1 for c in window if c[2] >= res - zone) < 2:
+        return None  # edges not tested at least twice each
+    # Volume drying up: the last 6 hours trade less than the 24 before them.
+    recent = sum(c[5] for c in closed[-6:]) / 6
+    before = sum(c[5] for c in closed[-30:-6]) / 24
+    if before <= 0 or recent > 0.85 * before:
+        return None
+    vol_ratio = recent / before
+    found = None
+    for c in reversed(test):
+        t, o, h, l, cl, _ = c
+        rng = h - l
+        if rng <= 0:
+            continue
+        if l <= sup + 0.004 * mid and cl > sup and cl >= l + 0.5 * rng and closed[-1][4] > sup:
+            found = ("bullish", c)
+            break
+        if h >= res - 0.004 * mid and cl < res and cl <= h - 0.5 * rng and closed[-1][4] < res:
+            found = ("bearish", c)
+            break
+    if not found:
+        return None
+    side, c = found
+    long = side == "bullish"
+    lows, highs = min(x[3] for x in test), max(x[2] for x in test)
+    entry = c[2] if long else c[3]
+    stop = min(sup * 0.995, lows * 0.999) if long else max(res * 1.005, highs * 1.001)
+    risk = abs(entry - stop)
+    if risk <= 0 or risk / entry > 0.05:
+        return None
+    t1 = mid
+    t2 = res * 0.997 if long else sup * 1.003
+    if abs(t2 - entry) < 1.5 * risk or (t1 - entry if long else entry - t1) <= 0:
+        return None  # not enough room to the other side
+    if (price <= stop or price >= t2) if long else (price >= stop or price <= t2):
+        return None
+    triggered = price > entry if long else price < entry
+    t1_hit = price >= t1 if long else price <= t1
+    return {"side": side, "support": sup, "resistance": res, "width_pct": round(width * 100, 2), "entry": entry, "stop": stop,
+            "t1": t1, "t2": t2, "volume_ratio": round(vol_ratio, 2), "rejection_at": c[0],
+            "state": "target1" if triggered and t1_hit else "triggered" if triggered else "ready"}
+
+
+def _lab_scan(ttl=LAB_TTL_S):
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins") or []
+    ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
+              if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SWING_MIN_VOLUME_USDT][:SWING_TOP_N]
+    now = time.time()
+    # BTC's 1H trend: EMA 20 against EMA 50 and the EMA 50 slope over 5 hours.
+    btc = {"trend": "flat"}
+    try:
+        b = [c for c in _lab_klines("BTC", "1h", 120, ttl) if c[0] + 3600 <= now]
+        closes = [c[4] for c in b]
+        e20, e50 = _ema(closes, 20), _ema(closes, 50)
+        gap = (e20[-1] - e50[-1]) / e50[-1]
+        btc = {"trend": "up" if gap > 0.001 and e50[-1] > e50[-6] else "down" if gap < -0.001 and e50[-1] < e50[-6] else "flat",
+               "gap_pct": round(gap * 100, 2)}
+    except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy):
+        pass
+
+    def one(coin):
+        base = coin["base"]
+        try:
+            candles = _lab_klines(base, "1h", 120, ttl)
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy) as error:
+            print(f"Setup Lab skipped {base}: {error}")
+            return None
+        price = float(coin.get("price") or 0)
+        closed = [c for c in candles if c[0] + 3600 <= now]
+        info = {"base": base, "price": price, "change_percent": coin.get("change_percent"), "spark": [round(c[4], 8) for c in closed[-24:]]}
+        out = {"swing": None, "range": None}
+        try:
+            found = _swing_setup([c[:5] for c in candles], price, now)
+            if found and found.get("state") in ("ready", "triggered") and found.get("rejection_at") is not None:
+                checks = _lab_swing_checks(closed, found, now, base, ttl)
+                if checks:
+                    out["swing"] = {**info, **found, "checks": checks}
+            rng = _lab_range_setup(closed, price, now)
+            if rng:
+                out["range"] = {**info, **rng}
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy) as error:
+            print(f"Setup Lab skipped {base}: {error}")
+        return out
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+        results = [r for r in pool.map(one, ranked) if r]
+    swing = [r["swing"] for r in results if r["swing"]]
+    rng = [r["range"] for r in results if r["range"]]
+    order = {"ready": 0, "triggered": 1, "target1": 2}
+    swing.sort(key=lambda r: (-sum(r["checks"][k] for k in ("h4", "rsi", "candle")), order.get(r["state"], 9)))
+    rng.sort(key=lambda r: (order.get(r["state"], 9), r["volume_ratio"]))
+    return {"at": int(now), "scanned": len(ranked), "btc": btc, "swing": swing, "range": rng}
+
+
+@app.get("/api/owner/lab")
+def get_owner_lab(authorization: str = Header(None), refresh: str = ""):
+    _focus_radar_owner(authorization)
+    try:
+        # Opening the page uses the shared 5 minute cache; the Refresh button (refresh=1) rescans with fresh candles.
+        if refresh == "1":
+            return cached_call(lab_cache, "all", FOCUS_REFRESH_MIN_GAP_S, lambda: _lab_scan(FOCUS_REFRESH_MIN_GAP_S), max_entries=1)
+        return cached_call(lab_cache, "all", LAB_TTL_S, _lab_scan, max_entries=1)
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
+        raise HTTPException(status_code=503, detail="Setup Lab scan is temporarily unavailable. Please try again shortly.") from error
+
+
 @app.get("/api/owner/focus-radar/swing")
 def get_owner_focus_radar_swing(authorization: str = Header(None), refresh: str = ""):
     _focus_radar_owner(authorization)
