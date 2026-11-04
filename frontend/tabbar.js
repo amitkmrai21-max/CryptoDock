@@ -72,9 +72,11 @@
       // Just before Settings, which always stays the last tile.
       const tile = `<button type="button" class="cd-more-tile cd-more-focus" data-more-focus="1">
         <span class="cd-more-icon">🎯</span><span>Focus Radar</span></button>`;
+      const labTile = `<button type="button" class="cd-more-tile cd-more-lab" data-more-lab="1">
+        <span class="cd-more-icon">🧪</span><span>Setup Lab</span></button>`;
       const settingsTile = grid.querySelector("[data-more-settings]");
-      if (settingsTile) settingsTile.insertAdjacentHTML("beforebegin", tile);
-      else grid.insertAdjacentHTML("beforeend", tile);
+      if (settingsTile) { settingsTile.insertAdjacentHTML("beforebegin", tile); settingsTile.insertAdjacentHTML("beforebegin", labTile); }
+      else { grid.insertAdjacentHTML("beforeend", tile); grid.insertAdjacentHTML("beforeend", labTile); }
     } catch (_) { /* Feature stays hidden unless the server verifies the owner session. */ }
   }
 
@@ -97,6 +99,7 @@
     if (!tile) return;
     closeMore();
     if (tile.dataset.moreFocus) { window.cdOpenFocusRadar?.(); }
+    else if (tile.dataset.moreLab) { window.cdOpenSetupLab?.(); }
     else if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
     else if (tile.dataset.moreSettings) document.getElementById("topSettingsMenuButton")?.click();
     else if (tile.dataset.extLink) { /* opened by the link handler below */ }
