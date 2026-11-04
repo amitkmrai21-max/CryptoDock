@@ -2279,6 +2279,76 @@ def _focus_ema(values, period):
     return ema
 
 
+FOCUS_BREAKOUT_MAX_RISK = 0.05   # skip breakouts whose stop is more than 5% away
+FOCUS_BREAKOUT_MAX_EMA_GAP = 0.03
+
+
+def _focus_breakout_setup(bars, price):
+    """Breakout / breakdown from closed 1H bars [time, open, high, low, close, ..., quote_volume at index 7], oldest first.
+
+    The last bar is the breakout candle. Extra filters on top of the 24-candle break with volume and EMA trend:
+    a tight base (the 5 candles before it are quieter than the 20 before those), price and the broken level
+    not stretched from the EMA 20 (3%), RSI in a healthy band (55-68 long, 32-45 short) and a decisive close
+    (top / bottom quarter of the breakout candle). Entry is the breakout candle's high (low), the stop sits
+    beyond the base, targets are 2R and 3R. None when any check fails."""
+    if len(bars) < 51 or not price or price <= 0:
+        return None
+    opens = [float(b[1]) for b in bars]
+    highs = [float(b[2]) for b in bars]
+    lows = [float(b[3]) for b in bars]
+    closes = [float(b[4]) for b in bars]
+    quote_volumes = [float(b[7]) for b in bars]
+    level_high, level_low = max(highs[-25:-1]), min(lows[-25:-1])
+    baseline = sum(quote_volumes[-21:-1]) / 20
+    volume_ratio = quote_volumes[-1] / baseline if baseline > 0 else 0
+    ema20, ema50 = _focus_ema(closes, 20), _focus_ema(closes, 50)
+    if not ema20 or not ema50 or volume_ratio < 1.5:
+        return None
+    last_close, brk_high, brk_low = closes[-1], highs[-1], lows[-1]
+    if last_close > level_high and price > level_high and ema20 > ema50:
+        long, level = True, level_high
+    elif last_close < level_low and price < level_low and ema20 < ema50:
+        long, level = False, level_low
+    else:
+        return None
+    # 1. Tight base: the 5 candles before the breakout candle are quieter than the 20 before them.
+    base_ranges = [highs[i] - lows[i] for i in range(-6, -1)]
+    prior_ranges = [highs[i] - lows[i] for i in range(-26, -6)]
+    base_avg, prior_avg = sum(base_ranges) / 5, sum(prior_ranges) / 20
+    if prior_avg <= 0 or base_avg >= prior_avg:
+        return None
+    # 2. Not stretched: price and the broken level are within 3% of the EMA 20.
+    if abs(price - ema20) / ema20 > FOCUS_BREAKOUT_MAX_EMA_GAP or abs(level - ema20) / ema20 > FOCUS_BREAKOUT_MAX_EMA_GAP:
+        return None
+    # 3. RSI not overheated (long) / not washed out (short).
+    try:
+        rsi_value = rsi(closes)
+    except ValueError:
+        return None
+    if not ((55 <= rsi_value <= 68) if long else (32 <= rsi_value <= 45)):
+        return None
+    # 4. Decisive close: no long wick on the breakout candle.
+    rng = brk_high - brk_low
+    if rng <= 0 or (long and last_close < brk_low + 0.75 * rng) or (not long and last_close > brk_high - 0.75 * rng):
+        return None
+    base_low, base_high = min(lows[-6:-1]), max(highs[-6:-1])
+    entry = brk_high if long else brk_low
+    stop = base_low * 0.999 if long else base_high * 1.001
+    risk = abs(entry - stop)
+    if risk <= 0 or risk / entry > FOCUS_BREAKOUT_MAX_RISK:
+        return None
+    sign = 1 if long else -1
+    t1, t2 = entry + sign * 2 * risk, entry + sign * 3 * risk
+    # Already stopped out or already past target 2: nothing left to show.
+    if (price <= stop or price >= t2) if long else (price >= stop or price <= t2):
+        return None
+    triggered = price > entry if long else price < entry
+    t1_hit = price >= t1 if long else price <= t1
+    return {"direction": "BULLISH" if long else "BEARISH", "break_level": level, "volume_ratio": round(volume_ratio, 2),
+            "entry": entry, "stop": stop, "t1": t1, "t2": t2, "rsi": round(rsi_value, 1), "ema20": ema20, "ema50": ema50,
+            "state": "target1" if triggered and t1_hit else "triggered" if triggered else "ready"}
+
+
 def _build_focus_radar():
     # Top 60 liquid USDT markets only, one-hour candles, shared 10-minute cache.
     payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
@@ -2297,38 +2367,13 @@ def _build_focus_radar():
         try:
             rows = get_klines(symbol, interval="1h", limit=60)
             # Exclude the in-progress candle; use closed hourly bars for confirmation.
-            bars = rows[:-1]
-            if len(bars) < 27:
-                return None
-            closes = [float(row[4]) for row in bars]
-            highs = [float(row[2]) for row in bars]
-            lows = [float(row[3]) for row in bars]
-            quote_volumes = [float(row[7]) for row in bars]
-            last_close = closes[-1]
-            level_high = max(highs[-25:-1])
-            level_low = min(lows[-25:-1])
-            baseline = sum(quote_volumes[-21:-1]) / 20
-            volume_ratio = quote_volumes[-1] / baseline if baseline > 0 else 0
-            ema20, ema50 = _focus_ema(closes, 20), _focus_ema(closes, 50)
-            if ema20 is None or ema50 is None:
-                # 49 closed candles can produce EMA50 only when 50 are available.
-                ema50 = _focus_ema(closes[-50:], 50) if len(closes) >= 50 else None
-            if not ema20 or not ema50 or volume_ratio < 1.5:
-                return None
-            price = float(coin.get("price") or 0)
-            direction = None
-            level = 0
-            if last_close > level_high and price > level_high and ema20 > ema50:
-                direction, level = "BULLISH", level_high
-            elif last_close < level_low and price < level_low and ema20 < ema50:
-                direction, level = "BEARISH", level_low
-            if not direction:
+            found = _focus_breakout_setup(rows[:-1], float(coin.get("price") or 0))
+            if not found:
                 return None
             return {"base": str(coin.get("base") or symbol[:-4]), "symbol": symbol,
-                    "direction": direction, "price": price, "change_percent": float(coin.get("change_percent") or 0),
-                    "volume_usdt": float(coin.get("volume_usdt") or 0), "volume_ratio": round(volume_ratio, 2),
-                    "break_level": level, "timeframe": "1H",
-                    "reason": "24-candle breakout + elevated volume + EMA trend confirmation"}
+                    "price": float(coin.get("price") or 0), "change_percent": float(coin.get("change_percent") or 0),
+                    "volume_usdt": float(coin.get("volume_usdt") or 0), "timeframe": "1H", **found,
+                    "reason": "Breakout from a tight base with volume, EMA trend and a healthy RSI"}
         except (requests.exceptions.RequestException, ValueError, TypeError, IndexError, KeyError, BinanceBusy):
             return None
 
@@ -2353,7 +2398,7 @@ def get_owner_focus_radar(authorization: str = Header(None)):
     _focus_radar_owner(authorization)
     try:
         # Shared cache avoids repeating candle scans for each button tap.
-        return cached_call(focus_radar_cache, "v1", 600, _build_focus_radar)
+        return cached_call(focus_radar_cache, "v2", 600, _build_focus_radar)
     except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
         raise HTTPException(status_code=503, detail="Market scan is temporarily unavailable. Please try again shortly.") from error
 

@@ -132,16 +132,20 @@
       step(2, "Breakout", `${bull ? "Above" : "Below"} ${money(item.break_level)}`, "ok"),
       step(3, "Volume", `${Number(item.volume_ratio).toFixed(2)}× avg`, "live"),
     ].join("");
+    const risk = Math.abs(item.entry - item.stop) / item.entry * 100;
+    const g1 = Math.abs(item.t1 - item.entry) / item.entry * 100, g2 = Math.abs(item.t2 - item.entry) / item.entry * 100;
+    const tag = item.state === "triggered" ? "ENTRY LIVE" : item.state === "target1" ? "TARGET 1 HIT" : "WAIT FOR ENTRY";
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, price, change, null, bull)}
-      <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH BREAKOUT · LONG WATCH" : "↘ BEARISH BREAKDOWN · SHORT WATCH"}</span><span class="cd-fr-tag">1H SETUP</span></div>
+      <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ BULLISH BREAKOUT · LONG" : "↘ BEARISH BREAKDOWN · SHORT"}</span><span class="cd-fr-tag">${tag}</span></div>
       <div class="cd-fr-steps cd-fr-steps-wide">${steps}</div>
       <div class="cd-fr-levels">
-        <div><span>Break level</span><b>${money(item.break_level)}</b><em></em></div>
-        <div><span>Price</span><b>${money(price)}</b><em></em></div>
-        <div><span>Volume</span><b>${Number(item.volume_ratio).toFixed(2)}×</b><em></em></div>
-        <div><span>24h</span><b class="${change >= 0 ? "cd-up" : "cd-down"}">${pct(change, true)}</b><em></em></div>
+        <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
+        <div><span>SL</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">(−${risk.toFixed(1)}%)</em></div>
+        <div><span>Target 1</span><b>${money(item.t1)}</b><em class="cd-up">(+${g1.toFixed(1)}%)</em></div>
+        <div><span>Target 2</span><b>${money(item.t2)}</b><em class="cd-up">(+${g2.toFixed(1)}%)</em></div>
       </div>
+      <small class="cd-fr-ema"><i>EMA 20</i> <b>${money(item.ema20)}</b> · <i>RSI</i> <b>${Number(item.rsi).toFixed(0)}</b></small>
       ${actions(item, bull)}
     </article>`;
   }
@@ -149,7 +153,7 @@
   // ---------- render ----------
   const EMPTY = {
     swing: ["No swing setup right now", "No top coin is in a 1H EMA 20/50 pullback. That is normal; check again later."],
-    breakouts: ["No qualifying setups right now", "Wait for a confirmed 1-hour breakout or breakdown with volume and trend agreement."],
+    breakouts: ["No qualifying setups right now", "Wait for a confirmed 1-hour breakout or breakdown from a tight base, with volume, trend and a healthy RSI. Strict filters mean few signals; that is normal."],
   };
   function summary() {
     const btc = coinOf("BTC"), eth = coinOf("ETH");
@@ -189,7 +193,8 @@
       cards = rows.filter((r) => dirFilter === "all" || r.direction.toLowerCase() === dirFilter).map(breakoutCard);
     }
     const note = tab === "swing"
-      ? '<p class="cd-fr-note">Score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how complete and clean the setup looks, not the chance of winning. A card still waiting in the zone has earned only the trend part, so its score stays low until a rejection candle forms. Trigger only becomes active after that candle forms and price crosses its high (bullish) or low (bearish).</p>' : "";
+      ? '<p class="cd-fr-note">Score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how complete and clean the setup looks, not the chance of winning. A card still waiting in the zone has earned only the trend part, so its score stays low until a rejection candle forms. Trigger only becomes active after that candle forms and price crosses its high (bullish) or low (bearish).</p>'
+      : '<p class="cd-fr-note">Breakout rules: 24-candle break on a closed 1H candle with 1.5× volume, EMA 20 above (below) 50, a tight base before it, price and the broken level within 3% of EMA 20, RSI 55-68 for longs (32-45 for shorts) and a close in the top (bottom) quarter of the breakout candle. Entry is the breakout candle high (low), SL sits beyond the base, targets are 2× and 3× the risk. A rule-based filter, not a prediction.</p>';
     results.innerHTML = summary() + (cards.length ? cards.join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
