@@ -3070,3 +3070,4 @@ html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-beha
    (it used to shrink and get cut off once the Stop-loss / Target row was added). */
 .cd-ticket > * { flex-shrink: 0; }
 .cd-ticket > #cdTicketSubmit { position: sticky; bottom: 0; z-index: 3; min-height: 52px; box-shadow: 0 0 0 12px var(--surface); }
+.cd-ticket-error { scroll-margin-block: 24px 120px; }

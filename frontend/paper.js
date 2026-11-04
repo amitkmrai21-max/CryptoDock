@@ -853,6 +853,8 @@
     const box = el("cdTicketError");
     box.textContent = message || "";
     box.hidden = !message;
+    // The swipe button is stuck to the bottom of the sheet: bring the message into view so it is never hidden behind it.
+    if (message) { try { box.scrollIntoView({ block: "nearest", behavior: "smooth" }); } catch (e) { /* ignore */ } }
   }
 
   // levels (optional): { stopLoss, target } to prefill the two boxes, e.g. from a Focus Radar card.
@@ -869,7 +871,21 @@
     const price = priceOf(base);
     el("cdLimitPrice").value = price ? String(price) : "";
     showError("");
+    // A stop-loss that sits beyond the liquidation price can never trigger and the order is refused. When a card
+    // brings its own stop-loss, lower the leverage just enough that the stop-loss stays inside liquidation.
+    let note = "";
+    if (levels && levels.stopLoss > 0 && price && marginMode() !== "cross") {
+      const dist = Math.abs(price - levels.stopLoss) / price;
+      const options = [...el("cdLeverageSelect").options].map((o) => Number(o.value)).sort((a, b) => b - a);
+      const ok = (lev) => 0.95 / lev >= dist * 1.2;
+      if (dist > 0 && !ok(ticket.leverage)) {
+        const pick = options.find((lev) => lev <= ticket.leverage && ok(lev)) || options[options.length - 1];
+        note = `Leverage set to ${pick}x so the stop-loss (${(dist * 100).toFixed(2)}% away) stays inside the liquidation price.`;
+        ticket.leverage = pick;
+      }
+    }
     renderTicket();
+    if (note) setTimeout(() => toast(note), 250);
     const knob = el("cdTicketSubmit").querySelector(".cd-swipe-knob");
     knob.style.transform = "";
     el("cdTicketSubmit").querySelector(".cd-swipe-fill").style.width = "";
