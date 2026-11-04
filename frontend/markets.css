@@ -3046,8 +3046,8 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 .cd-fr-iconbtn { padding: 0; }
 .cd-fr-logo { display: inline-grid; place-items: center; width: 34px; height: 34px; line-height: 1; transform-origin: 50% 50%; }
 @keyframes cdFrSpin { to { transform: rotate(360deg); } }
-#cdFocusRadar.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
-@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin { animation: none; } }
+#cdFocusRadar.is-loading .cd-fr-spin, #cdSetupLab.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin, #cdSetupLab.is-loading .cd-fr-spin { animation: none; } }
 
 /* Focus Radar: "EMA 20" / "EMA 50" sit in a small light-coloured box, text stays in the normal dark colour */
 .cd-fr-ema i { font-style: normal; font-weight: 700; color: var(--text); padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); }
