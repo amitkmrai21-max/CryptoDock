@@ -2410,7 +2410,8 @@ def get_owner_focus_radar(authorization: str = Header(None)):
 # (long wick back out, close on the trend side). Trigger = that candle's high (low for bearish),
 # stop just beyond its other end, targets 1.5R and 2.5R. It describes past candles with fixed
 # rules; it is not a prediction. One shared, cached scan for everyone (top coins, every 5 min).
-SWING_TOP_N = 30
+SWING_TOP_N = 60                 # coins checked: the 60 with the most volume ...
+SWING_MIN_VOLUME_USDT = 5_000_000  # ... and at least $5M of 24h volume (the same limit as Breakouts)
 SWING_TTL_S = 300
 SWING_LOOKBACK_CANDLES = 4       # the rejection candle must be among the last 4 closed hours
 SWING_MAX_RISK = 0.05            # skip setups whose stop is more than 5% away
@@ -2502,7 +2503,7 @@ def _swing_scan():
     payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
     coins = json.loads(payload["raw"]).get("coins") or []
     ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
-              if not _is_stable_like(c.get("base", ""))][:SWING_TOP_N]
+              if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SWING_MIN_VOLUME_USDT][:SWING_TOP_N]
     now = time.time()
 
     def one(coin):
