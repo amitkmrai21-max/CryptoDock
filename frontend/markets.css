@@ -2970,7 +2970,7 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 .cd-focus-radar { gap: 10px; max-height: min(94vh, 920px); overflow: auto; padding-top: 10px; }
 .cd-fr-top { display: flex; align-items: center; gap: 10px; }
 .cd-fr-top > div { flex: 1; min-width: 0; }
-.cd-fr-top strong { display: block; font-size: 17px; font-weight: 800; letter-spacing: .12em; }
+.cd-fr-top strong { display: block; font-family: "Sora", system-ui, sans-serif; font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: normal; }
 .cd-fr-top small { display: block; margin-top: 2px; font-size: 9.5px; letter-spacing: .14em; color: var(--text-muted, var(--muted)); }
 .cd-fr-logo { font-size: 26px; line-height: 1; }
 .cd-fr-iconbtn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface-soft); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
