@@ -159,6 +159,11 @@
           Setup Lab
         </button>
 
+        <button class="nav-button app-tab" type="button" data-tab="proswings" hidden aria-hidden="true">
+          <span class="nav-icon">⚡</span>
+          Pro Swings
+        </button>
+
         <button class="nav-button app-tab" type="button" data-tab="heatmap">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="15" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="15" y="11" width="6" height="10" rx="1.5" stroke="currentColor" stroke-width="1.8"/><rect x="3" y="15" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.8"/></svg></span>
           Heatmap
@@ -816,6 +821,23 @@
         <div class="cd-pills" id="cdLabTf" hidden><button type="button" class="cd-pill is-active" data-lab-tf="4H">4H (swing, days)</button><button type="button" class="cd-pill" data-lab-tf="1H">1H (hours)</button></div>
         <p id="cdLabMeta" class="cd-fr-meta">Checking market setup…</p>
         <div id="cdLabResults" class="cd-focus-results" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" data-panel="proswings" id="cdProSwings">
+      <div class="cd-dash cd-fr-page">
+        <div class="cd-fr-top">
+          <span class="cd-fr-logo" aria-hidden="true">⚡</span>
+          <div><strong>Pro Swings</strong><small>15M &amp; 1H PULLBACK SCANNER · OWNER ONLY</small></div>
+          <button id="cdProSwingsRefresh" class="cd-fr-iconbtn" type="button" aria-label="Refresh"><svg class="cd-fr-spin" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        </div>
+        <p class="cd-fr-notice">Owner-only · 20/50 EMA Pullback swing setups on 15m &amp; 1H candles with rejection wick confirmation. Verify the chart and manage risk yourself.</p>
+        <div class="cd-fr-bar">
+          <div class="cd-pills" id="cdProSwingsTabs"><button type="button" class="cd-pill is-active" data-pro-tab="15m">15-Min Swings</button><button type="button" class="cd-pill" data-pro-tab="1h">1-Hour Swings</button></div>
+          <button id="cdProSwingsFilter" class="cd-fr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>All</span></button>
+        </div>
+        <p id="cdProSwingsMeta" class="cd-fr-meta">Scanning liquid markets for pullbacks…</p>
+        <div id="cdProSwingsResults" class="cd-focus-results" aria-live="polite"></div>
       </div>
     </section>
 
@@ -2161,6 +2183,7 @@
   <script src="/frontend/tabbar.js?v=20261140-lab-1"></script>
   <script src="/frontend/focus-radar.js?v=20261140-fresh-2"></script>
   <script src="/frontend/setup-lab.js?v=20261140-lab-5"></script>
+  <script src="/frontend/pro-swings.js?v=20261105-pro-swings-v1"></script>
   <script src="/frontend/coin-sheet.js?v=20261120-52w-1"></script>
   <script src="/frontend/coin-stats.js?v=20261120-52w-1"></script>
   <script src="/frontend/sheet-motion.js?v=20261016-fix-1"></script>

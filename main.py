@@ -2740,6 +2740,164 @@ def get_owner_focus_radar_swing(authorization: str = Header(None), refresh: str 
         raise HTTPException(status_code=503, detail="Swing scan is temporarily unavailable. Please try again shortly.") from error
 
 
+PRO_SWINGS_TOP_N = 50
+PRO_SWINGS_TTL_S = 180  # 3 minutes cache
+pro_swings_cache = {}
+
+
+def _pro_swing_setup(candles, price, now, interval="1h"):
+    """Returns 20/50 EMA pullback setup for 15m or 1h candles [time, open, high, low, close, ...]."""
+    duration = 3600 if interval == "1h" else 900
+    closed = [c for c in candles if c[0] + duration <= now]
+    if len(closed) < 55 or not price or price <= 0:
+        return None
+    closes = [c[4] for c in closed]
+    e20, e50 = _ema(closes, 20), _ema(closes, 50)
+    spread = (e20[-1] - e50[-1]) / e50[-1]
+    if spread > 0.001 and e50[-1] > e50[-6]:
+        side = "long"
+    elif spread < -0.001 and e50[-1] < e50[-6]:
+        side = "short"
+    else:
+        return None
+    long = side == "long"
+    trend_c = 0.5 * min(1.0, abs(spread) / 0.01) + 0.5 * min(1.0, abs(e50[-1] / e50[-6] - 1) / 0.004)
+    base_info = {
+        "side": "bullish" if long else "bearish",
+        "ema20": round(e20[-1], 6),
+        "ema50": round(e50[-1], 6),
+        "spark": [round(v, 6) for v in closes[-24:]],
+        "trend_score": round(100 * trend_c),
+        "interval": interval,
+    }
+
+    lookback = 4
+    max_risk = 0.035 if interval == "15m" else 0.05
+    rej_index = None
+    wick_ratio = 0.5
+
+    for i in range(len(closed) - 1, len(closed) - 1 - lookback, -1):
+        _, o, h, l, c = closed[i][:5]
+        rng = h - l
+        if rng <= 0:
+            continue
+        body = abs(c - o)
+        if long:
+            wick = min(o, c) - l
+            ok = (l <= e20[i] * 1.002 and c >= e50[i] * 0.995
+                  and (wick >= 0.4 * rng or c > o) and c >= l + 0.4 * rng)
+        else:
+            wick = h - max(o, c)
+            ok = (h >= e20[i] * 0.998 and c <= e50[i] * 1.005
+                  and (wick >= 0.4 * rng or c < o) and c <= h - 0.4 * rng)
+        if ok:
+            rej_index = i
+            wick_ratio = wick / rng
+            break
+
+    if rej_index is None:
+        zone_lo, zone_hi = min(e20[-1], e50[-1]), max(e20[-1], e50[-1])
+        if zone_lo <= price <= zone_hi:
+            return {**base_info, "state": "zone"}
+        return None
+
+    _, _, rh, rl, _ = closed[rej_index][:5]
+    entry = rh if long else rl
+    stop = rl * 0.999 if long else rh * 1.001
+    risk = abs(entry - stop)
+    if risk <= 0 or risk / entry > max_risk:
+        return None
+    sign = 1 if long else -1
+    t1, t2 = entry + sign * 1.5 * risk, entry + sign * 2.5 * risk
+    after = closed[rej_index + 1:]
+    if (any((c[3] < stop) if long else (c[2] > stop) for c in after)
+            or (price < stop if long else price > stop)
+            or (price >= t2 if long else price <= t2)):
+        return None
+    triggered = (price > entry if long else price < entry) or any((c[2] > entry) if long else (c[3] < entry) for c in after)
+    t1_hit = price >= t1 if long else price <= t1
+    state = "target1" if triggered and t1_hit else "triggered" if triggered else "ready"
+    rej_c = min(1.0, max(0.0, (wick_ratio - 0.4) / 0.4))
+    tight_c = max(0.0, 1 - (risk / entry) / max_risk)
+    score = round(100 * (0.4 * trend_c + 0.35 * rej_c + 0.25 * tight_c))
+    return {
+        **base_info,
+        "state": state,
+        "entry": round(entry, 6),
+        "stop": round(stop, 6),
+        "t1": round(t1, 6),
+        "t2": round(t2, 6),
+        "risk_pct": round(abs(entry - stop) / entry * 100, 2),
+        "rejection_at": closed[rej_index][0],
+        "score": score,
+    }
+
+
+def _pro_swings_scan(ttl=PRO_SWINGS_TTL_S):
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins") or []
+    ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
+              if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SWING_MIN_VOLUME_USDT][:PRO_SWINGS_TOP_N]
+    now = time.time()
+
+    def one(coin):
+        base = coin["base"]
+        price = float(coin.get("price") or 0)
+        info = {
+            "base": base,
+            "price": price,
+            "change_percent": coin.get("change_percent"),
+            "volume_usdt": coin.get("volume_usdt"),
+        }
+        res_15m = None
+        res_1h = None
+        try:
+            k15 = _lab_klines(base, "15m", 80, ttl)
+            found15 = _pro_swing_setup(k15, price, now, "15m")
+            if found15 and found15.get("state") in ("ready", "triggered"):
+                res_15m = {**info, **found15}
+        except Exception:
+            pass
+
+        try:
+            k1h = _lab_klines(base, "1h", 80, ttl)
+            found1h = _pro_swing_setup(k1h, price, now, "1h")
+            if found1h and found1h.get("state") in ("ready", "triggered"):
+                res_1h = {**info, **found1h}
+        except Exception:
+            pass
+
+        return {"15m": res_15m, "1h": res_1h}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        scanned_res = list(pool.map(one, ranked))
+
+    swings_15m = [r["15m"] for r in scanned_res if r["15m"]]
+    swings_1h = [r["1h"] for r in scanned_res if r["1h"]]
+
+    order = {"ready": 0, "triggered": 1}
+    swings_15m.sort(key=lambda r: (order.get(r["state"], 9), -r.get("score", 0), -r.get("volume_usdt", 0)))
+    swings_1h.sort(key=lambda r: (order.get(r["state"], 9), -r.get("score", 0), -r.get("volume_usdt", 0)))
+
+    return {
+        "at": int(now),
+        "scanned": len(ranked),
+        "swings_15m": swings_15m,
+        "swings_1h": swings_1h,
+    }
+
+
+@app.get("/api/owner/pro-swings")
+def get_owner_pro_swings(authorization: str = Header(None), refresh: str = ""):
+    _focus_radar_owner(authorization)
+    try:
+        if refresh == "1":
+            return cached_call(pro_swings_cache, "all", FOCUS_REFRESH_MIN_GAP_S, lambda: _pro_swings_scan(FOCUS_REFRESH_MIN_GAP_S), max_entries=1)
+        return cached_call(pro_swings_cache, "all", PRO_SWINGS_TTL_S, _pro_swings_scan, max_entries=1)
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
+        raise HTTPException(status_code=503, detail="Pro Swings scan is temporarily unavailable. Please try again shortly.") from error
+
+
 COIN_CANDLE_INTERVALS = {"15m", "1h", "4h", "1d", "1w"}
 COIN_CANDLES_CACHE_SECONDS = 15
 coin_candles_cache = {}
