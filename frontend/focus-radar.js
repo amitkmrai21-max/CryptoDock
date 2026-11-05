@@ -287,7 +287,14 @@
     if (!pageActive() || scanning) return;
     if (!data.swing || !data.breakouts || Date.now() - loadedAt > STALE_MS) load();
   }
-  new MutationObserver(ensureLoaded).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+  // Only react when the page is OPENED: the spinner class toggles on this element too, and reacting to that restarted
+  // a failed scan again and again.
+  let wasActive = pageActive();
+  new MutationObserver(() => {
+    const now = pageActive();
+    if (now && !wasActive) ensureLoaded();
+    wasActive = now;
+  }).observe(overlay, { attributes: true, attributeFilter: ["class"] });
   ensureLoaded(); // restored on a reload
 
   // Pull down at the top of the page to refresh (instead of the browser reloading the whole page).
