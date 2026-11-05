@@ -3088,3 +3088,25 @@ html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-beha
 .cd-fr-tag { max-width: 100%; }
 .cd-fr-ema { overflow-wrap: anywhere; }
 #cdSetupLab .cd-fr-levels > div, #cdFocusRadar .cd-fr-levels > div { overflow: hidden; }
+
+/* Pro Swings More Tile (Amber Gold / Energy) */
+.cd-more-tile.cd-more-pro-swings {
+  --tile-border: rgba(245, 158, 11, 0.32) !important;
+  --tile-bg-top: #211910 !important;
+  --tile-bg-bot: #120e09 !important;
+  --tile-text: #fef3c7 !important;
+  --tile-shadow: rgba(245, 158, 11, 0.12) !important;
+  --ico-top: #f59e0b !important;
+  --ico-bot: #b45309 !important;
+  --ico-col: #fffbeb !important;
+  --ico-glow: rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+body[data-theme="light"] .cd-more-tile.cd-more-pro-swings {
+  --tile-border: #fde68a !important;
+  --tile-bg-top: #fffbeb !important;
+  --tile-bg-bot: #fef3c7 !important;
+  --tile-text: #92400e !important;
+  --tile-shadow: rgba(245, 158, 11, 0.08) !important;
+  --ico-glow: rgba(245, 158, 11, 0.2) !important;
+}
