@@ -3079,6 +3079,15 @@ html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-beha
 #cdLabTf .cd-pill { padding: 5px 12px; font-size: 11.5px; }
 #cdLabTf[hidden] { display: none; }
 
+/* Focus Radar / Setup Lab: cards never grow wider than the screen (long tag rows wrap instead of pushing the page sideways) */
+#cdFocusRadar, #cdSetupLab { max-width: 100%; overflow-x: hidden; }
+.cd-focus-results { grid-template-columns: minmax(0, 1fr); }
+.cd-fr-card { min-width: 0; max-width: 100%; }
+.cd-fr-tags { flex-wrap: wrap; row-gap: 6px; }
+.cd-fr-tags .cd-fr-pill { min-width: 0; max-width: 100%; white-space: normal; }
+.cd-fr-tag { max-width: 100%; }
+.cd-fr-ema { overflow-wrap: anywhere; }
+#cdSetupLab .cd-fr-levels > div, #cdFocusRadar .cd-fr-levels > div { overflow: hidden; }
 
 /* Pro Swings More Tile (Amber Gold / Energy) */
 .cd-more-tile.cd-more-pro-swings {
@@ -3101,3 +3110,11 @@ body[data-theme="light"] .cd-more-tile.cd-more-pro-swings {
   --tile-shadow: rgba(245, 158, 11, 0.08) !important;
   --ico-glow: rgba(245, 158, 11, 0.2) !important;
 }
+
+/* Pro Swings: the refresh arrow spins while a scan runs, and the page never grows wider than the screen */
+.cd-fr-iconbtn.is-spinning .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .cd-fr-iconbtn.is-spinning .cd-fr-spin { animation: none; } }
+#cdProSwings { max-width: 100%; overflow-x: hidden; }
+#cdProSwings .cd-fr-bar { flex-wrap: wrap; }
+#cdProSwings .cd-pills { flex-wrap: wrap; min-width: 0; }
+#cdProSwings .cd-fr-levels > div { overflow: hidden; }

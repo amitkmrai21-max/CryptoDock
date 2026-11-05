@@ -187,7 +187,8 @@
     if (refreshBtn) refreshBtn.disabled = true;
     if (!data) render();
     try {
-      data = await fetchProSwings(fresh);
+      // The arrow spins at least 0.8 s so even an answer from the server cache is seen to refresh.
+      [data] = await Promise.all([fetchProSwings(fresh), sleep(800)]);
       loadedAt = Date.now();
     } catch (err) {
       if (!data) {
