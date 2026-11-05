@@ -3110,3 +3110,11 @@ body[data-theme="light"] .cd-more-tile.cd-more-pro-swings {
   --tile-shadow: rgba(245, 158, 11, 0.08) !important;
   --ico-glow: rgba(245, 158, 11, 0.2) !important;
 }
+
+/* Pro Swings: the refresh arrow spins while a scan runs, and the page never grows wider than the screen */
+.cd-fr-iconbtn.is-spinning .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .cd-fr-iconbtn.is-spinning .cd-fr-spin { animation: none; } }
+#cdProSwings { max-width: 100%; overflow-x: hidden; }
+#cdProSwings .cd-fr-bar { flex-wrap: wrap; }
+#cdProSwings .cd-pills { flex-wrap: wrap; min-width: 0; }
+#cdProSwings .cd-fr-levels > div { overflow: hidden; }
