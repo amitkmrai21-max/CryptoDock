@@ -1,7 +1,7 @@
-// Catch Accuracy (owner only): a long-only pullback rule where EVERY check must line up.
-//   Daily : BTC daily close above EMA 200, the coin's daily close above EMA 200, coin EMA 50 above EMA 200.
-//   4H    : pullback to EMA 20/50, RSI turning up from 45-60, MACD bullish, ADX above 18, volume above its average,
-//           last closed candle green above EMA 20.
+// Catch Accuracy (owner only): "Dual-Trend Swing" on the DAILY chart with the 50 and 200 SMA plus price action.
+//   Price above the 200 SMA = look for longs, below = shorts. Checks: trend, not sideways (SMA 50 on the same side of
+//   SMA 200), pullback to the SMA 50 zone (within 2%), trigger candle (green for a long, red for a short).
+//   SL 3% beyond the trigger candle, Target 1 = 1:2, Target 2 = previous resistance / support, breakeven at +4%.
 // Server: /api/owner/catch-accuracy (shared 10 minute cache; ?refresh=1 rescans). Same owner check as Focus Radar.
 (function catchAccuracy() {
   const overlay = document.getElementById("cdCatchAcc");
@@ -21,19 +21,9 @@
   const agoText = (ts) => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
   const coinOf = (base) => (window.cdMarkets && window.cdMarkets.coinsByBase ? window.cdMarkets.coinsByBase.get(base) : null);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const CHECKS = [
-    ["btc_daily", "BTC daily", "Above EMA 200"],
-    ["coin_daily", "Coin daily", "Above EMA 200"],
-    ["ema_stack", "Daily EMAs", "EMA 50 over 200"],
-    ["pullback", "Pullback", "At EMA 20 / 50"],
-    ["rsi", "RSI", "Turning up"],
-    ["macd", "MACD", "Bullish"],
-    ["adx", "ADX", "Above 18"],
-    ["volume", "Volume", "Above average"],
-    ["candle", "4H candle", "Green over EMA 20"],
-  ];
+  const CHECKS = ["trend", "sideways", "pullback", "trigger"];
 
-  let tab = "full";             // 'full' (all 9 checks) | 'almost' (7-8 of 9)
+  let tab = "full";             // 'full' (all 4 checks) | 'almost' (3 of 4, at the 50 SMA)
   let data = null;
   let error = "";
   let scanning = false;
@@ -103,35 +93,42 @@
       ${star(item.base)}
     </div>`;
   }
-  function checkTile(item, [key, title, sub]) {
+  function checkTile(item, key) {
+    const bull = item.side === "bullish";
     const ok = !!item.checks[key];
-    let text = sub;
-    if (key === "rsi" && Number.isFinite(item.rsi)) text = `RSI ${item.rsi}`;
-    if (key === "adx" && Number.isFinite(item.adx)) text = `ADX ${item.adx}`;
-    if (key === "volume" && Number.isFinite(item.volume_x)) text = `${item.volume_x}× average`;
-    return `<div class="cd-fr-step is-${ok ? "ok" : "wait"}"><b>${title}</b><i>${ok ? "✓" : "✗"}</i><small>${text}</small></div>`;
+    const dist = Number(item.dist_sma50_pct);
+    const T = {
+      trend: ["Trend", `${bull ? "Above" : "Below"} SMA 200`],
+      sideways: ["Not sideways", ok ? `SMA 50 ${bull ? "over" : "under"} 200` : "SMA 50 / 200 mixed"],
+      pullback: ["Pullback", Number.isFinite(dist) ? `${dist > 0 ? "+" : ""}${dist}% from SMA 50` : "At SMA 50"],
+      trigger: ["Trigger candle", ok ? (bull ? "Green close" : "Red close") : (bull ? "Not green yet" : "Not red yet")],
+    }[key];
+    return `<div class="cd-fr-step is-${ok ? "ok" : "wait"}"><b>${T[0]}</b><i>${ok ? "✓" : "✗"}</i><small>${T[1]}</small></div>`;
   }
   function levels(item) {
+    const bull = item.side === "bullish";
     const g = (v) => Math.abs(Number(v) - item.entry) / item.entry * 100;
     return `<div class="cd-fr-levels">
       <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
       <div><span>SL</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">(−${g(item.stop).toFixed(1)}%)</em></div>
       <div><span>Target 1 · 1:2</span><b>${money(item.t1)}</b><em class="cd-up">(+${g(item.t1).toFixed(1)}%)</em></div>
-      <div><span>Target 2 · 1:3</span><b>${money(item.t2)}</b><em class="cd-up">(+${g(item.t2).toFixed(1)}%)</em></div>
+      <div><span>Target 2 · prev.</span><b>${money(item.t2)}</b><em class="cd-up">(+${g(item.t2).toFixed(1)}%)</em></div>
     </div>`;
   }
   function card(item) {
+    const bull = item.side === "bullish";
     const full = item.passed >= CHECKS.length;
-    const missing = CHECKS.filter(([k]) => !item.checks[k]).map((c) => c[1]);
-    return `<article class="cd-fr-card is-bull" data-base="${esc(item.base)}">
+    const missing = CHECKS.filter((k) => !item.checks[k]).map((k) => ({ sideways: "Not sideways", pullback: "Pullback", trigger: "Trigger candle", trend: "Trend" }[k]));
+    const word = bull ? "LONG" : "SHORT";
+    return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item)}
-      <div class="cd-fr-tags"><span class="cd-fr-pill">${full ? "✅ FULL MATCH · LONG" : "⏳ ALMOST · LONG"}</span><span class="cd-fr-tag">${item.passed}/${CHECKS.length} CHECKS</span></div>
-      <div class="cd-fr-steps">${CHECKS.map((c) => checkTile(item, c)).join("")}</div>
-      ${full ? "" : `<p class="cd-fr-note">Waiting for: ${esc(missing.join(", "))}. Levels below are what the rule would use now; wait for every check before acting.</p>`}
+      <div class="cd-fr-tags"><span class="cd-fr-pill">${full ? `✅ FULL MATCH · ${word}` : `⏳ ALMOST · ${word}`}</span><span class="cd-fr-tag">${item.passed}/${CHECKS.length} CHECKS</span></div>
+      <div class="cd-fr-steps cd-fr-steps-wide">${CHECKS.map((k) => checkTile(item, k)).join("")}</div>
+      ${full ? "" : `<p class="cd-fr-note">Waiting for: ${esc(missing.join(", "))}. The levels below are what the rule would use now; wait for every check before acting.</p>`}
       ${levels(item)}
-      <small class="cd-fr-ema"><i>EMA 20</i> <b>${money(item.ema20)}</b> · <i>EMA 50</i> <b>${money(item.ema50)}</b> · Risk <b>${item.risk_pct}%</b> · Trail ${money(item.trail)} (2×ATR)</small>
+      <small class="cd-fr-ema"><i>SMA 50</i> <b>${money(item.sma50)}</b> · <i>SMA 200</i> <b>${money(item.sma200)}</b> · Risk <b>${item.risk_pct}%</b> · Move SL to breakeven at ${money(item.breakeven_at)} (${bull ? "+" : "−"}4%)</small>
       <div class="cd-fr-actions">
-        <button type="button" class="cd-fr-ticket is-buy" data-catch-ticket="${esc(item.base)}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">⚡ Open Paper Ticket · Buy</button>
+        <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" data-catch-ticket="${esc(item.base)}" data-catch-side="${bull ? "BUY" : "SELL"}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
         <button type="button" class="cd-fr-analysis" data-catch-coin="${esc(item.base)}">📊 Analysis</button>
       </div>
     </article>`;
@@ -139,15 +136,13 @@
 
   // ---------- page ----------
   function summary() {
-    const btc = data.btc || {};
-    const dot = btc.ok ? "is-up" : "is-down";
     return `<div class="cd-fr-summary"><svg class="cd-fr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14" /></svg>
-      <div><b>Scanning ${Number(data.scanned) || 0} coins</b><small>Updated ${agoText(data.at)}</small></div>
-      <div class="cd-fr-ticks"><div><span><i class="${dot}"></i>BTC daily</span> <b>${btc.ok ? "Above EMA 200" : "Below EMA 200"}</b></div></div></div>`;
+      <div><b>Scanning ${Number(data.scanned) || 0} coins</b><small>Updated ${agoText(data.at)} · daily candles</small></div>
+      <div class="cd-fr-ticks"><div><span><i class="is-up"></i>Daily</span> <b>SMA 50 / 200</b></div></div></div>`;
   }
   const EMPTY = {
-    full: ["No full match right now", "No coin passes all 9 checks at the moment. That is how this rule works: it waits for everything to line up, so signals are few. Check the “Almost” tab to see coins that are close."],
-    almost: ["Nothing is close right now", "No coin passes at least 7 of the 9 checks."],
+    full: ["No full match right now", "No coin passes all 4 checks at the moment: a pullback to the 50 SMA inside a trend, with a confirming candle. Signals are few by design. Check the “Almost” tab for coins sitting at the 50 SMA."],
+    almost: ["Nothing is close right now", "No coin is sitting at its 50 SMA with 3 of 4 checks right now."],
   };
   function render() {
     document.querySelectorAll("#cdCatchTabs button").forEach((b) => b.classList.toggle("is-active", b.dataset.catchTab === tab));
@@ -161,10 +156,9 @@
       return;
     }
     const list = tab === "full" ? fullList : almostList;
-    meta.textContent = tab === "full" ? `${fullList.length} full matches · ${almostList.length} almost` : `${almostList.length} coins with 7-8 of 9 checks`;
-    const regime = data.btc && !data.btc.ok ? '<p class="cd-fr-note">BTC is below its daily EMA 200, so this rule shows no full match: it only buys when the big market trend is up.</p>' : "";
-    const note = '<p class="cd-fr-note">Rule (long only): BTC and the coin above their daily EMA 200 with EMA 50 over EMA 200; on 4H the price pulls back to EMA 20/50, RSI turns up from the 45-60 zone, MACD (12, 26, 9) is bullish, ADX (14) is above 18, volume is above its 20-candle average and the last closed candle is green above EMA 20. SL = 1.5 × ATR under the entry (or under the recent swing low if that is lower). Target 1 = 1:2 (sell half), Target 2 = 1:3, then trail with 2 × ATR. Money rules: risk about 0.5% of capital per trade, at most 3 open trades (1.5% total risk), keep 30-40% in cash. This rule has not been backtested here, so it is a filter to watch, not a promise.</p>';
-    results.innerHTML = summary() + regime + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
+    meta.textContent = tab === "full" ? `${fullList.length} full matches · ${almostList.length} almost` : `${almostList.length} coins at the 50 SMA with 3 of 4 checks`;
+    const note = '<p class="cd-fr-note">Dual-Trend Swing on the daily chart (50 SMA, 200 SMA, price action). Long: price above the 200 SMA, price pulls back to the 50 SMA (touch or within 2%) and a green candle closes there (bounce confirmed). Short: price below the 200 SMA, price rallies to the 50 SMA and a red candle closes there (rejection confirmed). No trade when the 50 and 200 SMA are mixed (sideways). SL = 3% beyond the trigger candle low (long) / high (short). Target 1 = 1:2, Target 2 = previous resistance / support. At +4% profit move the SL to breakeven. Risk: at most 1% of the account per trade, 2 trades a day, stop for the day at a 3% loss, only liquid coins. Position size = (account × 1%) ÷ (entry × 3%). Crypto moves fast, so a 4-5% stop can suit it better than 3%. This rule has not been backtested here: it is a filter to watch, not a promise.</p>';
+    results.innerHTML = summary() + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
   // A browser reload means "give me new data": the first load right after one is a fresh scan too.
@@ -222,7 +216,7 @@
     const ticket = event.target.closest("[data-catch-ticket]");
     if (ticket) {
       const stopLoss = Number(ticket.dataset.catchStop), target = Number(ticket.dataset.catchTarget);
-      window.cdOpenTicket?.(ticket.dataset.catchTicket, "BUY", { stopLoss: stopLoss > 0 ? stopLoss : null, target: target > 0 ? target : null });
+      window.cdOpenTicket?.(ticket.dataset.catchTicket, ticket.dataset.catchSide === "SELL" ? "SELL" : "BUY", { stopLoss: stopLoss > 0 ? stopLoss : null, target: target > 0 ? target : null });
       return;
     }
     const analysis = event.target.closest("[data-catch-coin]");
