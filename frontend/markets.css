@@ -3046,8 +3046,8 @@ body[data-theme="light"] .cd-fr-card { box-shadow: 0 2px 8px color-mix(in srgb, 
 .cd-fr-iconbtn { padding: 0; }
 .cd-fr-logo { display: inline-grid; place-items: center; width: 34px; height: 34px; line-height: 1; transform-origin: 50% 50%; }
 @keyframes cdFrSpin { to { transform: rotate(360deg); } }
-#cdFocusRadar.is-loading .cd-fr-spin, #cdSetupLab.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
-@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin, #cdSetupLab.is-loading .cd-fr-spin { animation: none; } }
+#cdFocusRadar.is-loading .cd-fr-spin, #cdSetupLab.is-loading .cd-fr-spin, #cdCatchAcc.is-loading .cd-fr-spin { animation: cdFrSpin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { #cdFocusRadar.is-loading .cd-fr-spin, #cdSetupLab.is-loading .cd-fr-spin, #cdCatchAcc.is-loading .cd-fr-spin { animation: none; } }
 
 /* Focus Radar: "EMA 20" / "EMA 50" sit in a small light-coloured box, text stays in the normal dark colour */
 .cd-fr-ema i { font-style: normal; font-weight: 700; color: var(--text); padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); }
@@ -3080,7 +3080,7 @@ html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-beha
 #cdLabTf[hidden] { display: none; }
 
 /* Focus Radar / Setup Lab: cards never grow wider than the screen (long tag rows wrap instead of pushing the page sideways) */
-#cdFocusRadar, #cdSetupLab { max-width: 100%; overflow-x: hidden; }
+#cdFocusRadar, #cdSetupLab, #cdCatchAcc { max-width: 100%; overflow-x: hidden; }
 .cd-focus-results { grid-template-columns: minmax(0, 1fr); }
 .cd-fr-card { min-width: 0; max-width: 100%; }
 .cd-fr-tags { flex-wrap: wrap; row-gap: 6px; }
@@ -3118,3 +3118,6 @@ body[data-theme="light"] .cd-more-tile.cd-more-pro-swings {
 #cdProSwings .cd-fr-bar { flex-wrap: wrap; }
 #cdProSwings .cd-pills { flex-wrap: wrap; min-width: 0; }
 #cdProSwings .cd-fr-levels > div { overflow: hidden; }
+
+/* Catch Accuracy more-menu tile (teal) */
+.cd-more-tile.cd-more-catch { border-color: rgba(20, 184, 166, .38); }
