@@ -2936,6 +2936,9 @@ def _catch_setup(daily, price, now):
     if len(daily) < 205:
         return None
     closes = [c[4] for c in daily]
+    # Pegged / stable-like coins (e.g. a $1 token) have no swings to trade: skip when the last 60 days stayed inside an 8% band.
+    if (max(c[2] for c in daily[-60:]) - min(c[3] for c in daily[-60:])) / min(c[3] for c in daily[-60:]) < 0.08:
+        return None
     sma50, sma200 = _sma(closes, 50), _sma(closes, 200)
     last = daily[-1]
     ref = price if price > 0 else last[4]
