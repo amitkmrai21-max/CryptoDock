@@ -2530,8 +2530,9 @@ def _swing_scan(kline_ttl=SWING_TTL_S):
 # ================= SETUP LAB (owner only) =================
 # Three "smart money" style setups, each for longs and shorts (a short is a long on the price chart turned upside down):
 #   MSS  (1H)   market structure shift: a coin printing lower lows / lower highs breaks its last lower high with a big
-#               candle. The move is measured from the swing low to the new high; the buy zone is the discount below its 50%
-#               (0.618 - 0.786 "golden pocket", or a retest of the broken level). SL just under the new swing low.
+#               candle. The move is measured from the swing low to the new high; the buy zone is a 60% - 90% pullback of it
+#               (inside the discount, holding the 0.618 - 0.786 "golden pocket"). Ready only with reward >= 1.5 x risk.
+#               SL just under the new swing low.
 #   SFP  (1H/4H) swing failure pattern: price wicks under a clear 4H / daily key low and a 1H / 4H candle closes back above
 #               it (only the wick went below). SL just under the wick, target 3R / 4R. Shorts: the same above a key high.
 #   FVG  (1H)   fair value gap retest: a big, high-volume impulse candle leaves a gap (candle 1 high to candle 3 low). When
@@ -2595,21 +2596,27 @@ def _lab_mss_long(cs, price):
         if move / abs(low) < 0.01 or price < low:
             continue
         retrace = (high - price) / move
+        if retrace > 0.9:
+            continue                                          # almost back at the swing low: the setup is about to fail
         retest = abs(price - level) / abs(price) <= 0.005 and price <= high
-        ready = (0.5 <= retrace <= 1.0) or retest
-        entry = price if ready else high - 0.618 * move
+        # "Ready" only when price is really inside the buy zone (a 60% - 90% pullback of the move, which holds the 0.618 - 0.786
+        # golden pocket) AND the reward to the previous high is at least 1.5 times the risk. Otherwise it is only "watch".
+        ready = 0.6 <= retrace <= 0.9
         stop = low - abs(low) * 0.001
-        risk = entry - stop
-        if risk <= 0:
-            continue
         t1, t2 = high, low + 1.272 * move
-        if ready and t1 <= entry:
+        entry = price if ready else high - 0.618 * move
+        risk = entry - stop
+        if ready and risk > 0 and (t1 - entry) / risk < 1.5:
+            ready = False
+            entry = high - 0.618 * move
+            risk = entry - stop
+        if risk <= 0 or (ready and t1 <= entry):
             continue
         return {
             "kind": "mss", "state": "ready" if ready else "watch",
             "entry": entry, "stop": stop, "t1": t1, "t2": t2, "risk_pct": round(risk / abs(entry) * 100, 2),
             "rr1": round((t1 - entry) / risk, 2), "rr2": round((t2 - entry) / risk, 2),
-            "zone": [high - 0.786 * move, high - 0.5 * move], "level": level,
+            "zone": [high - 0.9 * move, high - 0.6 * move], "level": level,
             "swing_start": low, "swing_end": high, "retrace": round(retrace * 100, 1),
             "checks": {"shift": True, "discount": retrace >= 0.5, "golden": 0.6 <= retrace <= 0.8, "retest": retest},
             "candle_at": cs[j][0],
