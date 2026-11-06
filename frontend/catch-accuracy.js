@@ -2,7 +2,6 @@
 //   Price above the 200 SMA = longs, below = shorts. Six checks: trend, ADX above 25, pullback to the SMA 50 (within 2%),
 //   RSI turn through 50, volume above its 20-candle average, trigger candle (green long / red short). All six = full match.
 //   SL 4.5% beyond the trigger candle, Target 1 = 1:2 (or just before the previous resistance / support), breakeven at +4%.
-//   Daily limits for opening a paper ticket from here: 2 trades a day, stop at a 3% daily loss, wait 4 hours after a close.
 // Server: /api/owner/catch-accuracy (shared 10 minute cache; ?refresh=1 rescans). Same owner check as Focus Radar.
 (function catchAccuracy() {
   const overlay = document.getElementById("cdCatchAcc");
@@ -94,18 +93,6 @@
       ${star(item.base)}
     </div>`;
   }
-  // Daily limits (paper account): at most 2 trades a day, nothing more after a 3% daily loss, 4 hours' rest after a close.
-  function dayLimit() {
-    try {
-      const day = window.cdPaperDay && window.cdPaperDay();
-      if (!day) return "";
-      if (day.opened >= 2) return "Daily limit reached: 2 trades are already open today. Try again tomorrow.";
-      if (day.equityStart > 0 && day.net <= -0.03 * day.equityStart) return "Daily loss limit (3%) reached. No new trades today.";
-      const wait = day.lastClose ? day.lastClose + 4 * 3600 * 1000 - Date.now() : 0;
-      if (wait > 0) return `Cooldown: wait ${Math.ceil(wait / 60000)} min after the last closed trade (one 4H candle).`;
-    } catch (e) { /* limits are best effort */ }
-    return "";
-  }
   function checkTile(item, key) {
     const bull = item.side === "bullish";
     const ok = !!item.checks[key];
@@ -137,9 +124,8 @@
     const full = item.passed >= CHECKS.length;
     const missing = CHECKS.filter((k) => !item.checks[k]).map((k) => MISSING[k]);
     const word = bull ? "LONG" : "SHORT";
-    const limit = full ? dayLimit() : "";
-    const blocked = !full || !!limit || item.ranging;
-    const why = item.ranging ? "Market is ranging, no trade." : limit || (full ? "" : `Waiting for: ${missing.join(", ")}. Trades open only on a full match.`);
+    const blocked = !full || item.ranging;
+    const why = item.ranging ? "Market is ranging, no trade." : (full ? "" : `Waiting for: ${missing.join(", ")}. Trades open only on a full match.`);
     const nearTarget = item.t1_adjusted && Number(item.rr1) < 1.5 ? `<p class="cd-fr-note">Target 1 is close to the ${bull ? "previous resistance" : "previous support"} (only 1:${Number(item.rr1).toFixed(1)}), so the reward is small for this stop. Think twice.</p>` : "";
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item)}
@@ -150,7 +136,7 @@
       ${nearTarget}
       <small class="cd-fr-ema"><i>SMA 50</i> <b>${money(item.sma50)}</b> · <i>SMA 200</i> <b>${money(item.sma200)}</b> · Risk <b>${item.risk_pct}%</b> · Move SL to breakeven at ${money(item.breakeven_at)} (${bull ? "+" : "−"}4%)</small>
       <div class="cd-fr-actions">
-        <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" ${blocked ? "disabled" : ""} data-catch-ticket="${esc(item.base)}" data-catch-side="${bull ? "BUY" : "SELL"}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">${blocked ? (item.ranging ? "🚫 No trade · ranging" : limit ? "⛔ Limit reached" : "⏳ Wait for full match") : `⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}`}</button>
+        <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" ${blocked ? "disabled" : ""} data-catch-ticket="${esc(item.base)}" data-catch-side="${bull ? "BUY" : "SELL"}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">${blocked ? (item.ranging ? "🚫 No trade · ranging" : "⏳ Wait for full match") : `⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}`}</button>
         <button type="button" class="cd-fr-analysis" data-catch-coin="${esc(item.base)}">📊 Analysis</button>
       </div>
     </article>`;
@@ -179,10 +165,8 @@
     }
     const list = tab === "full" ? fullList : almostList;
     meta.textContent = tab === "full" ? `${fullList.length} full matches · ${almostList.length} almost` : `${almostList.length} coins at the 50 SMA with 5 of 6 checks`;
-    const limit = dayLimit();
-    const banner = limit ? `<p class="cd-focus-error">${esc(limit)}</p>` : "";
-    const note = '<p class="cd-fr-note">Dual-Trend Swing on the daily chart. A full match needs all six checks: (1) price above the 200 SMA for a long, below for a short; (2) ADX (14) over 25, so the market is trending (under 20 with price between the two SMAs = ranging, no trade); (3) the last candle is within 2% of the 50 SMA; (4) RSI turns through 50 (long: from 50 or lower to above 50 and rising; short: the reverse); (5) volume above its 20-candle average; (6) a green candle (long) / red candle (short). SL = 4.5% beyond the trigger candle low / high. Target 1 = 1:2, pulled in to just before the previous resistance / support when that comes first; Target 2 = the previous resistance / support or 1:3. At +4% profit move the SL to breakeven. Limits: risk at most 1% of the account per trade, 2 trades a day, stop for the day at a 3% loss, wait one 4H candle after a close (the trade button locks for you). Position size = (account × 1%) ÷ (entry × stop %). This rule has not been backtested here: it is a filter to watch, not a promise.</p>';
-    results.innerHTML = summary() + banner + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
+    const note = '<p class="cd-fr-note">Dual-Trend Swing on the daily chart. A full match needs all six checks: (1) price above the 200 SMA for a long, below for a short; (2) ADX (14) over 25, so the market is trending (under 20 with price between the two SMAs = ranging, no trade); (3) the last candle is within 2% of the 50 SMA; (4) RSI turns through 50 (long: from 50 or lower to above 50 and rising; short: the reverse); (5) volume above its 20-candle average; (6) a green candle (long) / red candle (short). SL = 4.5% beyond the trigger candle low / high. Target 1 = 1:2, pulled in to just before the previous resistance / support when that comes first; Target 2 = the previous resistance / support or 1:3. At +4% profit move the SL to breakeven. Money rule: risk at most 1% of the account per trade (a guide, nothing is blocked). Position size = (account × 1%) ÷ (entry × stop %). This rule has not been backtested here: it is a filter to watch, not a promise.</p>';
+    results.innerHTML = summary() + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
   // A browser reload means "give me new data": the first load right after one is a fresh scan too.
@@ -240,7 +224,6 @@
     const ticket = event.target.closest("[data-catch-ticket]");
     if (ticket) {
       if (ticket.disabled) return;
-      if (dayLimit()) { render(); return; }
       const stopLoss = Number(ticket.dataset.catchStop), target = Number(ticket.dataset.catchTarget);
       window.cdOpenTicket?.(ticket.dataset.catchTicket, ticket.dataset.catchSide === "SELL" ? "SELL" : "BUY", { stopLoss: stopLoss > 0 ? stopLoss : null, target: target > 0 ? target : null });
       return;
