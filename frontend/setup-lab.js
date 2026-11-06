@@ -133,7 +133,7 @@
       <div class="cd-fr-steps cd-fr-steps-wide">${steps}</div>
       ${item.state === "ready" ? "" : `<p class="cd-fr-note">Price is not in the valid 0.618-0.786 golden pocket yet. The levels below are the plan: ${bull ? "buy" : "sell"} only if price returns to the zone.</p>`}
       ${levels(item)}
-      <small class="cd-fr-ema"><i>Buy zone</i> <b>${money(item.zone[0])} – ${money(item.zone[1])}</b> · <i>Broken level</i> <b>${money(item.level)}</b> · Swing ${money(item.swing_start)} → ${money(item.swing_end)} · Risk <b>${item.risk_pct}%</b></small>
+      <small class="cd-fr-ema"><i>${bull ? "Buy zone" : "Sell zone"}</i> <b>${money(item.zone[0])} – ${money(item.zone[1])}</b> · <i>Broken level</i> <b>${money(item.level)}</b> · Swing ${money(item.swing_start)} → ${money(item.swing_end)} · Risk <b>${item.risk_pct}%</b></small>
       ${actions(item, bull)}
     </article>`;
   }
