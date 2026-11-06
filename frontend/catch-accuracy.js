@@ -1,7 +1,8 @@
-// Catch Accuracy (owner only): "Dual-Trend Swing" on the DAILY chart with the 50 and 200 SMA plus price action.
-//   Price above the 200 SMA = look for longs, below = shorts. Checks: trend, not sideways (SMA 50 on the same side of
-//   SMA 200), pullback to the SMA 50 zone (within 2%), trigger candle (green for a long, red for a short).
-//   SL 3% beyond the trigger candle, Target 1 = 1:2, Target 2 = previous resistance / support, breakeven at +4%.
+// Catch Accuracy (owner only): "Dual-Trend Swing" on the DAILY chart (50 / 200 SMA + price action) with strength filters.
+//   Price above the 200 SMA = longs, below = shorts. Six checks: trend, ADX above 25, pullback to the SMA 50 (within 2%),
+//   RSI turn through 50, volume above its 20-candle average, trigger candle (green long / red short). All six = full match.
+//   SL 4.5% beyond the trigger candle, Target 1 = 1:2 (or just before the previous resistance / support), breakeven at +4%.
+//   Daily limits for opening a paper ticket from here: 2 trades a day, stop at a 3% daily loss, wait 4 hours after a close.
 // Server: /api/owner/catch-accuracy (shared 10 minute cache; ?refresh=1 rescans). Same owner check as Focus Radar.
 (function catchAccuracy() {
   const overlay = document.getElementById("cdCatchAcc");
@@ -21,9 +22,9 @@
   const agoText = (ts) => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
   const coinOf = (base) => (window.cdMarkets && window.cdMarkets.coinsByBase ? window.cdMarkets.coinsByBase.get(base) : null);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const CHECKS = ["trend", "sideways", "pullback", "trigger"];
+  const CHECKS = ["trend", "adx", "pullback", "rsi", "volume", "candle"];
 
-  let tab = "full";             // 'full' (all 4 checks) | 'almost' (3 of 4, at the 50 SMA)
+  let tab = "full";             // 'full' (all 6 checks) | 'almost' (5 of 6, at the 50 SMA)
   let data = null;
   let error = "";
   let scanning = false;
@@ -93,42 +94,63 @@
       ${star(item.base)}
     </div>`;
   }
+  // Daily limits (paper account): at most 2 trades a day, nothing more after a 3% daily loss, 4 hours' rest after a close.
+  function dayLimit() {
+    try {
+      const day = window.cdPaperDay && window.cdPaperDay();
+      if (!day) return "";
+      if (day.opened >= 2) return "Daily limit reached: 2 trades are already open today. Try again tomorrow.";
+      if (day.equityStart > 0 && day.net <= -0.03 * day.equityStart) return "Daily loss limit (3%) reached. No new trades today.";
+      const wait = day.lastClose ? day.lastClose + 4 * 3600 * 1000 - Date.now() : 0;
+      if (wait > 0) return `Cooldown: wait ${Math.ceil(wait / 60000)} min after the last closed trade (one 4H candle).`;
+    } catch (e) { /* limits are best effort */ }
+    return "";
+  }
   function checkTile(item, key) {
     const bull = item.side === "bullish";
     const ok = !!item.checks[key];
     const dist = Number(item.dist_sma50_pct);
     const T = {
       trend: ["Trend", `${bull ? "Above" : "Below"} SMA 200`],
-      sideways: ["Not sideways", ok ? `SMA 50 ${bull ? "over" : "under"} 200` : "SMA 50 / 200 mixed"],
+      adx: ["Strength", Number.isFinite(item.adx) ? `ADX ${item.adx} ${ok ? "(over 25)" : "(need over 25)"}` : "ADX over 25"],
       pullback: ["Pullback", Number.isFinite(dist) ? `${dist > 0 ? "+" : ""}${dist}% from SMA 50` : "At SMA 50"],
-      trigger: ["Trigger candle", ok ? (bull ? "Green close" : "Red close") : (bull ? "Not green yet" : "Not red yet")],
+      rsi: ["RSI turn", Number.isFinite(item.rsi) ? `RSI ${item.rsi} ${ok ? (bull ? "over 50 ↑" : "under 50 ↓") : (bull ? "not through 50" : "not under 50")}` : "Turn through 50"],
+      volume: ["Volume", Number.isFinite(item.volume_x) ? `${item.volume_x}× average` : "Over average"],
+      candle: ["Trigger candle", ok ? (bull ? "Green close" : "Red close") : (bull ? "Not green yet" : "Not red yet")],
     }[key];
     return `<div class="cd-fr-step is-${ok ? "ok" : "wait"}"><b>${T[0]}</b><i>${ok ? "✓" : "✗"}</i><small>${T[1]}</small></div>`;
   }
   function levels(item) {
     const bull = item.side === "bullish";
     const g = (v) => Math.abs(Number(v) - item.entry) / item.entry * 100;
+    const t1Label = item.t1_adjusted ? `Target 1 · 1:${Number(item.rr1).toFixed(1)}` : "Target 1 · 1:2";
     return `<div class="cd-fr-levels">
       <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
       <div><span>SL</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">(−${g(item.stop).toFixed(1)}%)</em></div>
-      <div><span>Target 1 · 1:2</span><b>${money(item.t1)}</b><em class="cd-up">(+${g(item.t1).toFixed(1)}%)</em></div>
-      <div><span>Target 2 · prev.</span><b>${money(item.t2)}</b><em class="cd-up">(+${g(item.t2).toFixed(1)}%)</em></div>
+      <div><span>${t1Label}</span><b>${money(item.t1)}</b><em class="cd-up">(+${g(item.t1).toFixed(1)}%)</em></div>
+      <div><span>Target 2</span><b>${money(item.t2)}</b><em class="cd-up">(+${g(item.t2).toFixed(1)}%)</em></div>
     </div>`;
   }
+  const MISSING = { trend: "Trend", adx: "ADX over 25", pullback: "Pullback", rsi: "RSI turn", volume: "Volume", candle: "Trigger candle" };
   function card(item) {
     const bull = item.side === "bullish";
     const full = item.passed >= CHECKS.length;
-    const missing = CHECKS.filter((k) => !item.checks[k]).map((k) => ({ sideways: "Not sideways", pullback: "Pullback", trigger: "Trigger candle", trend: "Trend" }[k]));
+    const missing = CHECKS.filter((k) => !item.checks[k]).map((k) => MISSING[k]);
     const word = bull ? "LONG" : "SHORT";
+    const limit = full ? dayLimit() : "";
+    const blocked = !full || !!limit || item.ranging;
+    const why = item.ranging ? "Market is ranging, no trade." : limit || (full ? "" : `Waiting for: ${missing.join(", ")}. Trades open only on a full match.`);
+    const nearTarget = item.t1_adjusted && Number(item.rr1) < 1.5 ? `<p class="cd-fr-note">Target 1 is close to the ${bull ? "previous resistance" : "previous support"} (only 1:${Number(item.rr1).toFixed(1)}), so the reward is small for this stop. Think twice.</p>` : "";
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item)}
       <div class="cd-fr-tags"><span class="cd-fr-pill">${full ? `✅ FULL MATCH · ${word}` : `⏳ ALMOST · ${word}`}</span><span class="cd-fr-tag">${item.passed}/${CHECKS.length} CHECKS</span></div>
       <div class="cd-fr-steps cd-fr-steps-wide">${CHECKS.map((k) => checkTile(item, k)).join("")}</div>
-      ${full ? "" : `<p class="cd-fr-note">Waiting for: ${esc(missing.join(", "))}. The levels below are what the rule would use now; wait for every check before acting.</p>`}
+      ${why ? `<p class="cd-fr-note">${esc(why)}${full ? "" : " The levels below are what the rule would use now."}</p>` : ""}
       ${levels(item)}
+      ${nearTarget}
       <small class="cd-fr-ema"><i>SMA 50</i> <b>${money(item.sma50)}</b> · <i>SMA 200</i> <b>${money(item.sma200)}</b> · Risk <b>${item.risk_pct}%</b> · Move SL to breakeven at ${money(item.breakeven_at)} (${bull ? "+" : "−"}4%)</small>
       <div class="cd-fr-actions">
-        <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" data-catch-ticket="${esc(item.base)}" data-catch-side="${bull ? "BUY" : "SELL"}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+        <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" ${blocked ? "disabled" : ""} data-catch-ticket="${esc(item.base)}" data-catch-side="${bull ? "BUY" : "SELL"}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">${blocked ? (item.ranging ? "🚫 No trade · ranging" : limit ? "⛔ Limit reached" : "⏳ Wait for full match") : `⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}`}</button>
         <button type="button" class="cd-fr-analysis" data-catch-coin="${esc(item.base)}">📊 Analysis</button>
       </div>
     </article>`;
@@ -141,8 +163,8 @@
       <div class="cd-fr-ticks"><div><span><i class="is-up"></i>Daily</span> <b>SMA 50 / 200</b></div></div></div>`;
   }
   const EMPTY = {
-    full: ["No full match right now", "No coin passes all 4 checks at the moment: a pullback to the 50 SMA inside a trend, with a confirming candle. Signals are few by design. Check the “Almost” tab for coins sitting at the 50 SMA."],
-    almost: ["Nothing is close right now", "No coin is sitting at its 50 SMA with 3 of 4 checks right now."],
+    full: ["No full match right now", "No coin passes all 6 checks at the moment: a strong trend (ADX over 25), a pullback to the 50 SMA, an RSI turn through 50, above-average volume and a confirming candle. Signals are few by design. Check the “Almost” tab for coins sitting at the 50 SMA."],
+    almost: ["Nothing is close right now", "No coin is sitting at its 50 SMA with 5 of 6 checks right now."],
   };
   function render() {
     document.querySelectorAll("#cdCatchTabs button").forEach((b) => b.classList.toggle("is-active", b.dataset.catchTab === tab));
@@ -156,9 +178,11 @@
       return;
     }
     const list = tab === "full" ? fullList : almostList;
-    meta.textContent = tab === "full" ? `${fullList.length} full matches · ${almostList.length} almost` : `${almostList.length} coins at the 50 SMA with 3 of 4 checks`;
-    const note = '<p class="cd-fr-note">Dual-Trend Swing on the daily chart (50 SMA, 200 SMA, price action). Long: price above the 200 SMA, price pulls back to the 50 SMA (touch or within 2%) and a green candle closes there (bounce confirmed). Short: price below the 200 SMA, price rallies to the 50 SMA and a red candle closes there (rejection confirmed). No trade when the 50 and 200 SMA are mixed (sideways). SL = 3% beyond the trigger candle low (long) / high (short). Target 1 = 1:2, Target 2 = previous resistance / support. At +4% profit move the SL to breakeven. Risk: at most 1% of the account per trade, 2 trades a day, stop for the day at a 3% loss, only liquid coins. Position size = (account × 1%) ÷ (entry × 3%). Crypto moves fast, so a 4-5% stop can suit it better than 3%. This rule has not been backtested here: it is a filter to watch, not a promise.</p>';
-    results.innerHTML = summary() + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
+    meta.textContent = tab === "full" ? `${fullList.length} full matches · ${almostList.length} almost` : `${almostList.length} coins at the 50 SMA with 5 of 6 checks`;
+    const limit = dayLimit();
+    const banner = limit ? `<p class="cd-focus-error">${esc(limit)}</p>` : "";
+    const note = '<p class="cd-fr-note">Dual-Trend Swing on the daily chart. A full match needs all six checks: (1) price above the 200 SMA for a long, below for a short; (2) ADX (14) over 25, so the market is trending (under 20 with price between the two SMAs = ranging, no trade); (3) the last candle is within 2% of the 50 SMA; (4) RSI turns through 50 (long: from 50 or lower to above 50 and rising; short: the reverse); (5) volume above its 20-candle average; (6) a green candle (long) / red candle (short). SL = 4.5% beyond the trigger candle low / high. Target 1 = 1:2, pulled in to just before the previous resistance / support when that comes first; Target 2 = the previous resistance / support or 1:3. At +4% profit move the SL to breakeven. Limits: risk at most 1% of the account per trade, 2 trades a day, stop for the day at a 3% loss, wait one 4H candle after a close (the trade button locks for you). Position size = (account × 1%) ÷ (entry × stop %). This rule has not been backtested here: it is a filter to watch, not a promise.</p>';
+    results.innerHTML = summary() + banner + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
   // A browser reload means "give me new data": the first load right after one is a fresh scan too.
@@ -215,6 +239,8 @@
     if (starBtn) { if (window.cdToggleWatch) window.cdToggleWatch(starBtn.dataset.catchStar); render(); return; }
     const ticket = event.target.closest("[data-catch-ticket]");
     if (ticket) {
+      if (ticket.disabled) return;
+      if (dayLimit()) { render(); return; }
       const stopLoss = Number(ticket.dataset.catchStop), target = Number(ticket.dataset.catchTarget);
       window.cdOpenTicket?.(ticket.dataset.catchTicket, ticket.dataset.catchSide === "SELL" ? "SELL" : "BUY", { stopLoss: stopLoss > 0 ? stopLoss : null, target: target > 0 ? target : null });
       return;
