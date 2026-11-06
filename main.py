@@ -2533,13 +2533,14 @@ def _swing_scan(kline_ttl=SWING_TTL_S):
 #               candle. The move is measured from the swing low to the new high; the buy zone is a 60% - 90% pullback of it
 #               (inside the discount, holding the 0.618 - 0.786 "golden pocket"). Ready only with reward >= 1.5 x risk.
 #               SL just under the new swing low.
-#   SFP  (1H/4H) swing failure pattern: price wicks under a clear 4H / daily key low and a 1H / 4H candle closes back above
-#               it (only the wick went below). SL just under the wick, target 3R / 4R. Shorts: the same above a key high.
+#   SFP  (1H/4H) swing failure pattern: price wicks under a clear 4H / daily key low and the LAST closed 1H / 4H candle closes
+#               back above it (only the wick went below). SL just under the wick, target 3R / 4R. Shorts: the same above a key high.
 #   FVG  (1H)   fair value gap retest: a big, high-volume impulse candle leaves a gap (candle 1 high to candle 3 low). When
 #               price comes back into that box and rejects, trade the impulse direction. SL just outside the box.
 # Never backtested: these are shown live for the owner to judge.
 LAB_TTL_S = 300
 LAB_MAX_RISK = 0.02       # SFP / FVG: skip when the stop would be more than 2% away (the move is already stale)
+LAB_MSS_MAX_RISK = 0.05   # MSS: skip when the stop under the swing low would be more than 5% away (too wide to be a low-risk setup)
 lab_cache = {}
 lab_klines_cache = {}
 
@@ -2610,7 +2611,7 @@ def _lab_mss_long(cs, price):
             ready = False
             entry = high - 0.618 * move
             risk = entry - stop
-        if risk <= 0 or (ready and t1 <= entry):
+        if risk <= 0 or (ready and t1 <= entry) or risk / abs(entry) > LAB_MSS_MAX_RISK:
             continue
         return {
             "kind": "mss", "state": "ready" if ready else "watch",
@@ -2635,7 +2636,7 @@ def _lab_sfp_long(key_sets, sweep_sets, price):
         for slabel, sc in sweep_sets:
             if len(sc) < 10:
                 continue
-            for m in (1, 2, 3):                               # one of the last three closed candles
+            for m in (1,):                                    # only the LAST closed candle: an older sweep is a stale signal
                 c = sc[-m]
                 for i, lvl in levels:
                     t_lvl = kc[i][0]

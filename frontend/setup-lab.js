@@ -142,7 +142,7 @@
     const steps = [
       step("Key level", `${item.key_tf} ${bull ? "low" : "high"} ${money(item.level)}`, "ok"),
       step("Sweep", `Wick ${bull ? "below" : "above"} to ${money(item.wick_low)}`, "ok"),
-      step("Close back", `${item.candle_tf} candle ${item.age === 1 ? "just closed" : `${item.age} candles ago`}`, "ok"),
+      step("Close back", `${item.candle_tf} candle just closed`, "ok"),
     ].join("");
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       ${head(item, bull)}
@@ -181,12 +181,12 @@
   }
   const EMPTY = {
     mss: ["No market structure shift right now", "No coin has just broken its down-trend (or up-trend) structure with a big candle and is pulling back into the zone. Check again later."],
-    sfp: ["No swing failure right now", "No coin has just wicked beyond a 4H / daily key level and closed back inside with a tight stop. These are rare and quick; check again later."],
+    sfp: ["No swing failure right now", "No coin has a 4H / daily key level that the latest closed 1H or 4H candle just wicked through and closed back inside, with a tight stop. These are rare and quick; check again later."],
     fvg: ["No fair value gap retest right now", "No coin has a fresh 1H gap from a big, high-volume candle that price is coming back to. Check again later."],
   };
   const NOTE = {
-    mss: "MSS (1H). Long: the coin was making lower highs and lower lows, then one big candle closed above its last lower high. The whole move is measured from the swing low to the new high; the buy zone is a 60% - 90% pullback of that move (inside the discount, around the 0.618 - 0.786 golden pocket). It is “in zone” only when price is really there and the reward to the previous high is at least 1.5 times the risk; otherwise it is “watch” and the levels are the plan. SL just under the new swing low, Target 1 the previous high, Target 2 the 1.272 extension. Short: the exact mirror (SL above the new swing high).",
-    sfp: "SFP (1H / 4H). Long: a clear 4H or daily low is taken by a wick, but the candle body closes back above it (the wick only). Enter after the close, SL just under the wick, Target 1 = 3R, Target 2 = 4R. Short: the same above a key high. Only shown while the stop is within 2% of the price, so a late chase is filtered out.",
+    mss: "MSS (1H). Long: the coin was making lower highs and lower lows, then one big candle closed above its last lower high. The whole move is measured from the swing low to the new high; the buy zone is a 60% - 90% pullback of that move (inside the discount, around the 0.618 - 0.786 golden pocket). It is “in zone” only when price is really there and the reward to the previous high is at least 1.5 times the risk; otherwise it is “watch” and the levels are the plan. SL just under the new swing low (setups whose stop would be more than 5% away are not shown), Target 1 the previous high, Target 2 the 1.272 extension. Short: the exact mirror (SL above the new swing high).",
+    sfp: "SFP (1H / 4H). Long: a clear 4H or daily low is taken by a wick, but the candle body closes back above it (the wick only). Enter after the close, SL just under the wick, Target 1 = 3R, Target 2 = 4R. Short: the same above a key high. Only the latest closed candle counts (an older sweep is not shown) and the stop must be within 2% of the price, so a late chase is filtered out.",
     fvg: "FVG (1H). A big, high-volume (1.5× or more) impulse candle leaves a gap between candle 1's high and candle 3's low. When price returns into that box and rejects it, trade in the impulse direction. SL just outside the box (within 2% of the price), Target 1 = 3R, Target 2 = 4R. “Watch” = price is close above the box but has not touched it yet.",
   };
   function render() {
