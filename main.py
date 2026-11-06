@@ -2528,13 +2528,17 @@ def _swing_scan(kline_ttl=SWING_TTL_S):
 
 
 # ================= SETUP LAB (owner only) =================
-# Experimental ideas shown next to each other so the owner can judge them live:
-#   Swing+  = the 1H swing rule PLUS three extra checks (4H trend agrees, RSI turning, rejection candle colour).
-#             The swing rule itself (_swing_setup) is not changed; the checks only mark each setup.
-#   Range   = a coin moving sideways between a clear support and resistance, bouncing at an edge (1H and 4H).
-#             Volume drying up and edges tested twice are quality marks, not gates. Never backtested.
-# BTC's 1H trend is shown so every card can say whether it goes with or against the market.
+# Three "smart money" style setups, each for longs and shorts (a short is a long on the price chart turned upside down):
+#   MSS  (1H)   market structure shift: a coin printing lower lows / lower highs breaks its last lower high with a big
+#               candle. The move is measured from the swing low to the new high; the buy zone is the discount below its 50%
+#               (0.618 - 0.786 "golden pocket", or a retest of the broken level). SL just under the new swing low.
+#   SFP  (1H/4H) swing failure pattern: price wicks under a clear 4H / daily key low and a 1H / 4H candle closes back above
+#               it (only the wick went below). SL just under the wick, target 3R / 4R. Shorts: the same above a key high.
+#   FVG  (1H)   fair value gap retest: a big, high-volume impulse candle leaves a gap (candle 1 high to candle 3 low). When
+#               price comes back into that box and rejects, trade the impulse direction. SL just outside the box.
+# Never backtested: these are shown live for the owner to judge.
 LAB_TTL_S = 300
+LAB_MAX_RISK = 0.02       # SFP / FVG: skip when the stop would be more than 2% away (the move is already stale)
 lab_cache = {}
 lab_klines_cache = {}
 
@@ -2547,119 +2551,169 @@ def _lab_klines(base, interval, limit, ttl):
     return cached_call(lab_klines_cache, (base, interval, limit), ttl, fetch, max_entries=400)
 
 
-def _lab_swing_checks(closed, setup, now, base, ttl):
-    """The three extra checks for one swing setup: 4H trend agrees, RSI turning, rejection candle colour."""
-    long = setup["side"] == "bullish"
-    r = next((k for k in range(len(closed) - 1, max(-1, len(closed) - 8), -1) if closed[k][0] == setup.get("rejection_at")), None)
-    if r is None:
+def _lab_flip(candles):
+    """Mirror the price axis so a short setup can be found with the long-side code."""
+    return [[c[0], -c[1], -c[3], -c[2], -c[4], c[5]] for c in candles]
+
+
+def _lab_pivots(candles, k=3):
+    """Indexes of confirmed swing highs and swing lows (k candles on each side)."""
+    highs, lows = [], []
+    for i in range(k, len(candles) - k):
+        h, l = candles[i][2], candles[i][3]
+        if all(h > candles[j][2] for j in range(i - k, i)) and all(h >= candles[j][2] for j in range(i + 1, i + k + 1)):
+            highs.append(i)
+        if all(l < candles[j][3] for j in range(i - k, i)) and all(l <= candles[j][3] for j in range(i + 1, i + k + 1)):
+            lows.append(i)
+    return highs, lows
+
+
+def _lab_mss_long(cs, price):
+    """Market structure shift (long side). cs = closed 1H candles, oldest first."""
+    n = len(cs)
+    if n < 60:
         return None
-    # 4H: completed 4H candles only
-    h4 = [c for c in _lab_klines(base, "4h", 80, ttl) if c[0] + 4 * 3600 <= now]
-    h4_ok = False
-    if len(h4) >= 55:
-        closes4 = [c[4] for c in h4]
-        e20, e50 = _ema(closes4, 20)[-1], _ema(closes4, 50)[-1]
-        h4_ok = e20 > e50 if long else e20 < e50
-    # RSI: dipped to 45 (long) / rose to 55 (short) around the rejection and is now turning back
-    values = []
-    for k in range(max(1, r - 1), len(closed)):
-        try:
-            values.append(rsi([c[4] for c in closed[max(0, k - 40): k + 1]]))
-        except ValueError:
+    hi, lo = _lab_pivots(cs, 3)
+    bodies = [abs(c[4] - c[1]) for c in cs]
+    for j in range(n - 1, max(n - 48, 25) - 1, -1):          # the candle that broke the structure, newest first
+        hs = [i for i in hi if i + 3 < j]
+        ls = [i for i in lo if i + 3 < j]
+        if len(hs) < 2 or len(ls) < 2:
             continue
-    rsi_ok = False
-    if len(values) >= 2:
-        rsi_ok = (min(values) <= 45 and values[-1] > min(values)) if long else (max(values) >= 55 and values[-1] < max(values))
-    candle_ok = closed[r][4] > closed[r][1] if long else closed[r][4] < closed[r][1]
-    # Engulfing: from the rejection candle on, a candle in the trade's direction whose body covers the body of the
-    # candle before it (a bullish engulfing after a red candle for a long, a bearish one after a green candle for a short).
-    engulf = False
-    for k in range(max(1, r), len(closed)):
-        prev, cur = closed[k - 1], closed[k]
-        if long and prev[4] < prev[1] and cur[4] > cur[1] and cur[1] <= prev[4] and cur[4] >= prev[1]:
-            engulf = True
-        if not long and prev[4] > prev[1] and cur[4] < cur[1] and cur[1] >= prev[4] and cur[4] <= prev[1]:
-            engulf = True
-    return {"h4": bool(h4_ok), "rsi": bool(rsi_ok), "candle": bool(candle_ok), "engulf": engulf, "rsi_now": round(values[-1], 1) if values else None}
-
-
-# Range settings per timeframe: candle length, hours-of-history window, accepted width of the range (share of price),
-# how flat the EMAs must be, how many recent / earlier candles are compared for volume, and the largest accepted stop.
-LAB_RANGE_CFG = {
-    "1h": {"sec": 3600, "bars": 48, "wmin": 0.015, "wmax": 0.10, "ema": 0.010, "vol": (6, 24), "risk": 0.06},
-    "4h": {"sec": 14400, "bars": 42, "wmin": 0.030, "wmax": 0.15, "ema": 0.020, "vol": (3, 12), "risk": 0.08},
-}
-
-
-def _lab_range_setup(closed, price, now, tf="1h"):
-    """Bounce at the edge of a sideways range, or None. closed = closed candles [t, o, h, l, c, quote_volume] of that timeframe.
-
-    Gates (all must hold): a range of sensible width, flat EMAs, no drift from one side to the other, each edge touched at
-    least once, a recent candle that reached the edge and closed back inside with a rejection, and at least 1.2R of room
-    to the target. Volume drying up and edges tested twice are NOT gates: they are shown as quality marks."""
-    cfg = LAB_RANGE_CFG[tf]
-    bars = cfg["bars"]
-    if len(closed) < bars + 12 or not price or price <= 0:
-        return None
-    window, test = closed[-(bars + 3):-3], closed[-3:]
-    sup, res = min(c[3] for c in window), max(c[2] for c in window)
-    mid = (sup + res) / 2
-    width = (res - sup) / mid
-    if not (cfg["wmin"] <= width <= cfg["wmax"]):
-        return None
-    closes = [c[4] for c in closed]
-    e20, e50 = _ema(closes, 20)[-1], _ema(closes, 50)[-1]
-    if abs(e20 - e50) / e50 > cfg["ema"]:
-        return None  # a trend, not a range
-    third = len(window) // 3
-    first_avg = sum(c[4] for c in window[:third]) / third
-    last_avg = sum(c[4] for c in window[-third:]) / third
-    if abs(last_avg - first_avg) > 0.5 * (res - sup):
-        return None  # the average price moved from one side of the range to the other: a trend, not a range
-    zone = 0.006 * mid
-    touches_low = sum(1 for c in window if c[3] <= sup + zone)
-    touches_high = sum(1 for c in window if c[2] >= res - zone)
-    if touches_low < 1 or touches_high < 1:
-        return None
-    rv, bv = cfg["vol"]
-    recent = sum(c[5] for c in closed[-rv:]) / rv
-    before = sum(c[5] for c in closed[-(rv + bv):-rv]) / bv
-    vol_ratio = recent / before if before > 0 else 1.0
-    found = None
-    for c in reversed(test):
-        t, o, h, l, cl, _ = c
-        rng = h - l
-        if rng <= 0:
+        if not (cs[hs[-2]][2] > cs[hs[-1]][2] and cs[ls[-2]][3] > cs[ls[-1]][3]):
+            continue                                          # not a down-trend (lower high + lower low) before the break
+        level = cs[hs[-1]][2]                                 # the last lower high
+        if not (cs[j][4] > level and cs[j - 1][4] <= level and cs[j][4] > cs[j][1]):
             continue
-        if l <= sup + 0.006 * mid and cl > sup and cl >= l + 0.4 * rng and closed[-1][4] > sup:
-            found = ("bullish", c)
-            break
-        if h >= res - 0.006 * mid and cl < res and cl <= h - 0.4 * rng and closed[-1][4] < res:
-            found = ("bearish", c)
-            break
-    if not found:
+        if bodies[j] < 1.2 * (sum(bodies[j - 20:j]) / 20):
+            continue                                          # not a big candle
+        low = cs[ls[-1]][3]                                   # the new swing low
+        if min(c[3] for c in cs[ls[-1]:]) < low:
+            continue                                          # a lower low was made later: structure is gone again
+        high = max(c[2] for c in cs[j:])
+        move = high - low
+        if move / abs(low) < 0.01 or price < low:
+            continue
+        retrace = (high - price) / move
+        retest = abs(price - level) / abs(price) <= 0.005 and price <= high
+        ready = (0.5 <= retrace <= 1.0) or retest
+        entry = price if ready else high - 0.618 * move
+        stop = low - abs(low) * 0.001
+        risk = entry - stop
+        if risk <= 0:
+            continue
+        t1, t2 = high, low + 1.272 * move
+        if ready and t1 <= entry:
+            continue
+        return {
+            "kind": "mss", "state": "ready" if ready else "watch",
+            "entry": entry, "stop": stop, "t1": t1, "t2": t2, "risk_pct": round(risk / abs(entry) * 100, 2),
+            "rr1": round((t1 - entry) / risk, 2), "rr2": round((t2 - entry) / risk, 2),
+            "zone": [high - 0.786 * move, high - 0.5 * move], "level": level,
+            "swing_start": low, "swing_end": high, "retrace": round(retrace * 100, 1),
+            "checks": {"shift": True, "discount": retrace >= 0.5, "golden": 0.6 <= retrace <= 0.8, "retest": retest},
+            "candle_at": cs[j][0],
+        }
+    return None
+
+
+def _lab_sfp_long(key_sets, sweep_sets, price):
+    """Swing failure pattern (long side). key_sets / sweep_sets: [(label, closed candles)]."""
+    best = None
+    for klabel, kc in key_sets:
+        if len(kc) < 30:
+            continue
+        _, lo = _lab_pivots(kc, 3)
+        levels = [(i, kc[i][3]) for i in lo if i <= len(kc) - 7][-8:]
+        for slabel, sc in sweep_sets:
+            if len(sc) < 10:
+                continue
+            for m in (1, 2, 3):                               # one of the last three closed candles
+                c = sc[-m]
+                for i, lvl in levels:
+                    t_lvl = kc[i][0]
+                    if c[0] <= t_lvl or not (c[3] < lvl and min(c[1], c[4]) > lvl):
+                        continue                              # wick below, body back above
+                    if lvl - c[3] < abs(lvl) * 0.001:
+                        continue                              # a real wick, not a touch
+                    if any(x[3] < lvl for x in sc if t_lvl < x[0] < c[0]) or any(x[3] < lvl for x in kc[i + 1:] if x[0] < c[0]):
+                        continue                              # the level was already broken before: not a clean key low
+                    if any(x[4] <= lvl for x in sc[len(sc) - m + 1:]):
+                        continue                              # a later candle closed back under it
+                    stop = c[3] - abs(c[3]) * 0.0015
+                    risk = price - stop
+                    if risk <= 0 or risk / abs(price) > LAB_MAX_RISK:
+                        continue
+                    rank = (m, 0 if klabel == "1D" else 1)
+                    if best is None or rank < best[0]:
+                        best = (rank, {
+                            "kind": "sfp", "state": "ready",
+                            "entry": price, "stop": stop, "t1": price + 3 * risk, "t2": price + 4 * risk,
+                            "risk_pct": round(risk / abs(price) * 100, 2), "rr1": 3.0, "rr2": 4.0,
+                            "level": lvl, "wick_low": c[3], "key_tf": klabel, "candle_tf": slabel, "age": m,
+                            "checks": {"key": True, "sweep": True, "close_back": True, "fresh": m == 1},
+                            "candle_at": c[0],
+                        })
+    return best[1] if best else None
+
+
+def _lab_fvg_long(cs, price):
+    """Fair value gap retest (long side). cs = closed 1H candles, oldest first."""
+    n = len(cs)
+    if n < 60:
         return None
-    side, c = found
-    long = side == "bullish"
-    lows, highs = min(x[3] for x in test), max(x[2] for x in test)
-    entry = c[2] if long else c[3]
-    stop = min(sup * 0.995, lows * 0.999) if long else max(res * 1.005, highs * 1.001)
-    risk = abs(entry - stop)
-    if risk <= 0 or risk / entry > cfg["risk"]:
-        return None
-    t1 = mid
-    t2 = res * 0.997 if long else sup * 1.003
-    if abs(t2 - entry) < 1.2 * risk or (t1 - entry if long else entry - t1) <= 0:
-        return None  # not enough room to the other side
-    if (price <= stop or price >= t2) if long else (price >= stop or price <= t2):
-        return None
-    triggered = price > entry if long else price < entry
-    t1_hit = price >= t1 if long else price <= t1
-    return {"side": side, "timeframe": tf.upper(), "support": sup, "resistance": res, "width_pct": round(width * 100, 2),
-            "entry": entry, "stop": stop, "t1": t1, "t2": t2, "volume_ratio": round(vol_ratio, 2),
-            "vol_dry": vol_ratio <= 0.85, "tested_twice": touches_low >= 2 and touches_high >= 2,
-            "rejection_at": c[0],
-            "state": "target1" if triggered and t1_hit else "triggered" if triggered else "ready"}
+    for i in range(n - 3, max(n - 40, 22) - 1, -1):          # c1 = i, c2 = i+1 (impulse), c3 = i+2, newest first
+        c1, c2, c3 = cs[i], cs[i + 1], cs[i + 2]
+        bottom, top = c1[2], c3[3]
+        if top <= bottom or c2[4] <= c2[1] or (top - bottom) / abs(bottom) < 0.0015:
+            continue
+        prev = cs[i - 20:i]
+        avg_range = sum(x[2] - x[3] for x in prev) / 20
+        avg_vol = sum(x[5] for x in prev) / 20
+        if avg_range <= 0 or avg_vol <= 0:
+            continue
+        impulse = (c2[2] - c2[3]) >= 1.5 * avg_range
+        vol_x = c2[5] / avg_vol
+        if not impulse or vol_x < 1.5:
+            continue
+        after = cs[i + 3:]
+        if any(x[4] < bottom for x in after):
+            continue                                          # the gap failed (closed through it)
+        touch = next((k for k in range(i + 3, n) if cs[k][3] <= top), None)
+        stop = bottom - abs(bottom) * 0.001
+        if touch is None:                                     # not retested yet: watch while price is close above the box
+            if top < price <= top + abs(top) * 0.015:
+                risk = top - stop
+                if risk > 0 and risk / abs(top) <= LAB_MAX_RISK:
+                    return {"kind": "fvg", "state": "watch", "entry": top, "stop": stop, "t1": top + 3 * risk, "t2": top + 4 * risk,
+                            "risk_pct": round(risk / abs(top) * 100, 2), "rr1": 3.0, "rr2": 4.0, "zone": [bottom, top], "vol_x": round(vol_x, 1),
+                            "checks": {"impulse": True, "gap": True, "retest": False, "reject": False}, "candle_at": c2[0]}
+            continue
+        r = cs[touch]
+        if touch < n - 2:
+            continue                                          # retested a while ago: too late
+        rng = r[2] - r[3]
+        reject = r[3] >= bottom - abs(bottom) * 0.002 and r[4] > (top + bottom) / 2 and (r[4] > r[1] or (rng > 0 and (min(r[1], r[4]) - r[3]) >= 0.5 * rng))
+        if not reject or price <= bottom:
+            continue
+        risk = price - stop
+        if risk <= 0 or risk / abs(price) > LAB_MAX_RISK:
+            continue
+        return {"kind": "fvg", "state": "ready", "entry": price, "stop": stop, "t1": price + 3 * risk, "t2": price + 4 * risk,
+                "risk_pct": round(risk / abs(price) * 100, 2), "rr1": 3.0, "rr2": 4.0, "zone": [bottom, top], "vol_x": round(vol_x, 1),
+                "checks": {"impulse": True, "gap": True, "retest": True, "reject": True}, "candle_at": r[0]}
+    return None
+
+
+def _lab_unflip(item):
+    """Turn a result found on the mirrored chart back into a short setup on the real chart."""
+    out = dict(item)
+    for key in ("entry", "stop", "t1", "t2", "level", "swing_start", "swing_end", "wick_low"):
+        if key in out and out[key] is not None:
+            out[key] = -out[key]
+    if "zone" in out:
+        out["zone"] = sorted(-v for v in out["zone"])
+    return out
 
 
 def _lab_scan(ttl=LAB_TTL_S):
@@ -2668,52 +2722,44 @@ def _lab_scan(ttl=LAB_TTL_S):
     ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
               if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SWING_MIN_VOLUME_USDT][:SWING_TOP_N]
     now = time.time()
-    # BTC's 1H trend: EMA 20 against EMA 50 and the EMA 50 slope over 5 hours.
-    btc = {"trend": "flat"}
-    try:
-        b = [c for c in _lab_klines("BTC", "1h", 120, ttl) if c[0] + 3600 <= now]
-        closes = [c[4] for c in b]
-        e20, e50 = _ema(closes, 20), _ema(closes, 50)
-        gap = (e20[-1] - e50[-1]) / e50[-1]
-        btc = {"trend": "up" if gap > 0.001 and e50[-1] > e50[-6] else "down" if gap < -0.001 and e50[-1] < e50[-6] else "flat",
-               "gap_pct": round(gap * 100, 2)}
-    except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy):
-        pass
 
     def one(coin):
         base = coin["base"]
-        try:
-            candles = _lab_klines(base, "1h", 120, ttl)
-        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy) as error:
-            print(f"Setup Lab skipped {base}: {error}")
-            return None
         price = float(coin.get("price") or 0)
-        closed = [c for c in candles if c[0] + 3600 <= now]
-        info = {"base": base, "price": price, "change_percent": coin.get("change_percent"), "spark": [round(c[4], 8) for c in closed[-24:]]}
-        out = {"swing": None, "range": []}
+        if price <= 0:
+            return []
         try:
-            found = _swing_setup([c[:5] for c in candles], price, now)
-            if found and found.get("state") in ("ready", "triggered") and found.get("rejection_at") is not None:
-                checks = _lab_swing_checks(closed, found, now, base, ttl)
-                if checks:
-                    out["swing"] = {**info, **found, "checks": checks}
-            for tf in ("4h", "1h"):
-                series = closed if tf == "1h" else [c for c in _lab_klines(base, "4h", 80, ttl) if c[0] + 4 * 3600 <= now]
-                rng = _lab_range_setup(series, price, now, tf)
-                if rng:
-                    out["range"].append({**info, **rng})
+            h1 = [c for c in _lab_klines(base, "1h", 160, ttl) if c[0] + 3600 <= now]
+            h4 = [c for c in _lab_klines(base, "4h", 120, ttl) if c[0] + 4 * 3600 <= now]
+            d1 = [c for c in _lab_klines(base, "1d", 60, ttl) if c[0] + 86400 <= now]
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, BinanceBusy) as error:
             print(f"Setup Lab skipped {base}: {error}")
-        return out
+            return []
+        info = {"base": base, "price": price, "change_percent": coin.get("change_percent"), "spark": [round(c[4], 8) for c in h1[-24:]]}
+        found = []
+        try:
+            for side, flip in (("bullish", False), ("bearish", True)):
+                f = _lab_flip if flip else (lambda cs: cs)
+                p = -price if flip else price
+                one_h, four_h, one_d = f(h1), f(h4), f(d1)
+                for res in (_lab_mss_long(one_h, p),
+                            _lab_sfp_long([("1D", one_d), ("4H", four_h)], [("1H", one_h), ("4H", four_h)], p),
+                            _lab_fvg_long(one_h, p)):
+                    if res:
+                        res = _lab_unflip(res) if flip else res
+                        found.append({**info, **res, "side": side})
+        except (ValueError, KeyError, IndexError, TypeError, ZeroDivisionError) as error:
+            print(f"Setup Lab skipped {base}: {error}")
+        return found
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        results = [r for r in pool.map(one, ranked) if r]
-    swing = [r["swing"] for r in results if r["swing"]]
-    rng = [x for r in results for x in r["range"]]
-    order = {"ready": 0, "triggered": 1, "target1": 2}
-    swing.sort(key=lambda r: (-sum(r["checks"][k] for k in ("h4", "rsi", "candle")), order.get(r["state"], 9)))
-    rng.sort(key=lambda r: (-(int(r["vol_dry"]) + int(r["tested_twice"])), order.get(r["state"], 9), r["volume_ratio"]))
-    return {"at": int(now), "scanned": len(ranked), "btc": btc, "swing": swing, "range": rng}
+        rows = [r for found in pool.map(one, ranked) for r in found]
+    out = {"mss": [], "sfp": [], "fvg": []}
+    for r in rows:
+        out[r["kind"]].append(r)
+    for key, items in out.items():
+        items.sort(key=lambda r: (0 if r["state"] == "ready" else 1, -r["candle_at"]))
+    return {"at": int(now), "scanned": len(ranked), **out}
 
 
 @app.get("/api/owner/lab")

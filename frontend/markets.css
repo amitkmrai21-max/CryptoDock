@@ -3072,12 +3072,6 @@ html:has(#cdFocusRadar.active), body:has(#cdFocusRadar.active) { overscroll-beha
 .cd-ticket > #cdTicketSubmit { position: sticky; bottom: 0; z-index: 3; min-height: 52px; box-shadow: 0 0 0 12px var(--surface); }
 .cd-ticket-error { scroll-margin-block: 24px 120px; }
 /* Setup Lab: the strictness pills under the tabs */
-#cdLabMode { gap: 6px; }
-#cdLabMode .cd-pill { padding: 5px 12px; font-size: 11.5px; }
-#cdLabMode[hidden] { display: none; }
-#cdLabTf { gap: 6px; }
-#cdLabTf .cd-pill { padding: 5px 12px; font-size: 11.5px; }
-#cdLabTf[hidden] { display: none; }
 
 /* Focus Radar / Setup Lab: cards never grow wider than the screen (long tag rows wrap instead of pushing the page sideways) */
 #cdFocusRadar, #cdSetupLab, #cdCatchAcc { max-width: 100%; overflow-x: hidden; }
