@@ -131,7 +131,7 @@
       ${head(item, bull)}
       <div class="cd-fr-tags"><span class="cd-fr-pill">${bull ? "↗ MSS · LONG" : "↘ MSS · SHORT"}</span><span class="cd-fr-tag">${item.state === "ready" ? "IN ZONE" : "WATCH"} · ${rrText(item)}</span></div>
       <div class="cd-fr-steps cd-fr-steps-wide">${steps}</div>
-      ${item.state === "ready" ? "" : `<p class="cd-fr-note">Price is not in the buy zone yet (needs a 60-90% pullback). The levels below are the plan: ${bull ? "buy" : "sell"} when price comes back to the golden pocket.</p>`}
+      ${item.state === "ready" ? "" : `<p class="cd-fr-note">Price is not in the valid 0.618-0.786 golden pocket yet. The levels below are the plan: ${bull ? "buy" : "sell"} only if price returns to the zone.</p>`}
       ${levels(item)}
       <small class="cd-fr-ema"><i>Buy zone</i> <b>${money(item.zone[0])} – ${money(item.zone[1])}</b> · <i>Broken level</i> <b>${money(item.level)}</b> · Swing ${money(item.swing_start)} → ${money(item.swing_end)} · Risk <b>${item.risk_pct}%</b></small>
       ${actions(item, bull)}
@@ -185,7 +185,7 @@
     fvg: ["No fair value gap retest right now", "No coin has a fresh 1H gap from a big, high-volume candle that price is coming back to. Check again later."],
   };
   const NOTE = {
-    mss: "MSS (1H). Long: the coin was making lower highs and lower lows, then one big candle closed above its last lower high. The whole move is measured from the swing low to the new high; the buy zone is a 60% - 90% pullback of that move (inside the discount, around the 0.618 - 0.786 golden pocket). It is “in zone” only when price is really there and the reward to the previous high is at least 1.5 times the risk; otherwise it is “watch” and the levels are the plan. SL just under the new swing low (setups whose stop would be more than 5% away are not shown), Target 1 the previous high, Target 2 the 1.272 extension. Short: the exact mirror (SL above the new swing high).",
+    mss: "MSS (1H). Long: the coin was making lower highs and lower lows, then one big candle closed above its last lower high. The move is measured from the swing low to the new high; the valid pullback zone is the 0.618 - 0.786 golden pocket. “Ready” means price is inside that zone and the planned trade offers at least 1.5R to Target 1; a deeper pullback invalidates the setup. SL is just under the new swing low, and setups with more than 2% entry-to-stop risk are not shown. Target 1 is the previous high; Target 2 is the 1.272 extension. Short: the exact mirror (SL above the new swing high).",
     sfp: "SFP (1H / 4H). Long: a clear 4H or daily low is taken by a wick, but the candle body closes back above it (the wick only). Enter after the close, SL just under the wick, Target 1 = 3R, Target 2 = 4R. Short: the same above a key high. Only the latest closed candle counts (an older sweep is not shown) and the stop must be within 2% of the price, so a late chase is filtered out.",
     fvg: "FVG (1H). A big, high-volume (1.5× or more) impulse candle leaves a gap between candle 1's high and candle 3's low. When price returns into that box and rejects it, trade in the impulse direction. SL just outside the box (within 2% of the price), Target 1 = 3R, Target 2 = 4R. “Watch” = price is close above the box but has not touched it yet.",
   };

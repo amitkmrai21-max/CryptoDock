@@ -2540,7 +2540,7 @@ def _swing_scan(kline_ttl=SWING_TTL_S):
 # Never backtested: these are shown live for the owner to judge.
 LAB_TTL_S = 300
 LAB_MAX_RISK = 0.02       # SFP / FVG: skip when the stop would be more than 2% away (the move is already stale)
-LAB_MSS_MAX_RISK = 0.05   # MSS: skip when the stop under the swing low would be more than 5% away (too wide to be a low-risk setup)
+LAB_MSS_MAX_RISK = 0.02   # MSS: skip when the stop under the swing low would be more than 2% away
 lab_cache = {}
 lab_klines_cache = {}
 
@@ -2597,29 +2597,33 @@ def _lab_mss_long(cs, price):
         if move / abs(low) < 0.01 or price < low:
             continue
         retrace = (high - price) / move
-        if retrace > 0.9:
-            continue                                          # almost back at the swing low: the setup is about to fail
+        # A pullback beyond the golden pocket invalidates this impulse leg; do not keep showing a stale plan.
+        if retrace > 0.786:
+            continue
         retest = abs(price - level) / abs(price) <= 0.005 and price <= high
-        # "Ready" only when price is really inside the buy zone (a 60% - 90% pullback of the move, which holds the 0.618 - 0.786
-        # golden pocket) AND the reward to the previous high is at least 1.5 times the risk. Otherwise it is only "watch".
-        ready = 0.6 <= retrace <= 0.9
+        # Use the same 0.618-0.786 golden pocket for the displayed zone and the Ready state.
         stop = low - abs(low) * 0.001
         t1, t2 = high, low + 1.272 * move
-        entry = price if ready else high - 0.618 * move
+        zone = [high - 0.786 * move, high - 0.618 * move]
+        planned_entry = high - 0.618 * move
+        planned_risk = planned_entry - stop
+        if planned_risk <= 0 or t1 <= planned_entry or (t1 - planned_entry) / planned_risk < 1.5:
+            continue                                          # no viable minimum-1.5R plan
+        ready = 0.618 <= retrace <= 0.786
+        entry = price if ready else planned_entry
         risk = entry - stop
-        if ready and risk > 0 and (t1 - entry) / risk < 1.5:
-            ready = False
-            entry = high - 0.618 * move
-            risk = entry - stop
-        if risk <= 0 or (ready and t1 <= entry) or risk / abs(entry) > LAB_MSS_MAX_RISK:
+        if risk <= 0 or risk / abs(entry) > LAB_MSS_MAX_RISK:
+            continue                                          # cap risk at 2% for both Ready and planned entries
+        # A live Ready entry must still meet the minimum reward/risk after using the current price.
+        if ready and (t1 - entry) / risk < 1.5:
             continue
         return {
             "kind": "mss", "state": "ready" if ready else "watch",
             "entry": entry, "stop": stop, "t1": t1, "t2": t2, "risk_pct": round(risk / abs(entry) * 100, 2),
             "rr1": round((t1 - entry) / risk, 2), "rr2": round((t2 - entry) / risk, 2),
-            "zone": [high - 0.9 * move, high - 0.6 * move], "level": level,
+            "zone": zone, "level": level,
             "swing_start": low, "swing_end": high, "retrace": round(retrace * 100, 1),
-            "checks": {"shift": True, "discount": retrace >= 0.5, "golden": 0.6 <= retrace <= 0.8, "retest": retest},
+            "checks": {"shift": True, "discount": retrace >= 0.5, "golden": 0.618 <= retrace <= 0.786, "retest": retest},
             "candle_at": cs[j][0],
         }
     return None
