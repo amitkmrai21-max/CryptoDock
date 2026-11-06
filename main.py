@@ -2899,21 +2899,25 @@ def get_owner_pro_swings(authorization: str = Header(None), refresh: str = ""):
 
 
 # ---------------------------------------------------------------------------
-# Catch Accuracy (owner only): "Dual-Trend Swing" on the DAILY chart with the 50 and 200 SMA plus price action.
+# Catch Accuracy (owner only): "Dual-Trend Swing" on the DAILY chart (50 / 200 SMA + price action) with strength filters.
 #   Side   : price above the 200 SMA = look for longs, below = look for shorts.
-#   Checks : 1 trend (price against SMA 200), 2 not sideways (SMA 50 on the same side of SMA 200),
-#            3 pullback (the last closed candle touches the SMA 50 zone: within 2%),
-#            4 trigger (that candle closes green for a long / red for a short, not breaking through the SMA 50 by more than 2%).
-#   Levels : SL = 3% beyond the trigger candle's low (long) / high (short); Target 1 = 1:2 risk-reward;
-#            Target 2 = the previous resistance / support (60-day) when it lies beyond Target 1, otherwise 1:3;
+#   Checks : 1 trend (price against SMA 200), 2 ADX(14) above 25, 3 pullback (last closed candle within 2% of the SMA 50),
+#            4 RSI turn (long: dipped to 50 or lower in the last 4 candles, now above 50 and rising; short: mirror),
+#            5 volume above its 20-candle average, 6 trigger candle (green for a long, red for a short).
+#            A full match needs all six. ADX under 20 with price between the two SMAs is flagged "market is ranging, no trade".
+#   Levels : SL = 4.5% beyond the trigger candle's low (long) / high (short) (crypto: 4-5%);
+#            Target 1 = 1:2 risk-reward, pulled back to just before the previous resistance / support (60-day) when that
+#            comes first; Target 2 = the previous resistance / support when it lies beyond Target 1, otherwise 1:3;
 #            at +4% profit the stop moves to breakeven.
 # ---------------------------------------------------------------------------
 CATCH_TOP_N = 60
 CATCH_TTL_S = 600
 CATCH_ZONE = 0.02       # "touch or +-2%" around the 50 SMA
-CATCH_SL_PCT = 0.03     # stop 3% beyond the trigger candle
+CATCH_SL_PCT = 0.045    # stop beyond the trigger candle (crypto: 4-5%)
 CATCH_BE_PCT = 0.04     # move the stop to breakeven at +4%
-CATCH_CHECKS = ("trend", "sideways", "pullback", "trigger")
+CATCH_ADX_MIN = 25
+CATCH_ADX_RANGING = 20
+CATCH_CHECKS = ("trend", "adx", "pullback", "rsi", "volume", "candle")
 catch_cache = {}
 catch_klines_cache = {}
 
@@ -2930,6 +2934,46 @@ def _sma(values, period):
     return sum(values[-period:]) / period
 
 
+def _wilder(values, period):
+    """Wilder's smoothing (what TradingView uses for RSI and ADX). Returns a list aligned to `values`."""
+    if len(values) < period:
+        return []
+    out = [sum(values[:period]) / period]
+    for v in values[period:]:
+        out.append((out[-1] * (period - 1) + v) / period)
+    return [None] * (period - 1) + out
+
+
+def _catch_rsi(closes, period=14):
+    gains = [max(closes[i] - closes[i - 1], 0) for i in range(1, len(closes))]
+    losses = [max(closes[i - 1] - closes[i], 0) for i in range(1, len(closes))]
+    ag, al = _wilder(gains, period), _wilder(losses, period)
+    out = [None]
+    for g, l in zip(ag, al):
+        out.append(None if g is None or l is None else (100.0 if l == 0 else 100 - 100 / (1 + g / l)))
+    return out
+
+
+def _catch_adx(candles, period=14):
+    plus, minus, tr = [0.0], [0.0], [candles[0][2] - candles[0][3]]
+    for i in range(1, len(candles)):
+        up, down = candles[i][2] - candles[i - 1][2], candles[i - 1][3] - candles[i][3]
+        plus.append(up if up > down and up > 0 else 0.0)
+        minus.append(down if down > up and down > 0 else 0.0)
+        h, l, pc = candles[i][2], candles[i][3], candles[i - 1][4]
+        tr.append(max(h - l, abs(h - pc), abs(l - pc)))
+    s_tr, s_p, s_m = _wilder(tr, period), _wilder(plus, period), _wilder(minus, period)
+    dx = []
+    for t, p, m in zip(s_tr, s_p, s_m):
+        if t is None or not t:
+            dx.append(None)
+            continue
+        pdi, mdi = 100 * p / t, 100 * m / t
+        dx.append(0.0 if pdi + mdi == 0 else 100 * abs(pdi - mdi) / (pdi + mdi))
+    valid = [d for d in dx if d is not None]
+    return [None] * (len(dx) - len(valid)) + _wilder(valid, period)
+
+
 def _catch_setup(daily, price, now):
     """Dual-Trend Swing checks for one coin. None when there is not enough history or no side (price on the 200 SMA)."""
     daily = [c for c in daily if c[0] + 86400 <= now]
@@ -2942,41 +2986,57 @@ def _catch_setup(daily, price, now):
     sma50, sma200 = _sma(closes, 50), _sma(closes, 200)
     last = daily[-1]
     ref = price if price > 0 else last[4]
-    long = ref > sma200
     if ref == sma200:
         return None
+    long = ref > sma200
     o, h, l, c = last[1], last[2], last[3], last[4]
-    # Pullback: the candle's range reaches the +-2% zone around the 50 SMA.
+    rsis = _catch_rsi(closes)
+    rsi_now, rsi_prev = rsis[-1], rsis[-2]
+    recent = [r for r in rsis[-4:] if r is not None]
+    adx = _catch_adx(daily)[-1]
+    vol_sma = sum(x[5] for x in daily[-21:-1]) / 20
+    if None in (rsi_now, rsi_prev, adx) or len(recent) < 4 or vol_sma <= 0:
+        return None
     in_zone = l <= sma50 * (1 + CATCH_ZONE) and h >= sma50 * (1 - CATCH_ZONE)
     if long:
-        trigger = c > o and c >= sma50 * (1 - CATCH_ZONE)
-        sideways_ok = sma50 > sma200
+        candle = c > o and c >= sma50 * (1 - CATCH_ZONE)
+        rsi_turn = rsi_now > 50 and rsi_now > rsi_prev and min(recent) <= 50
     else:
-        trigger = c < o and c <= sma50 * (1 + CATCH_ZONE)
-        sideways_ok = sma50 < sma200
-    checks = {"trend": True, "sideways": sideways_ok, "pullback": in_zone, "trigger": trigger}
+        candle = c < o and c <= sma50 * (1 + CATCH_ZONE)
+        rsi_turn = rsi_now < 50 and rsi_now < rsi_prev and max(recent) >= 50
+    checks = {"trend": True, "adx": adx > CATCH_ADX_MIN, "pullback": in_zone, "rsi": rsi_turn,
+              "volume": last[5] > vol_sma, "candle": candle}
+    ranging = adx < CATCH_ADX_RANGING and min(sma50, sma200) < ref < max(sma50, sma200)
     entry = ref
     if long:
         sl = l * (1 - CATCH_SL_PCT)
         risk = entry - sl
-        resistance = max(x[2] for x in daily[-60:])
-        t1 = entry + 2 * risk
-        t2 = resistance if resistance > t1 else entry + 3 * risk
+        res = max(x[2] for x in daily[-60:])           # previous resistance
+        r2, r3 = entry + 2 * risk, entry + 3 * risk
+        if entry * 1.005 < res < r2:                   # resistance comes before the 1:2 target: stop there
+            t1, t2, adjusted = res * 0.995, r2, True
+        else:
+            t1, t2, adjusted = r2, (res if res > r2 else r3), False
         be = entry * (1 + CATCH_BE_PCT)
     else:
         sl = h * (1 + CATCH_SL_PCT)
         risk = sl - entry
-        support = min(x[3] for x in daily[-60:])
-        t1 = entry - 2 * risk
-        t2 = support if support < t1 else entry - 3 * risk
+        sup = min(x[3] for x in daily[-60:])           # previous support
+        r2, r3 = entry - 2 * risk, entry - 3 * risk
+        if entry * 0.995 > sup > r2:
+            t1, t2, adjusted = sup * 1.005, r2, True
+        else:
+            t1, t2, adjusted = r2, (sup if sup < r2 else r3), False
         be = entry * (1 - CATCH_BE_PCT)
     if risk <= 0 or t1 <= 0 or t2 <= 0:
         return None
     return {
         "side": "bullish" if long else "bearish",
-        "checks": checks, "passed": sum(1 for v in checks.values() if v),
-        "entry": entry, "stop": sl, "t1": t1, "t2": t2, "breakeven_at": be,
+        "checks": checks, "passed": sum(1 for v in checks.values() if v), "ranging": ranging,
+        "entry": entry, "stop": sl, "t1": t1, "t2": t2, "t1_adjusted": adjusted,
+        "rr1": round(abs(t1 - entry) / risk, 2), "breakeven_at": be,
         "risk_pct": round(risk / entry * 100, 2),
+        "adx": round(adx, 1), "rsi": round(rsi_now, 1), "volume_x": round(last[5] / vol_sma, 2),
         "sma50": sma50, "sma200": sma200,
         "dist_sma50_pct": round((ref - sma50) / sma50 * 100, 2),
         "candle_at": last[0],

@@ -485,6 +485,18 @@
     };
   }
   window.cdPaperApi = { stats: tradingStats, account: accountSummary };
+  // Today's paper activity (local midnight), for the Catch Accuracy daily limits: trades opened, net result of trades
+  // closed today, the start-of-day equity it is measured against, and when the last trade closed.
+  window.cdPaperDay = () => {
+    const dayStart = new Date().setHours(0, 0, 0, 0);
+    const at = (o) => o.filledAt || o.createdAt || 0;
+    const filled = state.orders.filter((o) => o.status === "FILLED");
+    const opened = filled.filter((o) => o.action === "OPEN" && at(o) >= dayStart).length;
+    const closes = filled.filter((o) => o.action === "CLOSE" || o.action === "LIQUIDATED");
+    const net = closes.filter((o) => at(o) >= dayStart).reduce((sum, o) => sum + (Number.isFinite(o.net) ? o.net : 0), 0);
+    const lastClose = closes.reduce((max, o) => Math.max(max, at(o)), 0);
+    return { opened, net, lastClose, equityStart: accountTotals().equity - net };
+  };
 
   function renderAccountCard() {
     if (!el("cdAcctValue")) return;
