@@ -3010,6 +3010,99 @@ def _catch_btc_bias(now, ttl):
     return {"side": side, "reason": reason, "price": price, "ema50": ema, "candle_at": candles[-1][0]}
 
 
+
+def _catch_fib_pullback(candles_1h, side, live_price):
+    """Detect 1H EMA20/50 trend + ADX > 20 + 0.5-0.618 Fibonacci pullback."""
+    if len(candles_1h) < 45 or live_price <= 0:
+        return None
+    highs = [c[2] for c in candles_1h]
+    lows = [c[3] for c in candles_1h]
+    closes = [c[4] for c in candles_1h]
+    adx_res = adx(highs, lows, closes, 14)
+    adx_val = adx_res.get("adx_14") or 0
+    if adx_val < 20:
+        return None
+    ema20 = _catch_ema(closes, 20)
+    ema50 = _catch_ema(closes, 50)
+    if not ema20 or not ema50:
+        return None
+    last_candle = candles_1h[-1]
+    lookback = min(35, len(candles_1h) - 1)
+    window = candles_1h[-lookback:]
+
+    if side == "bullish":
+        if not (ema20 > ema50):
+            return None
+        swing_low = min(c[3] for c in window)
+        swing_high = max(c[2] for c in window)
+        diff = swing_high - swing_low
+        if diff <= 0 or (diff / swing_low) < 0.02:
+            return None
+        fib_50 = swing_high - 0.500 * diff
+        fib_618 = swing_high - 0.618 * diff
+        fib_786 = swing_high - 0.786 * diff
+        in_zone = (fib_786 <= live_price <= fib_50) or (fib_786 <= last_candle[3] <= fib_50 and live_price >= fib_618)
+        if not in_zone:
+            return None
+        stop = fib_786 * 0.995
+        risk = live_price - stop
+        if risk <= 0:
+            return None
+        risk_pct = risk / live_price
+        if risk_pct > 0.025:
+            return None
+        t1 = swing_high
+        t2 = swing_high + 0.618 * diff
+        rr1 = round((t1 - live_price) / risk, 1)
+        rr2 = round((t2 - live_price) / risk, 1)
+        if rr1 < 1.2:
+            return None
+        return {
+            "kind": "fib", "state": "ready", "side": "bullish", "timeframe": "fib",
+            "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
+            "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
+            "adx": adx_val, "fib_zone": "0.50 – 0.618", "fib_level": fib_618,
+            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_candle[0],
+            "checks": {"adx": True, "ema_trend": True, "golden_pocket": True, "risk": True}
+        }
+    elif side == "bearish":
+        if not (ema20 < ema50):
+            return None
+        swing_low = min(c[3] for c in window)
+        swing_high = max(c[2] for c in window)
+        diff = swing_high - swing_low
+        if diff <= 0 or (diff / swing_low) < 0.02:
+            return None
+        fib_50 = swing_low + 0.500 * diff
+        fib_618 = swing_low + 0.618 * diff
+        fib_786 = swing_low + 0.786 * diff
+        in_zone = (fib_50 <= live_price <= fib_786) or (fib_50 <= last_candle[2] <= fib_786 and live_price <= fib_618)
+        if not in_zone:
+            return None
+        stop = fib_786 * 1.005
+        risk = stop - live_price
+        if risk <= 0:
+            return None
+        risk_pct = risk / live_price
+        if risk_pct > 0.025:
+            return None
+        t1 = swing_low
+        t2 = swing_low - 0.618 * diff
+        rr1 = round((live_price - t1) / risk, 1)
+        rr2 = round((live_price - t2) / risk, 1)
+        if rr1 < 1.2:
+            return None
+        return {
+            "kind": "fib", "state": "ready", "side": "bearish", "timeframe": "fib",
+            "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
+            "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
+            "adx": adx_val, "fib_zone": "0.50 – 0.618", "fib_level": fib_618,
+            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_candle[0],
+            "checks": {"adx": True, "ema_trend": True, "golden_pocket": True, "risk": True}
+        }
+    return None
+
+
 def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf):
     """Detect the last closed trigger candle sweeping a prior key level and reclaiming it."""
     if len(key_candles) < CATCH_LEVEL_LOOKBACK + 2 or len(trigger_candles) < 3 or live_price <= 0:
@@ -3072,13 +3165,21 @@ def _catch_scan(ttl=CATCH_TTL_S):
             # Key levels come from closed 4H candles; triggers are confirmed only on closed 1H/15m candles.
             keys4h = _catch_closed(_catch_klines(base, "4h", 80, ttl), 4 * 3600, now)
             keys1d = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
+            triggers_1h = None
             for tf, interval, seconds, limit in (("1h", "1h", 3600, 100), ("15m", "15m", 900, 120)):
                 triggers = _catch_closed(_catch_klines(base, interval, limit, ttl), seconds, now)
+                if tf == "1h":
+                    triggers_1h = triggers
                 for key_tf, keys in (("4H", keys4h), ("1D", keys1d)):
                     item = _catch_sfp(keys, triggers, bias["side"], price, tf, key_tf)
                     if item:
                         found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
                                       "volume_usdt": coin.get("volume_usdt"), "spark": [], **item})
+            if triggers_1h and len(triggers_1h) >= 45:
+                fib_item = _catch_fib_pullback(triggers_1h, bias["side"], price)
+                if fib_item:
+                    found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
+                                  "volume_usdt": coin.get("volume_usdt"), "spark": [], **fib_item})
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
             print(f"Catch Accuracy skipped {base}: {error}")
         # Prefer 1h swing signals; avoid duplicate symbol/timeframe/key combinations.

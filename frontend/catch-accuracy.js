@@ -54,26 +54,43 @@
     const rank = window.cdVolumeRank?.(item.base);
     const move = (v) => ((Number(v) - Number(item.entry)) / Number(item.entry)) * 100;
     const targetLabel = (n) => `${n > 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}%`;
+    const isFib = item.kind === "fib";
+
+    const badgePill = isFib ? `📐 FIB PULLBACK · ${dir}` : `✅ SFP CONFIRMED · ${dir}`;
+    const tagText = isFib ? `GOLDEN POCKET 0.5–0.618 (ADX ${item.adx || 25})` : `${esc(item.key_tf || "KEY LEVEL")} LIQUIDITY SWEEP`;
+    const subTitle = isFib ? `1H FIB PULLBACK · ADX ${item.adx || 25}` : `${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}`;
+
+    const step2Title = isFib ? "Trend & ADX" : "Liquidity";
+    const step2Desc = isFib ? `ADX ${item.adx || 20}+ · EMA20/50` : `${esc(item.key_tf || "")} level swept`;
+    const step3Title = isFib ? "Discount Zone" : "Reclaim";
+    const step3Desc = isFib ? "0.50 – 0.618 Golden Pocket" : "Closed candle back inside";
+    const step4Title = "Risk";
+    const step4Desc = `${pct(item.risk_pct)} · 1:${item.rr1 || 1.5} / 1:${item.rr2 || 2.5}`;
+
+    const infoLine = isFib
+      ? `<i>Fib 0.618</i> <b>${money(item.fib_level)}</b> · <i>High</i> <b>${money(item.swing_high)}</b> · <i>Low</i> <b>${money(item.swing_low)}</b> · ${ago(item.candle_at)}`
+      : `<i>Key level</i> <b>${money(item.level)}</b> · <i>Trigger close</i> <b>${money(item.trigger_close)}</b> · ${ago(item.candle_at)}`;
+
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       <div class="cd-fr-head">
         <span class="cd-fr-avatar">${window.cdFormat?.avatar ? window.cdFormat.avatar(item.base) : ""}</span>
-        <div class="cd-fr-id"><strong>${esc(item.base)}<span>/USDT</span></strong><small>${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}</small></div>
+        <div class="cd-fr-id"><strong>${esc(item.base)}<span>/USDT</span></strong><small>${subTitle}</small></div>
         <div class="cd-fr-px"><b>${money(price)}</b><small class="${change >= 0 ? "cd-up" : "cd-down"}">${pct(change, true)}</small></div>${ticketStar(item.base)}
       </div>
-      <div class="cd-fr-tags"><span class="cd-fr-pill">✅ SFP CONFIRMED · ${dir}</span><span class="cd-fr-tag">${esc(item.key_tf || "KEY LEVEL")} LIQUIDITY SWEEP</span></div>
+      <div class="cd-fr-tags"><span class="cd-fr-pill">${badgePill}</span><span class="cd-fr-tag">${tagText}</span></div>
       <div class="cd-fr-levels">
         <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
-        <div><span>Stop · ${pct(item.risk_pct)}</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">Risk capped at 1.5%</em></div>
-        <div><span>Target 1 · 1:1.5</span><b>${money(item.t1)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t1))})</em></div>
-        <div><span>Target 2 · 1:2.5</span><b>${money(item.t2)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t2))})</em></div>
+        <div><span>Stop · ${pct(item.risk_pct)}</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">${isFib ? "Past 0.786 Fib" : "Risk capped at 1.5%"}</em></div>
+        <div><span>Target 1 · 1:${item.rr1 || 1.5}</span><b>${money(item.t1)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t1))})</em></div>
+        <div><span>Target 2 · 1:${item.rr2 || 2.5}</span><b>${money(item.t2)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t2))})</em></div>
       </div>
       <div class="cd-fr-steps cd-fr-steps-wide">
         <div class="cd-fr-step is-ok"><b>BTC 4H</b><i>✓</i><small>${bull ? "Bullish · Longs only" : "Bearish · Shorts only"}</small></div>
-        <div class="cd-fr-step is-ok"><b>Liquidity</b><i>✓</i><small>${esc(item.key_tf || "")} level swept</small></div>
-        <div class="cd-fr-step is-ok"><b>Reclaim</b><i>✓</i><small>Closed candle back inside</small></div>
-        <div class="cd-fr-step is-ok"><b>Risk</b><i>✓</i><small>${pct(item.risk_pct)} · 1:1.5 / 1:2.5</small></div>
+        <div class="cd-fr-step is-ok"><b>${step2Title}</b><i>✓</i><small>${step2Desc}</small></div>
+        <div class="cd-fr-step is-ok"><b>${step3Title}</b><i>✓</i><small>${step3Desc}</small></div>
+        <div class="cd-fr-step is-ok"><b>${step4Title}</b><i>✓</i><small>${step4Desc}</small></div>
       </div>
-      <small class="cd-fr-ema"><i>Key level</i> <b>${money(item.level)}</b> · <i>Trigger close</i> <b>${money(item.trigger_close)}</b> · ${ago(item.candle_at)}</small>
+      <small class="cd-fr-ema">${infoLine}</small>
       <div class="cd-fr-actions">
         <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}" data-catch-ticket="${esc(item.base)}" data-catch-side="${bull ? "BUY" : "SELL"}" data-catch-stop="${esc(item.stop)}" data-catch-target="${esc(item.t1)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
         <button type="button" class="cd-fr-analysis" data-catch-coin="${esc(item.base)}">📊 Analysis</button>
@@ -86,7 +103,7 @@
     const side = btc.side || "neutral";
     const biasText = side === "bullish" ? "BTC 4H BULLISH · LONGS ONLY" : side === "bearish" ? "BTC 4H BEARISH · SHORTS ONLY" : "BTC 4H NEUTRAL · WAIT";
     const biasClass = side === "bullish" ? "is-bull" : side === "bearish" ? "is-bear" : "";
-    const list = (data?.full || []).filter((x) => x.timeframe === tab);
+    const list = (data?.full || []).filter((x) => tab === "fib" ? (x.timeframe === "fib" || x.kind === "fib") : (x.timeframe === tab && x.kind !== "fib"));
     const all = data?.full || [];
     if (!data) {
       meta.textContent = error ? "Scan unavailable" : "Checking BTC bias and swing setups…";
@@ -97,8 +114,8 @@
     const btcEma = Number(btc.ema50) > 0 ? ` · 4H EMA 50 ${money(btc.ema50)}` : "";
     const banner = `<div class="cd-fr-summary ${biasClass}"><div><b>${esc(biasText)}</b><small>${esc(btc.reason || data.message || "")}${btcPrice}${btcEma}</small></div></div>`;
     meta.textContent = `${list.length} ${tab.toUpperCase()} setups · ${all.length} total · scanned ${Number(data.scanned) || 0} coins`;
-    const empty = side === "neutral" ? "BTC trend is mixed" : `No confirmed ${tab.toUpperCase()} SFP setups right now`;
-    const detail = side === "neutral" ? (btc.reason || "Waiting for a clearer BTC 4H direction. No direction is being forced.") : "The scanner needs a closed-candle sweep and reclaim, BTC trend alignment, and a stop within the 1.5% cap. No setup is not a trade signal.";
+    const empty = side === "neutral" ? "BTC trend is mixed" : tab === "fib" ? "No confirmed Fib Golden Pocket setups right now" : `No confirmed ${tab.toUpperCase()} SFP setups right now`;
+    const detail = side === "neutral" ? (btc.reason || "Waiting for a clearer BTC 4H direction. No direction is being forced.") : tab === "fib" ? "Waiting for coins in an active trend (ADX > 20, EMA20/50 aligned) currently pulling back into the 0.50–0.618 Golden Pocket." : "The scanner needs a closed-candle sweep and reclaim, BTC trend alignment, and a stop within the 1.5% cap. No setup is not a trade signal.";
     results.innerHTML = banner + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${esc(empty)}</strong><p>${esc(detail)}</p></div>`) + '<p class="cd-fr-note">Closed-candle SFP swing scanner with BTC 4H trend alignment. Levels are estimates from market data, not guaranteed outcomes. Confirm the live chart, slippage, fees, and position size; risk no more than 1% of account equity per trade. This setup has not been independently backtested.</p>';
   }
   async function load(fresh = false) {
