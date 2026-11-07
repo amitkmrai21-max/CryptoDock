@@ -2403,7 +2403,8 @@ def get_owner_focus_radar(authorization: str = Header(None), refresh: str = ""):
         # Opening the page uses the shared cache (10 min); the Refresh button (refresh=1) forces a new scan.
         ttl = FOCUS_REFRESH_MIN_GAP_S if refresh == "1" else 600
         return cached_call(focus_radar_cache, "v2", ttl, _build_focus_radar)
-    except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy, Exception) as error:
+        print(f"Catch Accuracy endpoint error: {error}")
         raise HTTPException(status_code=503, detail="Market scan is temporarily unavailable. Please try again shortly.") from error
 
 
@@ -3058,7 +3059,7 @@ def _catch_fib_pullback(candles_1h, side, live_price):
         if rr1 < 1.2:
             return None
         return {
-            "kind": "fib", "state": "ready", "side": "bullish", "timeframe": "fib",
+            "kind": "fib", "state": "ready", "side": "bullish", "timeframe": "fib", "key_tf": "1H", "level": fib_618, "trigger_close": live_price,
             "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
             "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
             "adx": adx_val, "fib_zone": "0.50 – 0.618", "fib_level": fib_618,
@@ -3093,7 +3094,7 @@ def _catch_fib_pullback(candles_1h, side, live_price):
         if rr1 < 1.2:
             return None
         return {
-            "kind": "fib", "state": "ready", "side": "bearish", "timeframe": "fib",
+            "kind": "fib", "state": "ready", "side": "bearish", "timeframe": "fib", "key_tf": "1H", "level": fib_618, "trigger_close": live_price,
             "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
             "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
             "adx": adx_val, "fib_zone": "0.50 – 0.618", "fib_level": fib_618,
@@ -3187,7 +3188,7 @@ def _catch_scan(ttl=CATCH_TTL_S):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         rows = [item for group in pool.map(one, ranked) for item in group]
-    rows.sort(key=lambda r: (0 if r["timeframe"] == "1h" else 1, 0 if r["key_tf"] == "1D" else 1, -float(r.get("volume_usdt") or 0)))
+    rows.sort(key=lambda r: (0 if r.get("timeframe") == "1h" else 1, 0 if r.get("key_tf") == "1D" else 1, -float(r.get("volume_usdt") or 0)))
     unique, seen = [], set()
     for row in rows:
         key = (row["base"], row["timeframe"])
@@ -3206,7 +3207,8 @@ def get_owner_catch_accuracy(authorization: str = Header(None), refresh: str = "
         if refresh == "1":
             return cached_call(catch_cache, "all", FOCUS_REFRESH_MIN_GAP_S, lambda: _catch_scan(FOCUS_REFRESH_MIN_GAP_S), max_entries=1)
         return cached_call(catch_cache, "all", CATCH_TTL_S, _catch_scan, max_entries=1)
-    except (requests.exceptions.RequestException, ValueError, BinanceBusy) as error:
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy, Exception) as error:
+        print(f"Catch Accuracy endpoint error: {error}")
         raise HTTPException(status_code=503, detail="Catch Accuracy scan is temporarily unavailable. Please try again shortly.") from error
 
 
