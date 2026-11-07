@@ -2957,143 +2957,145 @@ def get_owner_pro_swings(authorization: str = Header(None), refresh: str = ""):
 
 
 # ---------------------------------------------------------------------------
-# Catch Accuracy (owner only): "ADX + SMA" simple swing on the DAILY chart (4 rules).
-#   Side   : price above the 200 SMA = look for longs, below = look for shorts.
-#   Checks : 1 trend (price against SMA 200), 2 ADX(14) above 20 (the market is not sideways),
-#            3 pullback (last closed candle within 2% of the SMA 50), 4 trigger: a green candle (long) / red candle (short)
-#            there, with volume above its 20-candle average. Candle and volume are shown as two ticks; all five = full match.
-#   Levels : SL = 4% beyond the trigger candle's low (long) / high (short); Target 1 = 1:2 risk-reward (about 8%),
-#            Target 2 = 1:3; at +4% profit the stop can move to breakeven. Risk at most 1% of the account per trade.
-# ---------------------------------------------------------------------------
+# Catch Accuracy (owner-only): BTC-aligned SFP swing setups, 15m and 1h.
+# A signal is a closed-candle liquidity sweep/reclaim aligned with BTC 4H EMA50 bias.
 CATCH_TOP_N = 60
-CATCH_TTL_S = 600
-CATCH_ZONE = 0.02       # "touch or +-2%" around the 50 SMA
-CATCH_SL_PCT = 0.04     # stop beyond the trigger candle
-CATCH_BE_PCT = 0.04     # move the stop to breakeven at +4%
-CATCH_ADX_MIN = 20
-CATCH_CHECKS = ("trend", "adx", "pullback", "volume", "candle")
+CATCH_TTL_S = 300
+CATCH_MAX_RISK = 0.015
+CATCH_LEVEL_LOOKBACK = 24
+CATCH_MIN_SWEEP_PCT = 0.001
+CATCH_STOP_BUFFER_PCT = 0.001
 catch_cache = {}
 catch_klines_cache = {}
 
 
 def _catch_klines(base, interval, limit, ttl):
-    """[t, o, h, l, c, base_volume] candles, oldest first."""
+    """Candles as [timestamp_seconds, open, high, low, close, base_volume], oldest first."""
     def fetch():
         raw = binance_get("/api/v3/klines", {"symbol": base + "USDT", "interval": interval, "limit": limit}, weight=2, timeout=10)
         return [[int(c[0]) // 1000, float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])] for c in raw]
-    return cached_call(catch_klines_cache, (base, interval, limit), ttl, fetch, max_entries=400)
+    return cached_call(catch_klines_cache, (base, interval, limit), ttl, fetch, max_entries=500)
 
 
-def _sma(values, period):
-    return sum(values[-period:]) / period
-
-
-def _wilder(values, period):
-    """Wilder's smoothing (what TradingView uses for RSI and ADX). Returns a list aligned to `values`."""
+def _catch_ema(values, period):
     if len(values) < period:
-        return []
-    out = [sum(values[:period]) / period]
-    for v in values[period:]:
-        out.append((out[-1] * (period - 1) + v) / period)
-    return [None] * (period - 1) + out
+        return None
+    alpha = 2.0 / (period + 1.0)
+    value = sum(values[:period]) / period
+    for item in values[period:]:
+        value = item * alpha + value * (1 - alpha)
+    return value
 
 
-def _catch_adx(candles, period=14):
-    plus, minus, tr = [0.0], [0.0], [candles[0][2] - candles[0][3]]
-    for i in range(1, len(candles)):
-        up, down = candles[i][2] - candles[i - 1][2], candles[i - 1][3] - candles[i][3]
-        plus.append(up if up > down and up > 0 else 0.0)
-        minus.append(down if down > up and down > 0 else 0.0)
-        h, l, pc = candles[i][2], candles[i][3], candles[i - 1][4]
-        tr.append(max(h - l, abs(h - pc), abs(l - pc)))
-    s_tr, s_p, s_m = _wilder(tr, period), _wilder(plus, period), _wilder(minus, period)
-    dx = []
-    for t, p, m in zip(s_tr, s_p, s_m):
-        if t is None or not t:
-            dx.append(None)
-            continue
-        pdi, mdi = 100 * p / t, 100 * m / t
-        dx.append(0.0 if pdi + mdi == 0 else 100 * abs(pdi - mdi) / (pdi + mdi))
-    valid = [d for d in dx if d is not None]
-    return [None] * (len(dx) - len(valid)) + _wilder(valid, period)
+def _catch_closed(candles, seconds, now):
+    return [c for c in candles if c[0] + seconds <= now]
 
 
-def _catch_setup(daily, price, now):
-    """ADX + SMA swing checks for one coin. None when there is not enough history or no side (price on the 200 SMA)."""
-    daily = [c for c in daily if c[0] + 86400 <= now]
-    if len(daily) < 205:
-        return None
-    closes = [c[4] for c in daily]
-    # Pegged / stable-like coins (e.g. a $1 token) have no swings to trade: skip when the last 60 days stayed inside an 8% band.
-    if (max(c[2] for c in daily[-60:]) - min(c[3] for c in daily[-60:])) / min(c[3] for c in daily[-60:]) < 0.08:
-        return None
-    sma50, sma200 = _sma(closes, 50), _sma(closes, 200)
-    last = daily[-1]
-    ref = price if price > 0 else last[4]
-    if ref == sma200:
-        return None
-    long = ref > sma200
-    o, h, l, c = last[1], last[2], last[3], last[4]
-    adx = _catch_adx(daily)[-1]
-    vol_sma = sum(x[5] for x in daily[-21:-1]) / 20
-    if adx is None or vol_sma <= 0:
-        return None
-    in_zone = l <= sma50 * (1 + CATCH_ZONE) and h >= sma50 * (1 - CATCH_ZONE)
-    candle = (c > o and c >= sma50 * (1 - CATCH_ZONE)) if long else (c < o and c <= sma50 * (1 + CATCH_ZONE))
-    checks = {"trend": True, "adx": adx > CATCH_ADX_MIN, "pullback": in_zone,
-              "volume": last[5] > vol_sma, "candle": candle}
-    entry = ref
-    if long:
-        sl = l * (1 - CATCH_SL_PCT)
-        risk = entry - sl
-        t1, t2 = entry + 2 * risk, entry + 3 * risk
-        be = entry * (1 + CATCH_BE_PCT)
+def _catch_btc_bias(now, ttl):
+    candles = _catch_closed(_catch_klines("BTC", "4h", 100, ttl), 4 * 3600, now)
+    if len(candles) < 55:
+        return {"side": "neutral", "reason": "Not enough closed BTC 4H candles", "price": None, "ema50": None}
+    closes = [c[4] for c in candles]
+    ema = _catch_ema(closes, 50)
+    prior_ema = _catch_ema(closes[:-1], 50)
+    price = closes[-1]
+    if not ema or not prior_ema or ema <= 0:
+        side, reason = "neutral", "BTC 4H trend data is incomplete"
+    elif price > ema and ema > prior_ema:
+        side, reason = "bullish", "BTC 4H close above a rising EMA 50"
+    elif price < ema and ema < prior_ema:
+        side, reason = "bearish", "BTC 4H close below a falling EMA 50"
     else:
-        sl = h * (1 + CATCH_SL_PCT)
-        risk = sl - entry
-        t1, t2 = entry - 2 * risk, entry - 3 * risk
-        be = entry * (1 - CATCH_BE_PCT)
-    if risk <= 0 or t1 <= 0 or t2 <= 0:
+        side, reason = "neutral", "BTC 4H trend is mixed; waiting"
+    return {"side": side, "reason": reason, "price": price, "ema50": ema, "candle_at": candles[-1][0]}
+
+
+def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf):
+    """Detect the last closed trigger candle sweeping a prior key level and reclaiming it."""
+    if len(key_candles) < CATCH_LEVEL_LOOKBACK + 2 or len(trigger_candles) < 3 or live_price <= 0:
+        return None
+    trigger = trigger_candles[-1]
+    prior = [c for c in key_candles[:-1][-CATCH_LEVEL_LOOKBACK:]]
+    if not prior:
+        return None
+    if side == "bullish":
+        level = min(c[3] for c in prior)
+        wick = trigger[3]
+        reclaimed = wick < level and min(trigger[1], trigger[4]) > level
+        sweep_pct = (level - wick) / level if level > 0 else 0
+        stop = wick * (1 - CATCH_STOP_BUFFER_PCT)
+        risk = live_price - stop
+        t1, t2 = live_price + 1.5 * risk, live_price + 2.5 * risk
+    else:
+        level = max(c[2] for c in prior)
+        wick = trigger[2]
+        reclaimed = wick > level and max(trigger[1], trigger[4]) < level
+        sweep_pct = (wick - level) / level if level > 0 else 0
+        stop = wick * (1 + CATCH_STOP_BUFFER_PCT)
+        risk = stop - live_price
+        t1, t2 = live_price - 1.5 * risk, live_price - 2.5 * risk
+    if not reclaimed or sweep_pct < CATCH_MIN_SWEEP_PCT or risk <= 0 or live_price <= 0:
+        return None
+    risk_pct = risk / live_price
+    if risk_pct > CATCH_MAX_RISK or t1 <= 0 or t2 <= 0:
+        return None
+    # Show only if live price has not materially invalidated the reclaim after candle close.
+    drift = abs(live_price - trigger[4]) / trigger[4] if trigger[4] else 1
+    if drift > 0.01:
         return None
     return {
-        "side": "bullish" if long else "bearish",
-        "checks": checks, "passed": sum(1 for v in checks.values() if v),
-        "entry": entry, "stop": sl, "t1": t1, "t2": t2, "breakeven_at": be,
-        "risk_pct": round(risk / entry * 100, 2),
-        "adx": round(adx, 1), "volume_x": round(last[5] / vol_sma, 2),
-        "sma50": sma50, "sma200": sma200,
-        "dist_sma50_pct": round((ref - sma50) / sma50 * 100, 2),
-        "candle_at": last[0],
+        "kind": "sfp", "state": "ready", "side": side, "timeframe": timeframe, "key_tf": key_tf,
+        "entry": live_price, "trigger_close": trigger[4], "stop": stop, "t1": t1, "t2": t2,
+        "risk_pct": round(risk_pct * 100, 2), "rr1": 2.0, "rr2": 3.0,
+        "level": level, "sweep_pct": round(sweep_pct * 100, 3), "candle_at": trigger[0],
+        "checks": {"btc_bias": True, "sweep": True, "close_back": True, "risk": True, "fresh": True},
     }
 
 
 def _catch_scan(ttl=CATCH_TTL_S):
+    now = time.time()
+    bias = _catch_btc_bias(now, ttl)
     payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
     coins = json.loads(payload["raw"]).get("coins") or []
     ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
               if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SWING_MIN_VOLUME_USDT][:CATCH_TOP_N]
-    now = time.time()
+    if bias["side"] == "neutral":
+        return {"at": int(now), "scanned": 0, "btc": bias, "full": [], "almost": [], "message": "BTC 4H trend is mixed. No directional setups are being promoted."}
 
     def one(coin):
         base = coin["base"]
+        price = float(coin.get("price") or 0)
+        if price <= 0:
+            return []
+        found = []
         try:
-            daily = _catch_klines(base, "1d", 260, ttl)
-            found = _catch_setup(daily, float(coin.get("price") or 0), now)
+            # Key levels come from closed 4H candles; triggers are confirmed only on closed 1H/15m candles.
+            keys4h = _catch_closed(_catch_klines(base, "4h", 80, ttl), 4 * 3600, now)
+            keys1d = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
+            for tf, interval, seconds, limit in (("1h", "1h", 3600, 100), ("15m", "15m", 900, 120)):
+                triggers = _catch_closed(_catch_klines(base, interval, limit, ttl), seconds, now)
+                for key_tf, keys in (("4H", keys4h), ("1D", keys1d)):
+                    item = _catch_sfp(keys, triggers, bias["side"], price, tf, key_tf)
+                    if item:
+                        found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
+                                      "volume_usdt": coin.get("volume_usdt"), "spark": [], **item})
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
             print(f"Catch Accuracy skipped {base}: {error}")
-            return None
-        if not found or found["passed"] < len(CATCH_CHECKS) - 1 or not found["checks"]["pullback"]:
-            return None  # shown: full matches, and coins sitting at the 50 SMA with one thing still missing
-        closed = [c for c in daily if c[0] + 86400 <= now]
-        return {"base": base, "price": float(coin.get("price") or 0), "change_percent": coin.get("change_percent"),
-                "spark": [round(c[4], 8) for c in closed[-24:]], **found}
+        # Prefer 1h swing signals; avoid duplicate symbol/timeframe/key combinations.
+        return found
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        rows = [r for r in pool.map(one, ranked) if r]
-    rows.sort(key=lambda r: (-r["passed"], abs(r["dist_sma50_pct"])))
-    return {"at": int(now), "scanned": len(ranked),
-            "full": [r for r in rows if r["passed"] == len(CATCH_CHECKS)],
-            "almost": [r for r in rows if r["passed"] < len(CATCH_CHECKS)][:30]}
+        rows = [item for group in pool.map(one, ranked) for item in group]
+    rows.sort(key=lambda r: (0 if r["timeframe"] == "1h" else 1, 0 if r["key_tf"] == "1D" else 1, -float(r.get("volume_usdt") or 0)))
+    unique, seen = [], set()
+    for row in rows:
+        key = (row["base"], row["timeframe"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(row)
+    return {"at": int(now), "scanned": len(ranked), "btc": bias,
+            "full": unique[:80], "almost": [],
+            "message": "Signals use closed candles; confirm price and risk before any trade."}
 
 
 @app.get("/api/owner/catch-accuracy")
