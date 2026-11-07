@@ -3115,3 +3115,139 @@ body[data-theme="light"] .cd-more-tile.cd-more-pro-swings {
 
 /* Catch Accuracy more-menu tile (teal) */
 .cd-more-tile.cd-more-catch { border-color: rgba(20, 184, 166, .38); }
+
+
+/* Catch Accuracy mobile layout fixes: prevent screen overflow and cutoffs */
+#cdCatchAcc {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+#cdCatchAcc .cd-dash {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+#cdCatchAcc .cd-fr-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+#cdCatchAcc .cd-pills {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  max-width: 100%;
+  gap: 6px;
+  padding: 2px 0;
+}
+#cdCatchAcc .cd-pills::-webkit-scrollbar {
+  display: none;
+}
+#cdCatchAcc .cd-pill {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+/* Fix card header when no sparkline exists (avatar, id, price, star) */
+#cdCatchAcc .cd-fr-head {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 6px;
+}
+#cdCatchAcc .cd-fr-px {
+  min-width: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+#cdCatchAcc .cd-fr-px b {
+  font-size: 14px;
+  line-height: 1.2;
+}
+#cdCatchAcc .cd-fr-px small {
+  font-size: 10.5px;
+}
+
+/* 2x2 grid for 4 checklist steps so Discount Zone and Risk fit cleanly without clipping */
+#cdCatchAcc .cd-fr-steps.cd-fr-steps-wide,
+.cd-fr-steps.cd-fr-steps-wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 6px;
+}
+#cdCatchAcc .cd-fr-steps.cd-fr-steps-wide .cd-fr-step {
+  padding: 5px 7px;
+  min-width: 0;
+  overflow: hidden;
+}
+#cdCatchAcc .cd-fr-steps.cd-fr-steps-wide .cd-fr-step b {
+  font-size: 9.5px;
+  padding-right: 14px;
+}
+#cdCatchAcc .cd-fr-steps.cd-fr-steps-wide .cd-fr-step small {
+  font-size: 8.5px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Levels 4-column row: prevent horizontal overflow on mobile */
+#cdCatchAcc .cd-fr-levels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+#cdCatchAcc .cd-fr-levels > div {
+  padding: 5px 2px;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  box-sizing: border-box;
+}
+#cdCatchAcc .cd-fr-levels span {
+  font-size: 7.5px;
+  padding: 1px 2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#cdCatchAcc .cd-fr-levels b {
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#cdCatchAcc .cd-fr-levels em {
+  font-size: 8px;
+  white-space: normal;
+  line-height: 1.15;
+  display: block;
+}
+
+#cdCatchAcc .cd-fr-tags {
+  flex-wrap: wrap;
+  row-gap: 5px;
+}
+#cdCatchAcc .cd-fr-pill {
+  font-size: 10px;
+  padding: 4px 8px;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+}
+#cdCatchAcc .cd-fr-tag {
+  font-size: 8.5px;
+  padding: 3px 7px;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+}
+#cdCatchAcc .cd-fr-ema {
+  font-size: 9px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
