@@ -80,9 +80,9 @@
       <div class="cd-fr-tags"><span class="cd-fr-pill">${badgePill}</span><span class="cd-fr-tag">${tagText}</span></div>
       <div class="cd-fr-levels">
         <div><span>Entry</span><b>${money(item.entry)}</b><em></em></div>
-        <div><span>Stop · ${pct(item.risk_pct)}</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">${isFib ? "Past 0.786 Fib" : "Risk capped at 1.5%"}</em></div>
-        <div><span>Target 1 · 1:${item.rr1 || 1.5}</span><b>${money(item.t1)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t1))})</em></div>
-        <div><span>Target 2 · 1:${item.rr2 || 2.5}</span><b>${money(item.t2)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t2))})</em></div>
+        <div><span>Stop · ${pct(item.risk_pct)}</span><b class="cd-down">${money(item.stop)}</b><em class="cd-down">${isFib ? "Past 0.786" : "Max 1.5%"}</em></div>
+        <div><span>T1 · 1:${item.rr1 || 1.5}</span><b>${money(item.t1)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t1))})</em></div>
+        <div><span>T2 · 1:${item.rr2 || 2.5}</span><b>${money(item.t2)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t2))})</em></div>
       </div>
       <div class="cd-fr-steps cd-fr-steps-wide">
         <div class="cd-fr-step is-ok"><b>BTC 4H</b><i>✓</i><small>${bull ? "Bullish · Longs only" : "Bearish · Shorts only"}</small></div>
