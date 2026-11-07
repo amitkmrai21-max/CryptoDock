@@ -98,14 +98,25 @@
     </article>`;
   }
   function render() {
+    const all = data?.full || [];
+    const count1h = all.filter((x) => x.timeframe === "1h" && x.kind !== "fib").length;
+    const count15m = all.filter((x) => x.timeframe === "15m" && x.kind !== "fib").length;
+    const countFib = all.filter((x) => x.timeframe === "fib" || x.kind === "fib").length;
+
+    const b1h = document.querySelector('#cdCatchTabs [data-catch-tab="1h"]');
+    const b15m = document.querySelector('#cdCatchTabs [data-catch-tab="15m"]');
+    const bfib = document.querySelector('#cdCatchTabs [data-catch-tab="fib"]');
+    if (b1h) b1h.textContent = data ? `1H Swings (${count1h})` : "1H Swings";
+    if (b15m) b15m.textContent = data ? `15m Swings (${count15m})` : "15m Swings";
+    if (bfib) bfib.textContent = data ? `📐 Fib + Trend (${countFib})` : "📐 Fib + Trend";
+
     document.querySelectorAll("#cdCatchTabs button").forEach((b) => b.classList.toggle("is-active", b.dataset.catchTab === tab));
     const btc = data?.btc || {};
     const side = btc.side || "neutral";
     const biasText = side === "bullish" ? "BTC 4H BULLISH · LONGS ONLY" : side === "bearish" ? "BTC 4H BEARISH · SHORTS ONLY" : "BTC 4H NEUTRAL · WAIT";
     const biasClass = side === "bullish" ? "is-bull" : side === "bearish" ? "is-bear" : "";
     const list = (data?.full || []).filter((x) => tab === "fib" ? (x.timeframe === "fib" || x.kind === "fib") : (x.timeframe === tab && x.kind !== "fib"));
-    const all = data?.full || [];
-    if (!data) {
+        if (!data) {
       meta.textContent = error ? "Scan unavailable" : "Checking BTC bias and swing setups…";
       results.innerHTML = error ? `<p class="cd-focus-error">${esc(error)}</p>` : '<p class="cd-focus-loading">Scanning liquid coins on closed 15m / 1H candles…</p>';
       return;
