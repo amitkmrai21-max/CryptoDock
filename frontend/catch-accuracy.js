@@ -56,19 +56,27 @@
     const targetLabel = (n) => `${n > 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}%`;
     const isFib = item.kind === "fib";
 
-    const badgePill = isFib ? `📐 FIB PULLBACK · ${dir}` : `✅ SFP CONFIRMED · ${dir}`;
-    const tagText = isFib ? `GOLDEN POCKET 0.5–0.618 (ADX ${item.adx || 25})` : `${esc(item.key_tf || "KEY LEVEL")} LIQUIDITY SWEEP`;
-    const subTitle = isFib ? `1H FIB PULLBACK · ADX ${item.adx || 25}` : `${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}`;
+    const badgePill = isFib
+      ? (item.trigger_state === "CONFIRMED" ? `🎯 SMART MTF · ${dir}` : `⏳ MTF IN ZONE · ${dir}`)
+      : `✅ SFP CONFIRMED · ${dir}`;
+    const tagText = isFib
+      ? `1W/1D PIVOT + FIB 0.618 + 15m REJECT`
+      : `${esc(item.key_tf || "KEY LEVEL")} LIQUIDITY SWEEP`;
+    const subTitle = isFib
+      ? `1W·1D·1H·15m SMART CONFLUENCE · ${item.trigger_state === "CONFIRMED" ? "TRIGGER CONFIRMED" : "IN ZONE"}`
+      : `${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}`;
 
-    const step2Title = isFib ? "Trend & ADX" : "Liquidity";
+    const step1Title = isFib ? "1W/1D Levels" : "BTC 4H";
+    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
+    const step2Title = isFib ? "1H Trend & ADX" : "Liquidity";
     const step2Desc = isFib ? `ADX ${item.adx || 20}+ · EMA20/50` : `${esc(item.key_tf || "")} level swept`;
-    const step3Title = isFib ? "Discount Zone" : "Reclaim";
-    const step3Desc = isFib ? "0.50 – 0.618 Golden Pocket" : "Closed candle back inside";
-    const step4Title = "Risk";
-    const step4Desc = `${pct(item.risk_pct)} · 1:${item.rr1 || 1.5} / 1:${item.rr2 || 2.5}`;
+    const step3Title = isFib ? "Fib OTE Zone" : "Reclaim";
+    const step3Desc = isFib ? (item.fib_zone || "0.50 – 0.618 OTE") : "Closed candle back inside";
+    const step4Title = isFib ? "15m Trigger" : "Risk";
+    const step4Desc = isFib ? (item.trigger_state === "CONFIRMED" ? "Rejection Wick Confirmed" : "In Confluence Zone") : `${pct(item.risk_pct)} · 1:${item.rr1 || 1.5} / 1:${item.rr2 || 2.5}`;
 
     const infoLine = isFib
-      ? `<i>Fib 0.618</i> <b>${money(item.fib_level)}</b> · <i>High</i> <b>${money(item.swing_high)}</b> · <i>Low</i> <b>${money(item.swing_low)}</b> · ${ago(item.candle_at)}`
+      ? `<i>1W Pivot</i> <b>${money(item.w_level)}</b> · <i>1D Level</i> <b>${money(item.d_level)}</b> · <i>Fib 0.618</i> <b>${money(item.fib_level)}</b> · ${ago(item.candle_at)}`
       : `<i>Key level</i> <b>${money(item.level)}</b> · <i>Trigger close</i> <b>${money(item.trigger_close)}</b> · ${ago(item.candle_at)}`;
 
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
@@ -85,7 +93,7 @@
         <div><span>T2 · 1:${item.rr2 || 2.5}</span><b>${money(item.t2)}</b><em class="${bull ? "cd-up" : "cd-down"}">(${targetLabel(move(item.t2))})</em></div>
       </div>
       <div class="cd-fr-steps cd-fr-steps-wide">
-        <div class="cd-fr-step is-ok"><b>BTC 4H</b><i>✓</i><small>${bull ? "Bullish · Longs only" : "Bearish · Shorts only"}</small></div>
+        <div class="cd-fr-step is-ok"><b>${step1Title}</b><i>✓</i><small>${step1Desc}</small></div>
         <div class="cd-fr-step is-ok"><b>${step2Title}</b><i>✓</i><small>${step2Desc}</small></div>
         <div class="cd-fr-step is-ok"><b>${step3Title}</b><i>✓</i><small>${step3Desc}</small></div>
         <div class="cd-fr-step is-ok"><b>${step4Title}</b><i>✓</i><small>${step4Desc}</small></div>
@@ -108,7 +116,7 @@
     const bfib = document.querySelector('#cdCatchTabs [data-catch-tab="fib"]');
     if (b1h) b1h.textContent = data ? `1H Swings (${count1h})` : "1H Swings";
     if (b15m) b15m.textContent = data ? `15m Swings (${count15m})` : "15m Swings";
-    if (bfib) bfib.textContent = data ? `📐 Fib + Trend (${countFib})` : "📐 Fib + Trend";
+    if (bfib) bfib.textContent = data ? `🎯 Smart MTF (${countFib})` : "🎯 Smart MTF";
 
     document.querySelectorAll("#cdCatchTabs button").forEach((b) => b.classList.toggle("is-active", b.dataset.catchTab === tab));
     const btc = data?.btc || {};
@@ -125,8 +133,8 @@
     const btcEma = Number(btc.ema50) > 0 ? ` · 4H EMA 50 ${money(btc.ema50)}` : "";
     const banner = `<div class="cd-fr-summary ${biasClass}"><div><b>${esc(biasText)}</b><small>${esc(btc.reason || data.message || "")}${btcPrice}${btcEma}</small></div></div>`;
     meta.textContent = `${list.length} ${tab.toUpperCase()} setups · ${all.length} total · scanned ${Number(data.scanned) || 0} coins`;
-    const empty = side === "neutral" ? "BTC trend is mixed" : tab === "fib" ? "No confirmed Fib Golden Pocket setups right now" : `No confirmed ${tab.toUpperCase()} SFP setups right now`;
-    const detail = side === "neutral" ? (btc.reason || "Waiting for a clearer BTC 4H direction. No direction is being forced.") : tab === "fib" ? "Waiting for coins in an active trend (ADX > 20, EMA20/50 aligned) currently pulling back into the 0.50–0.618 Golden Pocket." : "The scanner needs a closed-candle sweep and reclaim, BTC trend alignment, and a stop within the 1.5% cap. No setup is not a trade signal.";
+    const empty = side === "neutral" ? "BTC trend is mixed" : tab === "fib" ? "No confirmed Smart MTF Confluence setups right now" : `No confirmed ${tab.toUpperCase()} SFP setups right now`;
+    const detail = side === "neutral" ? (btc.reason || "Waiting for a clearer BTC 4H direction. No direction is being forced.") : tab === "fib" ? "Scanning 1W weekly turning points, 1D S/R structure, 1H Fib Golden Pocket (0.50–0.618 OTE), and 15m rejection wicks. Confirmed signals will appear automatically." : "The scanner needs a closed-candle sweep and reclaim, BTC trend alignment, and a stop within the 1.5% cap. No setup is not a trade signal.";
     results.innerHTML = banner + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${esc(empty)}</strong><p>${esc(detail)}</p></div>`) + '<p class="cd-fr-note">Closed-candle SFP swing scanner with BTC 4H trend alignment. Levels are estimates from market data, not guaranteed outcomes. Confirm the live chart, slippage, fees, and position size; risk no more than 1% of account equity per trade. This setup has not been independently backtested.</p>';
   }
   async function load(fresh = false) {
