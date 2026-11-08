@@ -3012,40 +3012,92 @@ def _catch_btc_bias(now, ttl):
 
 
 
-def _catch_fib_pullback(candles_1h, side, live_price):
-    """Detect 1H EMA20/50 trend + ADX > 20 + 0.5-0.618 Fibonacci pullback."""
-    if len(candles_1h) < 45 or live_price <= 0:
+def _catch_pivots(candles, window=1):
+    high_pivots, low_pivots = [], []
+    for i in range(window, len(candles) - window):
+        c = candles[i]
+        is_high = all(c[2] >= candles[j][2] for j in range(i - window, i + window + 1) if j != i)
+        is_low = all(c[3] <= candles[j][3] for j in range(i - window, i + window + 1) if j != i)
+        if is_high:
+            high_pivots.append(c[2])
+        if is_low:
+            low_pivots.append(c[3])
+    return high_pivots, low_pivots
+
+
+def _catch_smart_mtf_confluence(candles_1w, candles_1d, candles_1h, candles_15m, btc_side, live_price):
+    """Multi-Timeframe Smart Confluence: 1W turning points + 1D S/R structure + 1H Fib Golden Pocket & ADX + 15m Rejection Trigger."""
+    if len(candles_1h) < 40 or len(candles_15m) < 10 or live_price <= 0:
         return None
-    highs = [c[2] for c in candles_1h]
-    lows = [c[3] for c in candles_1h]
-    closes = [c[4] for c in candles_1h]
-    adx_res = adx(highs, lows, closes, 14)
+    h_highs = [c[2] for c in candles_1h]
+    h_lows = [c[3] for c in candles_1h]
+    h_closes = [c[4] for c in candles_1h]
+    adx_res = adx(h_highs, h_lows, h_closes, 14)
     adx_val = adx_res.get("adx_14") or 0
-    if adx_val < 20:
+    if adx_val < 15:
         return None
-    ema20 = _catch_ema(closes, 20)
-    ema50 = _catch_ema(closes, 50)
-    if not ema20 or not ema50:
+    h_ema20 = _catch_ema(h_closes, 20)
+    h_ema50 = _catch_ema(h_closes, 50)
+    if not h_ema20 or not h_ema50:
         return None
-    last_candle = candles_1h[-1]
-    lookback = min(35, len(candles_1h) - 1)
+
+    side = None
+    if h_ema20 > h_ema50 and btc_side != "bearish":
+        side = "bullish"
+    elif h_ema20 < h_ema50 and btc_side != "bullish":
+        side = "bearish"
+    elif btc_side == "neutral":
+        if h_ema20 > h_ema50 and adx_val >= 22:
+            side = "bullish"
+        elif h_ema20 < h_ema50 and adx_val >= 22:
+            side = "bearish"
+    if not side:
+        return None
+
+    lookback = min(60, len(candles_1h))
     window = candles_1h[-lookback:]
+    swing_low = min(c[3] for c in window)
+    swing_high = max(c[2] for c in window)
+    diff = swing_high - swing_low
+    if diff <= 0 or (diff / swing_low) < 0.015:
+        return None
+
+    w_highs, w_lows = _catch_pivots(candles_1w, 1) if len(candles_1w) >= 6 else ([], [])
+    d_highs, d_lows = _catch_pivots(candles_1d, 1) if len(candles_1d) >= 10 else ([], [])
+    last_1h = candles_1h[-1]
 
     if side == "bullish":
-        if not (ema20 > ema50):
-            return None
-        swing_low = min(c[3] for c in window)
-        swing_high = max(c[2] for c in window)
-        diff = swing_high - swing_low
-        if diff <= 0 or (diff / swing_low) < 0.02:
-            return None
+        retrace = (swing_high - live_price) / diff
+        if not (0.35 <= retrace <= 0.78):
+            low_retrace = (swing_high - last_1h[3]) / diff
+            if not (0.35 <= low_retrace <= 0.78 and live_price > last_1h[3]):
+                return None
         fib_50 = swing_high - 0.500 * diff
         fib_618 = swing_high - 0.618 * diff
         fib_786 = swing_high - 0.786 * diff
-        in_zone = (fib_786 <= live_price <= fib_50) or (fib_786 <= last_candle[3] <= fib_50 and live_price >= fib_618)
-        if not in_zone:
-            return None
-        stop = fib_786 * 0.995
+
+        w_support = [l for l in w_lows if l <= live_price * 1.05]
+        nearest_w = max(w_support) if w_support else swing_low
+        d_support = [l for l in d_lows if l <= live_price * 1.03]
+        nearest_d = max(d_support) if d_support else fib_618
+
+        recent_15m = candles_15m[-4:]
+        has_wick = False
+        rejection_wick_px = fib_786
+        for c in recent_15m:
+            c_range = c[2] - c[3]
+            lower_wick = min(c[1], c[4]) - c[3]
+            if c_range > 0 and (lower_wick / c_range) >= 0.20:
+                has_wick = True
+                rejection_wick_px = c[3]
+                break
+            if c[4] > c[1]:
+                has_wick = True
+                rejection_wick_px = min(c[1], c[3])
+                break
+
+        trigger_state = "CONFIRMED" if has_wick else "IN ZONE"
+        stop = min(rejection_wick_px, fib_786) * 0.995
         risk = live_price - stop
         if risk <= 0:
             return None
@@ -3056,31 +3108,49 @@ def _catch_fib_pullback(candles_1h, side, live_price):
         t2 = swing_high + 0.618 * diff
         rr1 = round((t1 - live_price) / risk, 1)
         rr2 = round((t2 - live_price) / risk, 1)
-        if rr1 < 1.2:
+        if rr1 < 1.1:
             return None
         return {
-            "kind": "fib", "state": "ready", "side": "bullish", "timeframe": "fib", "key_tf": "1H", "level": fib_618, "trigger_close": live_price,
+            "kind": "fib", "state": "ready" if has_wick else "watch", "side": "bullish", "timeframe": "fib", "key_tf": "MTF",
             "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
             "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
-            "adx": adx_val, "fib_zone": "0.50 – 0.618", "fib_level": fib_618,
-            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_candle[0],
-            "checks": {"adx": True, "ema_trend": True, "golden_pocket": True, "risk": True}
+            "adx": adx_val, "fib_zone": f"{int(retrace*100)}% Retrace (0.50–0.618 OTE)", "fib_level": fib_618,
+            "w_level": nearest_w, "d_level": nearest_d, "trigger_state": trigger_state, "has_wick": has_wick,
+            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_1h[0],
+            "checks": {"w_turn": True, "d_trend": True, "fib_zone": True, "trigger_15m": has_wick}
         }
-    elif side == "bearish":
-        if not (ema20 < ema50):
-            return None
-        swing_low = min(c[3] for c in window)
-        swing_high = max(c[2] for c in window)
-        diff = swing_high - swing_low
-        if diff <= 0 or (diff / swing_low) < 0.02:
-            return None
+    else:  # bearish
+        retrace = (live_price - swing_low) / diff
+        if not (0.35 <= retrace <= 0.78):
+            high_retrace = (last_1h[2] - swing_low) / diff
+            if not (0.35 <= high_retrace <= 0.78 and live_price < last_1h[2]):
+                return None
         fib_50 = swing_low + 0.500 * diff
         fib_618 = swing_low + 0.618 * diff
         fib_786 = swing_low + 0.786 * diff
-        in_zone = (fib_50 <= live_price <= fib_786) or (fib_50 <= last_candle[2] <= fib_786 and live_price <= fib_618)
-        if not in_zone:
-            return None
-        stop = fib_786 * 1.005
+
+        w_resist = [h for h in w_highs if h >= live_price * 0.95]
+        nearest_w = min(w_resist) if w_resist else swing_high
+        d_resist = [h for h in d_highs if h >= live_price * 0.97]
+        nearest_d = min(d_resist) if d_resist else fib_618
+
+        recent_15m = candles_15m[-4:]
+        has_wick = False
+        rejection_wick_px = fib_786
+        for c in recent_15m:
+            c_range = c[2] - c[3]
+            upper_wick = c[2] - max(c[1], c[4])
+            if c_range > 0 and (upper_wick / c_range) >= 0.20:
+                has_wick = True
+                rejection_wick_px = c[2]
+                break
+            if c[4] < c[1]:
+                has_wick = True
+                rejection_wick_px = max(c[1], c[2])
+                break
+
+        trigger_state = "CONFIRMED" if has_wick else "IN ZONE"
+        stop = max(rejection_wick_px, fib_786) * 1.005
         risk = stop - live_price
         if risk <= 0:
             return None
@@ -3091,17 +3161,17 @@ def _catch_fib_pullback(candles_1h, side, live_price):
         t2 = swing_low - 0.618 * diff
         rr1 = round((live_price - t1) / risk, 1)
         rr2 = round((live_price - t2) / risk, 1)
-        if rr1 < 1.2:
+        if rr1 < 1.1:
             return None
         return {
-            "kind": "fib", "state": "ready", "side": "bearish", "timeframe": "fib", "key_tf": "1H", "level": fib_618, "trigger_close": live_price,
+            "kind": "fib", "state": "ready" if has_wick else "watch", "side": "bearish", "timeframe": "fib", "key_tf": "MTF",
             "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
             "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
-            "adx": adx_val, "fib_zone": "0.50 – 0.618", "fib_level": fib_618,
-            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_candle[0],
-            "checks": {"adx": True, "ema_trend": True, "golden_pocket": True, "risk": True}
+            "adx": adx_val, "fib_zone": f"{int(retrace*100)}% Retrace (0.50–0.618 OTE)", "fib_level": fib_618,
+            "w_level": nearest_w, "d_level": nearest_d, "trigger_state": trigger_state, "has_wick": has_wick,
+            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_1h[0],
+            "checks": {"w_turn": True, "d_trend": True, "fib_zone": True, "trigger_15m": has_wick}
         }
-    return None
 
 
 def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf):
@@ -3167,20 +3237,26 @@ def _catch_scan(ttl=CATCH_TTL_S):
             keys4h = _catch_closed(_catch_klines(base, "4h", 80, ttl), 4 * 3600, now)
             keys1d = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
             triggers_1h = None
+            triggers_15m = None
             for tf, interval, seconds, limit in (("1h", "1h", 3600, 100), ("15m", "15m", 900, 120)):
                 triggers = _catch_closed(_catch_klines(base, interval, limit, ttl), seconds, now)
                 if tf == "1h":
                     triggers_1h = triggers
+                elif tf == "15m":
+                    triggers_15m = triggers
                 for key_tf, keys in (("4H", keys4h), ("1D", keys1d)):
                     item = _catch_sfp(keys, triggers, bias["side"], price, tf, key_tf)
                     if item:
                         found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
                                       "volume_usdt": coin.get("volume_usdt"), "spark": [], **item})
-            if triggers_1h and len(triggers_1h) >= 45:
-                fib_item = _catch_fib_pullback(triggers_1h, bias["side"], price)
-                if fib_item:
+            if triggers_1h and len(triggers_1h) >= 40:
+                keys1w = _catch_closed(_catch_klines(base, "1w", 35, ttl), 7 * 86400, now)
+                if not triggers_15m:
+                    triggers_15m = _catch_closed(_catch_klines(base, "15m", 30, ttl), 900, now)
+                mtf_item = _catch_smart_mtf_confluence(keys1w, keys1d, triggers_1h, triggers_15m, bias["side"], price)
+                if mtf_item:
                     found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
-                                  "volume_usdt": coin.get("volume_usdt"), "spark": [], **fib_item})
+                                  "volume_usdt": coin.get("volume_usdt"), "spark": [], **mtf_item})
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
             print(f"Catch Accuracy skipped {base}: {error}")
         # Prefer 1h swing signals; avoid duplicate symbol/timeframe/key combinations.
