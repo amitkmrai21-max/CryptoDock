@@ -3288,6 +3288,205 @@ def get_owner_catch_accuracy(authorization: str = Header(None), refresh: str = "
         raise HTTPException(status_code=503, detail="Catch Accuracy scan is temporarily unavailable. Please try again shortly.") from error
 
 
+# ------------------ TELEGRAM ALERTS (OWNER ONLY) ------------------
+# Sends instant alerts to the owner on Telegram for new Smart MTF and Swing setups.
+# Scans in the background every 15 minutes, independent of app visitors.
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "9246646399:AAGK-SUjXs46ESa3hhkCV4BAUvKWUFy6hAE").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8391540111").strip()
+TELEGRAM_SCAN_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
+
+_telegram_seen_alerts = {}
+_telegram_scanner_initialized = False
+_telegram_alert_lock = threading.Lock()
+
+
+def _tg_esc(val):
+    s = str(val or "")
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _send_telegram_alert(text: str) -> bool:
+    token = TELEGRAM_BOT_TOKEN
+    chat_id = TELEGRAM_CHAT_ID
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        r = requests.post(url, json=payload, timeout=12)
+        if r.status_code != 200:
+            print(f"[Telegram Alert] Error {r.status_code}: {r.text[:200]}")
+            return False
+        return True
+    except Exception as e:
+        print(f"[Telegram Alert] Failed to send: {e}")
+        return False
+
+
+def _format_telegram_alert(item: dict) -> str:
+    kind = item.get("kind")
+    tf = item.get("timeframe")
+    side = str(item.get("side", "")).lower()
+    dir_emoji = "🟢" if side == "bullish" else "🔴"
+    dir_label = "BULLISH" if side == "bullish" else "BEARISH"
+    base = item.get("base", "UNKNOWN")
+    symbol = f"{base}USDT"
+
+    if kind == "fib" or tf == "fib":
+        cat_title = "🎯 Smart MTF Confluence"
+        timeframe_label = "1W / 1D / 1H / 15m"
+    elif tf == "1h":
+        cat_title = "⚡ 1H Swing Setup"
+        timeframe_label = f"1H Trigger ({item.get('key_tf', '4H')} Key)"
+    elif tf == "15m":
+        cat_title = "⚡ 15m Swing Setup"
+        timeframe_label = f"15m Trigger ({item.get('key_tf', '4H')} Key)"
+    else:
+        cat_title = f"⚡ {str(tf).upper()} Swing Setup"
+        timeframe_label = str(tf).upper()
+
+    price = item.get("entry") or item.get("price") or 0.0
+    stop = item.get("stop") or 0.0
+    t1 = item.get("t1") or 0.0
+    t2 = item.get("t2") or 0.0
+    risk_pct = item.get("risk_pct") or 0.0
+    rr1 = item.get("rr1") or 0.0
+    rr2 = item.get("rr2") or 0.0
+
+    def fmt_px(v):
+        if not v:
+            return "—"
+        try:
+            fv = float(v)
+            return f"{fv:,.4f}" if fv < 1 else f"{fv:,.2f}"
+        except Exception:
+            return str(v)
+
+    lines = [
+        "🎯 <b>CryptoDock New Alert</b>",
+        "",
+        f"📌 <b>Category:</b> {cat_title}",
+        f"🪙 <b>Coin:</b> <code>{_tg_esc(symbol)}</code>",
+        f"📈 <b>Direction:</b> {dir_emoji} <b>{dir_label}</b>",
+        f"⏱ <b>Timeframe:</b> {_tg_esc(timeframe_label)}",
+        "",
+        f"💰 <b>Entry (Live):</b> <code>${fmt_px(price)}</code>",
+        f"🛑 <b>Stop Loss:</b> <code>${fmt_px(stop)}</code> ({risk_pct}%)",
+        f"🎯 <b>Target 1:</b> <code>${fmt_px(t1)}</code> (R:R {rr1})",
+        f"🎯 <b>Target 2:</b> <code>${fmt_px(t2)}</code> (R:R {rr2})",
+    ]
+
+    if kind == "fib" or tf == "fib":
+        fib_zone = item.get("fib_zone") or "OTE Zone"
+        adx_val = item.get("adx")
+        state = item.get("trigger_state", "CONFIRMED")
+        extra = f"⚡ <b>State:</b> {_tg_esc(state)} | <b>Fib:</b> {_tg_esc(fib_zone)}"
+        if adx_val:
+            extra += f" | <b>ADX:</b> {round(float(adx_val), 1)}"
+        lines.append("")
+        lines.append(extra)
+    else:
+        sweep_pct = item.get("sweep_pct")
+        if sweep_pct:
+            lines.append("")
+            lines.append(f"🔍 <b>Sweep:</b> {sweep_pct}% sweep &amp; reclaim")
+
+    lines.append("")
+    lines.append("⚠️ <i>Rule-based scan on closed candles. Verify chart &amp; manage risk.</i>")
+    return chr(10).join(lines)
+
+
+def _alert_dedup_key(item: dict) -> str:
+    base = item.get("base", "")
+    kind = item.get("kind", "")
+    tf = item.get("timeframe", "")
+    side = item.get("side", "")
+    candle_at = item.get("candle_at", 0)
+    return f"{base}:{kind}:{tf}:{side}:{candle_at}"
+
+
+def _run_telegram_catch_scan():
+    global _telegram_scanner_initialized
+    try:
+        data = cached_call(catch_cache, "all", FOCUS_REFRESH_MIN_GAP_S, lambda: _catch_scan(FOCUS_REFRESH_MIN_GAP_S), max_entries=1)
+    except Exception as e:
+        print(f"[Telegram Scanner] Catch scan failed: {e}")
+        return
+
+    if not isinstance(data, dict):
+        return
+
+    items = data.get("full") or []
+    now = time.time()
+
+    with _telegram_alert_lock:
+        stale_keys = [k for k, sent_time in _telegram_seen_alerts.items() if now - sent_time > 172800]
+        for k in stale_keys:
+            _telegram_seen_alerts.pop(k, None)
+
+        if not _telegram_scanner_initialized:
+            for item in items:
+                k = _alert_dedup_key(item)
+                _telegram_seen_alerts[k] = now
+            _telegram_scanner_initialized = True
+            print(f"[Telegram Scanner] Initialized with {len(_telegram_seen_alerts)} seeded setups.")
+            _send_telegram_alert(
+                "🚀 <b>CryptoDock Alert System Active</b>\n\n"
+                "Background scanner is active on your server.\n"
+                "You will receive instant alerts whenever a new <b>Smart MTF</b>, <b>1H Swing</b>, or <b>15m Swing</b> setup triggers."
+            )
+            return
+
+        for item in items:
+            if item.get("kind") == "fib" and item.get("trigger_state") != "CONFIRMED":
+                continue
+            if item.get("state") not in ("ready", "confirmed") and not item.get("has_wick", False):
+                continue
+
+            k = _alert_dedup_key(item)
+            if k in _telegram_seen_alerts:
+                continue
+
+            msg = _format_telegram_alert(item)
+            sent = _send_telegram_alert(msg)
+            if sent:
+                _telegram_seen_alerts[k] = now
+                print(f"[Telegram Scanner] Alert sent for {item.get('base')} ({item.get('timeframe')})")
+                time.sleep(1.2)
+
+
+def _catch_accuracy_telegram_scanner_loop():
+    """Background thread that scans Catch Accuracy setups every 15 minutes
+    and sends Telegram alerts to the owner."""
+    time.sleep(15)
+    while True:
+        try:
+            _run_telegram_catch_scan()
+        except Exception as err:
+            print(f"[Telegram Scanner] Loop exception: {err}")
+        time.sleep(TELEGRAM_SCAN_INTERVAL_S)
+
+
+@app.get("/api/owner/telegram/test")
+def telegram_test(authorization: str = Header(None)):
+    _focus_radar_owner(authorization)
+    sample_text = (
+        "🎯 <b>CryptoDock Telegram Alert Test</b>\n\n"
+        "✅ Telegram alert bot connection is active!\n"
+        "Background scanner is monitoring for new <b>Smart MTF</b>, <b>1H Swing</b>, and <b>15m Swing</b> setups."
+    )
+    ok = _send_telegram_alert(sample_text)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to send test message via Telegram API. Check bot token and chat ID.")
+    return {"ok": True, "message": "Test alert sent successfully to Telegram."}
+
+
+
 COIN_CANDLE_INTERVALS = {"15m", "1h", "4h", "1d", "1w"}
 COIN_CANDLES_CACHE_SECONDS = 15
 coin_candles_cache = {}
@@ -3716,6 +3915,7 @@ def _start_broadcast_and_rrg():
     threading.Thread(target=_market_broadcast_loop, name="market-broadcast-loop", daemon=True).start()
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
     threading.Thread(target=_markets_warmer, name="markets-warmer", daemon=True).start()
+    threading.Thread(target=_catch_accuracy_telegram_scanner_loop, name="catch-telegram-scanner", daemon=True).start()
 
 def _old_rrg_warmer_skip():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
