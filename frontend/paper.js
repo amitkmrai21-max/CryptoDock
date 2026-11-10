@@ -691,15 +691,39 @@
     const list = el("cdOrderList");
     if (!list) return;
     const empty = el("cdOrderEmpty");
+    const now = Date.now();
+    const WINDOW_24H = 24 * 60 * 60 * 1000;
+
     if (orderFilter === "trades") {
-      const trades = buildTrades();
+      const allTrades = buildTrades();
+      // Running positions are always shown; exited/closed positions are shown for 24h then archived
+      const trades = allTrades.filter((t) => {
+        if (t.position) return true;
+        if (t.close) {
+          const exitTime = t.close.filledAt || t.close.createdAt || 0;
+          return (now - exitTime) <= WINDOW_24H;
+        }
+        const openTime = t.open ? (t.open.filledAt || t.open.createdAt || 0) : 0;
+        return (now - openTime) <= WINDOW_24H;
+      });
+
       list.classList.add("is-trades");
       list.innerHTML = trades.map(tradeCard).join("");
-      if (empty) { empty.textContent = "No trades yet. Your Long / Short trades show here with entry, exit and P&L."; empty.hidden = trades.length > 0; }
+      if (empty) {
+        empty.textContent = allTrades.length > 0
+          ? "No active trades or trades exited in the last 24 hours."
+          : "No trades yet. Your Long / Short trades show here with entry, exit and P&L.";
+        empty.hidden = trades.length > 0;
+      }
       return;
     }
     list.classList.remove("is-trades");
-    const orders = state.orders.filter((o) => orderFilter === "all" || o.status === orderFilter);
+    const orders = state.orders.filter((o) => {
+      if (orderFilter !== "all" && o.status !== orderFilter) return false;
+      if (o.status === "OPEN") return true;
+      const when = o.filledAt || o.cancelledAt || o.createdAt || 0;
+      return (now - when) <= WINDOW_24H;
+    });
     list.innerHTML = orders.map((o) => {
       const price = o.status === "FILLED" ? o.fillPrice : o.limitPrice;
       const when = fmtWhen(o.filledAt || o.cancelledAt || o.createdAt);
