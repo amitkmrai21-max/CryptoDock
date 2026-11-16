@@ -3295,9 +3295,113 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "9246646399:AAGK-SUjXs46ESa
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8391540111").strip()
 TELEGRAM_SCAN_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
 
+TELEGRAM_ALERT_HISTORY_FILE = os.getenv("TELEGRAM_ALERT_HISTORY_FILE") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "telegram_alert_history.json"
+)
+
 _telegram_seen_alerts = {}
+_telegram_last_alert_by_coin = {}
+_telegram_history_loaded = False
 _telegram_scanner_initialized = False
 _telegram_alert_lock = threading.Lock()
+
+
+def _load_telegram_alert_history():
+    global _telegram_last_alert_by_coin, _telegram_history_loaded
+    if _telegram_history_loaded:
+        return
+    try:
+        if os.path.exists(TELEGRAM_ALERT_HISTORY_FILE):
+            with open(TELEGRAM_ALERT_HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    _telegram_last_alert_by_coin = data
+    except Exception as e:
+        print(f"[Telegram Alert] Could not load alert history: {e}")
+    finally:
+        _telegram_history_loaded = True
+
+
+def _save_telegram_alert_history():
+    try:
+        tmp = TELEGRAM_ALERT_HISTORY_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_telegram_last_alert_by_coin, f)
+        os.replace(tmp, TELEGRAM_ALERT_HISTORY_FILE)
+    except Exception as e:
+        print(f"[Telegram Alert] Could not save alert history: {e}")
+
+
+def _check_old_target_hit(base: str) -> bool:
+    """Check if the previously alerted setup for this coin hit its target level."""
+    _load_telegram_alert_history()
+    prev = _telegram_last_alert_by_coin.get(base)
+    if not prev or not isinstance(prev, dict):
+        return False
+
+    if prev.get("hit"):
+        return True
+
+    target_px = prev.get("target")
+    if not target_px:
+        return False
+
+    try:
+        target_px = float(target_px)
+        sent_at = float(prev.get("sent_at", 0))
+        is_bull = str(prev.get("side", "")).lower() == "bullish"
+    except Exception:
+        return False
+
+    if target_px <= 0 or sent_at <= 0:
+        return False
+
+    # 1. First inspect cached 15m closed candles
+    try:
+        candles = _catch_klines(base, "15m", 100, 30)
+        if isinstance(candles, list):
+            for c in candles:
+                # c: [timestamp_sec, open, high, low, close, volume]
+                if c[0] >= sent_at - 900:
+                    c_high = float(c[2])
+                    c_low = float(c[3])
+                    if is_bull and c_high >= target_px:
+                        prev["hit"] = True
+                        _save_telegram_alert_history()
+                        return True
+                    elif not is_bull and c_low <= target_px:
+                        prev["hit"] = True
+                        _save_telegram_alert_history()
+                        return True
+    except Exception as e:
+        print(f"[Telegram Alert] Cached kline check failed for {base}: {e}")
+
+    # 2. If sent_at was older than what cached 100 candles cover, query Binance directly
+    try:
+        start_ms = int(sent_at * 1000)
+        raw = binance_get(
+            "/api/v3/klines",
+            {"symbol": base + "USDT", "interval": "15m", "startTime": start_ms, "limit": 250},
+            weight=2,
+            timeout=10,
+        )
+        if isinstance(raw, list):
+            for c in raw:
+                # raw kline: [open_time, open, high, low, close, ...]
+                c_high = float(c[2])
+                c_low = float(c[3])
+                if is_bull and c_high >= target_px:
+                    prev["hit"] = True
+                    _save_telegram_alert_history()
+                    return True
+                elif not is_bull and c_low <= target_px:
+                    prev["hit"] = True
+                    _save_telegram_alert_history()
+                    return True
+    except Exception as e:
+        print(f"[Telegram Alert] Binance kline check failed for {base}: {e}")
+
+    return False
 
 
 def _tg_esc(val):
@@ -3374,12 +3478,18 @@ def _format_telegram_alert(item: dict) -> str:
         f"🪙 <b>Coin:</b> <code>{_tg_esc(symbol)}</code>",
         f"📈 <b>Direction:</b> {dir_emoji} <b>{dir_label}</b>",
         f"⏱ <b>Timeframe:</b> {_tg_esc(timeframe_label)}",
+    ]
+
+    if item.get("old_target_hit"):
+        lines.append("🎯 <b>Old Target:</b> HIT ✅")
+
+    lines.extend([
         "",
         f"💰 <b>Entry (Live):</b> <code>${fmt_px(price)}</code>",
         f"🛑 <b>Stop Loss:</b> <code>${fmt_px(stop)}</code> ({risk_pct}%)",
         f"🎯 <b>Target 1:</b> <code>${fmt_px(t1)}</code> (R:R {rr1})",
         f"🎯 <b>Target 2:</b> <code>${fmt_px(t2)}</code> (R:R {rr2})",
-    ]
+    ])
 
     if kind == "fib" or tf == "fib":
         fib_zone = item.get("fib_zone") or "OTE Zone"
@@ -3452,11 +3562,31 @@ def _run_telegram_catch_scan():
             if k in _telegram_seen_alerts:
                 continue
 
+            base = item.get("base")
+            item["old_target_hit"] = _check_old_target_hit(base)
+
             msg = _format_telegram_alert(item)
             sent = _send_telegram_alert(msg)
             if sent:
                 _telegram_seen_alerts[k] = now
-                print(f"[Telegram Scanner] Alert sent for {item.get('base')} ({item.get('timeframe')})")
+                target_val = item.get("t1") or item.get("target") or 0.0
+                try:
+                    target_val = float(target_val)
+                except Exception:
+                    target_val = 0.0
+
+                _load_telegram_alert_history()
+                _telegram_last_alert_by_coin[base] = {
+                    "base": base,
+                    "side": item.get("side"),
+                    "entry": float(item.get("entry") or item.get("price") or 0.0),
+                    "target": target_val,
+                    "stop": float(item.get("stop") or 0.0),
+                    "sent_at": now,
+                    "hit": False,
+                }
+                _save_telegram_alert_history()
+                print(f"[Telegram Scanner] Alert sent for {item.get('base')} ({item.get('timeframe')}) - old_target_hit={item.get('old_target_hit')}")
                 time.sleep(1.2)
 
 
