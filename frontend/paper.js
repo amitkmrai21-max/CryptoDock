@@ -15,6 +15,22 @@
   // others: 1 coin per lot. Forex: a 1,000-unit micro lot; gold: 0.01 oz.
   const LOT_SIZE = { BTC: 0.001, ETH: 0.01, SOL: 0.1, EUR: 1000, GBP: 1000, AUD: 1000, BRL: 1000, TRY: 10000, ARS: 100000, PAXG: 0.01, XAUT: 0.01 };
   const lotSize = (base) => LOT_SIZE[base] || 1;
+  const DELTA_LEVERAGE = {"INIT":20,"JASMY":20,"COINX":25,"DELLB":25,"XPL":20,"LDO":20,"TIA":20,"XLM":20,"SPYB":25,"AIXBT":20,"PROVE":20,"RED":20,"TNSR":20,"COOKIE":20,"AIOT":20,"HOODB":25,"SNDKB":25,"GRIFFAIN":20,"LIGHT":20,"MRVLB":25,"MANTA":20,"ENJ":20,"XRP":100,"RKLBB":25,"USUAL":20,"SOON":10,"ZEC":20,"AUCTION":20,"ONDO":20,"EDEN":20,"OIL":25,"BEB":25,"BERA":20,"GOOGLB":25,"DYDX":20,"BABAB":25,"TRB":20,"GRAM":20,"PEPE":20,"1000PEPE":20,"RUNE":20,"TSMB":25,"1MBABYDOGE":20,"GALA":20,"AMDB":25,"METAX":25,"ZRO":20,"AAPLX":25,"ARIA":20,"AMZNX":25,"AVAX":100,"BTW":10,"XAUT":100,"SPCXX":25,"UNI":100,"ZORA":20,"FIL":50,"ALLO":20,"TSLAX":25,"VELVET":20,"IN":20,"BCH":100,"NEIRO":20,"SWARMS":20,"BLUR":20,"AAVE":50,"BONK":20,"1000BONK":20,"SKYAI":20,"DASH":20,"SUI":20,"ARMB":25,"WLD":20,"PENGU":20,"SAHARA":20,"LINK":100,"SOLV":20,"TQQQB":25,"BMNRB":25,"ORCLB":25,"MSFTB":25,"TAC":20,"INTCB":25,"DUSK":20,"TRUMP":20,"APT":20,"POL":50,"CRCLB":25,"IOTA":20,"BASED":20,"NVDAX":25,"TSLAB":25,"SNXXB":25,"ORDER":20,"BR":10,"XAN":20,"POPCAT":20,"WCT":20,"DOGE":100,"BLESS":20,"CHIP":20,"GIGGLE":20,"WDCB":25,"VIRTUAL":20,"NMR":20,"M":20,"RSR":20,"AXS":20,"STX":20,"AAOIB":25,"SLVON":50,"ZEN":20,"LTC":100,"DOOD":10,"QNT":20,"MANA":20,"LISTA":20,"AIO":20,"SUSHI":20,"WIF":20,"CROSS":20,"LAYER":20,"COINB":25,"TLM":20,"SOL":100,"MMT":20,"DEEP":20,"S":20,"BILL":20,"PUMP":20,"VVV":20,"ZK":20,"HBAR":20,"KORUB":25,"B":20,"SEI":20,"EWYB":25,"DOGS":20,"OPN":20,"HYPE":20,"ME":20,"SPYX":25,"H":20,"LITEB":25,"MOVE":20,"EVAA":20,"AIGENSYN":20,"PARTI":20,"SPX":20,"NEAR":20,"ENA":20,"JUP":20,"KSM":20,"AVAAI":20,"AKE":20,"MUBARAK":20,"INJ":20,"HIVE":20,"PI":20,"TST":20,"CAP":10,"MASK":20,"ESPORTS":20,"COHRB":25,"RAVE":20,"IO":20,"NBISB":25,"COAI":20,"MEME":20,"CBRSB":25,"ADA":100,"IOST":10,"NOT":20,"PEOPLE":20,"PAXG":100,"SOXLB":25,"SAGA":20,"BIO":20,"OP":20,"SPCXB":25,"PNUT":20,"PIEVERSE":20,"AMZNB":25,"PLTRB":25,"GTC":10,"BMT":20,"MELANIA":20,"GOOGLX":25,"BANK":20,"RARE":20,"PIPPIN":20,"QQQB":25,"VANA":20,"ORDI":20,"MON":20,"DRAMB":25,"AAPLB":25,"GLM":20,"CRCLX":25,"FLOKI":20,"1000FLOKI":20,"JCT":10,"TAO":20,"BEAT":20,"ETH":200,"NVDAB":25,"ARC":20,"AIN":20,"STBL":20,"WLFI":20,"API3":20,"AVGOB":25,"XAI":20,"MVLLB":25,"XMR":20,"TRX":50,"MRNAB":25,"FRAX":20,"GOAT":20,"SUN":20,"FF":20,"AR":20,"JTO":20,"ARB":20,"BB":20,"MOODENG":20,"SKHYB":25,"ASTER":20,"KAITO":20,"MOVR":10,"ETC":50,"SATS":20,"1000SATS":20,"LIT":20,"STRK":20,"QQQX":25,"HANA":20,"TOWNS":20,"BTC":200,"LAB":20,"SKL":20,"IRYS":10,"SHIB":20,"1000SHIB":20,"MSTRB":25,"SIGN":20,"SOPH":20,"DOT":100,"KITE":20,"EIGEN":20,"MUB":25,"FARTCOIN":20,"ARK":10,"CRWVB":25,"PENDLE":20,"ACT":20,"ETHFI":20,"BNB":100,"MUUB":25,"ALT":20,"RLC":10,"SONIC":20,"RIVER":20,"METAB":25,"CAKE":20,"SIREN":20,"FTM":20,"RENDER":20,"FET":20,"TON":20};
+
+  function maxLeverageOf(base) {
+    if (!base) return 20;
+    const b = String(base).toUpperCase().trim();
+    return DELTA_LEVERAGE[b] || DELTA_LEVERAGE[b.replace(/^1000/, "")] || 20;
+  }
+
+  function leverageOptionsFor(maxLev) {
+    if (maxLev >= 200) return [1, 5, 10, 25, 50, 100, 150, 200];
+    if (maxLev >= 100) return [1, 5, 10, 25, 50, 100];
+    if (maxLev >= 50) return [1, 5, 10, 25, 50];
+    if (maxLev >= 25) return [1, 5, 10, 25];
+    if (maxLev >= 20) return [1, 5, 10, 20];
+    return [1, 2, 5, Math.max(1, maxLev)];
+  }
 
   const el = (id) => document.getElementById(id);
   if (!el("cdTicket")) return;
@@ -269,7 +285,8 @@
     if (coinOf(base)?.stale) return { error: "This coin's live price is paused for a moment. Please try again shortly." };
     qty = roundQty(qty);
     if (!(qty > 0)) return { error: "Enter a size." };
-    const lev = Math.min(200, Math.max(1, Number(leverage) || 1));
+    const maxLev = maxLeverageOf(base);
+    const lev = Math.min(maxLev, Math.max(1, Number(leverage) || 1));
     const posSide = side === "BUY" ? "LONG" : "SHORT";
     const fillsNow = type === "MARKET" || (posSide === "LONG" ? market <= limitPrice : market >= limitPrice);
     const refPrice = fillsNow ? market : limitPrice;
@@ -791,7 +808,20 @@
     document.querySelectorAll("#cdTicket [data-unit]").forEach((b) => b.classList.toggle("is-active", b.dataset.unit === ticket.unit));
     const coinUnit = document.querySelector('#cdTicket [data-unit="COIN"]');
     if (coinUnit) coinUnit.textContent = ticket.base;
-    el("cdLeverageSelect").value = String(ticket.leverage);
+    const maxLev = maxLeverageOf(ticket.base);
+    const levLabel = el("cdLeverageLabel");
+    if (levLabel) levLabel.textContent = `Leverage (Max ${maxLev}x)`;
+    const sel = el("cdLeverageSelect");
+    if (sel && sel.dataset.base !== ticket.base) {
+      sel.dataset.base = ticket.base;
+      const opts = leverageOptionsFor(maxLev);
+      sel.innerHTML = opts.map((l) => `<option value="${l}">${l}x</option>`).join("");
+      const pick = opts.includes(ticket.leverage) && ticket.leverage <= maxLev ? ticket.leverage : maxLev;
+      sel.value = String(pick);
+      ticket.leverage = pick;
+    } else if (sel) {
+      sel.value = String(ticket.leverage);
+    }
     el("cdLimitField").hidden = ticket.type !== "LIMIT";
     el("cdUnitLabel").textContent = unitLabel();
 
@@ -894,17 +924,27 @@
     const price = priceOf(base);
     el("cdLimitPrice").value = price ? String(price) : "";
     showError("");
+    const maxLev = maxLeverageOf(base);
+    const opts = leverageOptionsFor(maxLev);
+    const sel = el("cdLeverageSelect");
+    if (sel) {
+      sel.dataset.base = base;
+      sel.innerHTML = opts.map((l) => `<option value="${l}">${l}x</option>`).join("");
+      sel.value = String(maxLev);
+    }
+    ticket.leverage = maxLev;
     // A stop-loss that sits beyond the liquidation price can never trigger and the order is refused. When a card
     // brings its own stop-loss, lower the leverage just enough that the stop-loss stays inside liquidation.
     let note = "";
     if (levels && levels.stopLoss > 0 && price && marginMode() !== "cross") {
       const dist = Math.abs(price - levels.stopLoss) / price;
-      const options = [...el("cdLeverageSelect").options].map((o) => Number(o.value)).sort((a, b) => b - a);
+      const options = [...(sel ? sel.options : [])].map((o) => Number(o.value)).sort((a, b) => b - a);
       const ok = (lev) => 0.95 / lev >= dist * 1.2;
       if (dist > 0 && !ok(ticket.leverage)) {
         const pick = options.find((lev) => lev <= ticket.leverage && ok(lev)) || options[options.length - 1];
         note = `Leverage set to ${pick}x so the stop-loss (${(dist * 100).toFixed(2)}% away) stays inside the liquidation price.`;
         ticket.leverage = pick;
+        if (sel) sel.value = String(pick);
       }
     }
     renderTicket();
@@ -1100,6 +1140,7 @@
   scheduleSync(1500);
 
   window.cdOpenTicket = openTicket;
+  window.cdMaxLeverageOf = maxLeverageOf;
   // For Coin Detail / coin sheet: this account's open size in one coin
   // (futures positions, or older spot coins) with live P&L.
   window.cdPaperHolding = (base) => {
