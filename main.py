@@ -3368,6 +3368,207 @@ def _tg_esc(val):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+
+# ================= AUTOMATED REPEAT COIN POSITIONS & LOSS ALERTS =================
+DELTA_LEVERAGE_MAP = {"INIT":20,"JASMY":20,"COINX":25,"DELLB":25,"XPL":20,"LDO":20,"TIA":20,"XLM":20,"SPYB":25,"AIXBT":20,"PROVE":20,"RED":20,"TNSR":20,"COOKIE":20,"AIOT":20,"HOODB":25,"SNDKB":25,"GRIFFAIN":20,"LIGHT":20,"MRVLB":25,"MANTA":20,"ENJ":20,"XRP":100,"RKLBB":25,"USUAL":20,"SOON":10,"ZEC":20,"AUCTION":20,"ONDO":20,"EDEN":20,"OIL":25,"BEB":25,"BERA":20,"GOOGLB":25,"DYDX":20,"BABAB":25,"TRB":20,"GRAM":20,"PEPE":20,"1000PEPE":20,"RUNE":20,"TSMB":25,"1MBABYDOGE":20,"GALA":20,"AMDB":25,"METAX":25,"ZRO":20,"AAPLX":25,"ARIA":20,"AMZNX":25,"AVAX":100,"BTW":10,"XAUT":100,"SPCXX":25,"UNI":100,"ZORA":20,"FIL":50,"ALLO":20,"TSLAX":25,"VELVET":20,"IN":20,"BCH":100,"NEIRO":20,"SWARMS":20,"BLUR":20,"AAVE":50,"BONK":20,"1000BONK":20,"SKYAI":20,"DASH":20,"SUI":20,"ARMB":25,"WLD":20,"PENGU":20,"SAHARA":20,"LINK":100,"SOLV":20,"TQQQB":25,"BMNRB":25,"ORCLB":25,"MSFTB":25,"TAC":20,"INTCB":25,"DUSK":20,"TRUMP":20,"APT":20,"POL":50,"CRCLB":25,"IOTA":20,"BASED":20,"NVDAX":25,"TSLAB":25,"SNXXB":25,"ORDER":20,"BR":10,"XAN":20,"POPCAT":20,"WCT":20,"DOGE":100,"BLESS":20,"CHIP":20,"GIGGLE":20,"WDCB":25,"VIRTUAL":20,"NMR":20,"M":20,"RSR":20,"AXS":20,"STX":20,"AAOIB":25,"SLVON":50,"ZEN":20,"LTC":100,"DOOD":10,"QNT":20,"MANA":20,"LISTA":20,"AIO":20,"SUSHI":20,"WIF":20,"CROSS":20,"LAYER":20,"COINB":25,"TLM":20,"SOL":100,"MMT":20,"DEEP":20,"S":20,"BILL":20,"PUMP":20,"VVV":20,"ZK":20,"HBAR":20,"KORUB":25,"B":20,"SEI":20,"EWYB":25,"DOGS":20,"OPN":20,"HYPE":20,"ME":20,"SPYX":25,"H":20,"LITEB":25,"MOVE":20,"EVAA":20,"AIGENSYN":20,"PARTI":20,"SPX":20,"NEAR":20,"ENA":20,"JUP":20,"KSM":20,"AVAAI":20,"AKE":20,"MUBARAK":20,"INJ":20,"HIVE":20,"PI":20,"TST":20,"CAP":10,"MASK":20,"ESPORTS":20,"COHRB":25,"RAVE":20,"IO":20,"NBISB":25,"COAI":20,"MEME":20,"CBRSB":25,"ADA":100,"IOST":10,"NOT":20,"PEOPLE":20,"PAXG":100,"SOXLB":25,"SAGA":20,"BIO":20,"OP":20,"SPCXB":25,"PNUT":20,"PIEVERSE":20,"AMZNB":25,"PLTRB":25,"GTC":10,"BMT":20,"MELANIA":20,"GOOGLX":25,"BANK":20,"RARE":20,"PIPPIN":20,"QQQB":25,"VANA":20,"ORDI":20,"MON":20,"DRAMB":25,"AAPLB":25,"GLM":20,"CRCLX":25,"FLOKI":20,"1000FLOKI":20,"JCT":10,"TAO":20,"BEAT":20,"ETH":200,"NVDAB":25,"ARC":20,"AIN":20,"STBL":20,"WLFI":20,"API3":20,"AVGOB":25,"XAI":20,"MVLLB":25,"XMR":20,"TRX":50,"MRNAB":25,"FRAX":20,"GOAT":20,"SUN":20,"FF":20,"AR":20,"JTO":20,"ARB":20,"BB":20,"MOODENG":20,"SKHYB":25,"ASTER":20,"KAITO":20,"MOVR":10,"ETC":50,"SATS":20,"1000SATS":20,"LIT":20,"STRK":20,"QQQX":25,"HANA":20,"TOWNS":20,"BTC":200,"LAB":20,"SKL":20,"IRYS":10,"SHIB":20,"1000SHIB":20,"MSTRB":25,"SIGN":20,"SOPH":20,"DOT":100,"KITE":20,"EIGEN":20,"MUB":25,"FARTCOIN":20,"ARK":10,"CRWVB":25,"PENDLE":20,"ACT":20,"ETHFI":20,"BNB":100,"MUUB":25,"ALT":20,"RLC":10,"SONIC":20,"RIVER":20,"METAB":25,"CAKE":20,"SIREN":20,"FTM":20,"RENDER":20,"FET":20,"TON":20}
+
+def _get_delta_leverage(base: str) -> int:
+    if not base:
+        return 20
+    b = str(base).upper().strip()
+    return DELTA_LEVERAGE_MAP.get(b) or DELTA_LEVERAGE_MAP.get(b.replace("1000", "")) or 20
+
+
+def _auto_open_repeat_position(item: dict):
+    """Automatically open a Cross Margin ($150 USDT margin) position for the owner
+    on repeated alert coins (2 R, 3 R, 4 R, etc.) without stop-loss or target."""
+    base = item.get("base")
+    if not base:
+        return
+    
+    price = float(item.get("entry") or item.get("price") or 0.0)
+    if price <= 0:
+        return
+    
+    side_str = str(item.get("side", "")).lower()
+    pos_side = "LONG" if side_str == "bullish" else "SHORT"
+    order_side = "BUY" if pos_side == "LONG" else "SELL"
+    repeat_count = item.get("repeat_count", 2)
+    
+    lev = _get_delta_leverage(base)
+    margin = 150.0  # Fixed $150 USDT investment per coin
+    notional = margin * lev
+    qty = round(notional / price, 8)
+    fee = round(notional * 0.0005, 4)  # 0.05% taker fee
+    
+    liq = price * (1.0 - 0.95 / lev) if pos_side == "LONG" else price * (1.0 + 0.95 / lev)
+    
+    now_ms = int(time.time() * 1000)
+    uid = f"auto_{now_ms}_{random.randint(1000, 9999)}"
+    
+    pos = {
+        "id": uid,
+        "base": base,
+        "side": pos_side,
+        "qty": qty,
+        "entryPrice": price,
+        "leverage": lev,
+        "margin": margin,
+        "mode": "cross",
+        "liqPrice": round(liq, 6),
+        "openFee": fee,
+        "openedAt": now_ms,
+        "is_auto_repeat": True,
+        "repeat_count": repeat_count,
+        "loss_alert_sent": False,
+    }
+    
+    order = {
+        "id": f"ord_{uid}",
+        "createdAt": now_ms,
+        "base": base,
+        "side": order_side,
+        "action": "OPEN",
+        "leverage": lev,
+        "type": "MARKET",
+        "qty": qty,
+        "status": "FILLED",
+        "fillPrice": price,
+        "fee": fee,
+        "filledAt": now_ms,
+        "posId": uid,
+        "mode": "cross",
+        "is_auto_repeat": True,
+    }
+    
+    with paper_write_lock():
+        data = _load_paper()
+        record = data.get(FOCUS_RADAR_OWNER) or {}
+        current_rev = int(record.get("rev", 0))
+        st = record.get("state")
+        if not st or not isinstance(st, dict):
+            st = {"cash": 10000.0, "holdings": {}, "positions": [], "orders": [], "realized": 0}
+        
+        cash = float(st.get("cash", 10000.0))
+        if cash >= margin + fee:
+            st["cash"] = round(cash - (margin + fee), 4)
+        else:
+            st["cash"] = max(0.0, round(cash - fee, 4))
+            
+        positions_list = st.get("positions", [])
+        positions_list.insert(0, pos)
+        st["positions"] = positions_list
+        
+        orders_list = st.get("orders", [])
+        orders_list.insert(0, order)
+        if len(orders_list) > 5000:
+            orders_list = orders_list[:5000]
+        st["orders"] = orders_list
+        
+        data[FOCUS_RADAR_OWNER] = {
+            "rev": current_rev + 1,
+            "state": st,
+            "updated_at": int(time.time()),
+        }
+        _save_paper(data)
+        print(f"[Auto Repeat Trade] Opened {pos_side} {base} at ${price} (Lev: {lev}x, Margin: $150, Mode: cross, Repeat: {repeat_count} R) for {FOCUS_RADAR_OWNER}")
+
+
+def _check_repeat_positions_loss():
+    """Checks open auto-repeat positions for the owner and sends Telegram loss alert
+    when loss reaches specified thresholds:
+      - 20x / 25x: loss >= $45 (in $40-$50 range)
+      - 100x: loss >= $400
+      - 200x: loss >= $750 (in $700-$800 range)
+    """
+    with paper_write_lock():
+        data = _load_paper()
+        record = data.get(FOCUS_RADAR_OWNER)
+        if not record or not record.get("state"):
+            return
+        st = record["state"]
+        positions = st.get("positions", [])
+        auto_positions = [p for p in positions if p.get("is_auto_repeat") and not p.get("loss_alert_sent")]
+        if not auto_positions:
+            return
+        
+        live_prices = _live_prices()
+        if not live_prices:
+            return
+        
+        updated = False
+        for p in auto_positions:
+            base = p.get("base")
+            sym = f"{base}USDT"
+            curr_px = live_prices.get(sym)
+            if not curr_px or curr_px <= 0:
+                continue
+            
+            entry = float(p.get("entryPrice", 0.0))
+            qty = float(p.get("qty", 0.0))
+            side = p.get("side", "LONG")
+            lev = int(p.get("leverage", 20))
+            margin = float(p.get("margin", 150.0))
+            
+            pnl = (curr_px - entry) * qty if side == "LONG" else (entry - curr_px) * qty
+            if pnl >= 0:
+                continue  # In profit: no alert
+            
+            loss = abs(pnl)
+            
+            # Loss thresholds as requested by owner
+            if lev <= 25:
+                threshold = 45.0   # $40-$50 for 20x/25x
+            elif lev == 100:
+                threshold = 400.0  # $400 for 100x
+            elif lev >= 150:
+                threshold = 750.0  # $700-$800 for 200x
+            else:
+                threshold = 45.0
+            
+            if loss >= threshold:
+                loss_pct = (loss / margin * 100.0) if margin > 0 else 0.0
+                dir_emoji = "🟢" if side == "LONG" else "🔴"
+                repeat_cnt = p.get("repeat_count", 2)
+                
+                fmt_entry = f"${entry:,.4f}" if entry < 1 else f"${entry:,.2f}"
+                fmt_curr = f"${curr_px:,.4f}" if curr_px < 1 else f"${curr_px:,.2f}"
+                
+                alert_text = (
+                    f"⚠️ <b>CryptoDock Loss Alert</b>        <b>{repeat_cnt} R</b>\n\n"
+                    f"🪙 <b>Coin:</b> <code>{_tg_esc(sym)}</code>\n"
+                    f"📈 <b>Position:</b> {dir_emoji} <b>{side} (Cross Margin)</b>\n"
+                    f"⚡ <b>Leverage:</b> {lev}x | <b>Margin:</b> ${margin:,.2f}\n"
+                    f"💰 <b>Entry Price:</b> <code>{fmt_entry}</code>\n"
+                    f"📊 <b>Current Price:</b> <code>{fmt_curr}</code>\n"
+                    f"📉 <b>Unrealized Loss:</b> <code>-${loss:,.2f}</code> (-{loss_pct:.1f}%)\n\n"
+                    f"⚠️ <i>Threshold reached (${threshold:,.0f} limit). Position continues running.</i>"
+                )
+                
+                sent = _send_telegram_alert(alert_text)
+                if sent:
+                    p["loss_alert_sent"] = True
+                    p["loss_alert_at"] = int(time.time())
+                    updated = True
+                    print(f"[Loss Alert] Sent Telegram alert for {sym}: -${loss:.2f} (threshold ${threshold})")
+        
+        if updated:
+            record["rev"] = int(record.get("rev", 0)) + 1
+            record["updated_at"] = int(time.time())
+            _save_paper(data)
+
+
+def _repeat_positions_loss_monitor_loop():
+    """Background loop that checks open repeat positions every 30 seconds for loss thresholds."""
+    time.sleep(25)
+    while True:
+        try:
+            _check_repeat_positions_loss()
+        except Exception as err:
+            print(f"[Loss Monitor] Loop exception: {err}")
+        time.sleep(30)
+
+
 def _send_telegram_alert(text: str) -> bool:
     token = TELEGRAM_BOT_TOKEN
     chat_id = TELEGRAM_CHAT_ID
@@ -3528,6 +3729,11 @@ def _run_telegram_catch_scan():
                 _telegram_seen_alerts[k] = now
                 _record_daily_alert_sent(base, repeat_count)
                 print(f"[Telegram Scanner] Alert sent for {item.get('base')} ({item.get('timeframe')}) - repeat_count={repeat_count}")
+                if repeat_count >= 2:
+                    try:
+                        _auto_open_repeat_position(item)
+                    except Exception as err:
+                        print(f"[Auto Repeat Trade Error]: {err}")
                 time.sleep(1.2)
 
 
@@ -3987,6 +4193,7 @@ def _start_broadcast_and_rrg():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
     threading.Thread(target=_markets_warmer, name="markets-warmer", daemon=True).start()
     threading.Thread(target=_catch_accuracy_telegram_scanner_loop, name="catch-telegram-scanner", daemon=True).start()
+    threading.Thread(target=_repeat_positions_loss_monitor_loop, name="repeat-loss-monitor", daemon=True).start()
 
 def _old_rrg_warmer_skip():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
