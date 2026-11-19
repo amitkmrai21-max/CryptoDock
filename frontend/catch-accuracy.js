@@ -151,11 +151,11 @@
   }
   async function load(fresh = false) {
     if (scanning) return;
-    scanning = true; overlay.classList.add("is-loading"); if (refreshBtn) refreshBtn.disabled = true;
+    scanning = true; overlay.classList.add("is-loading"); if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.classList.add("is-spinning"); }
     data = null; error = ""; render();
     try { data = await fetchScan(fresh); loadedAt = Date.now(); }
     catch (e) { error = e.status === 401 || e.status === 403 ? "Owner session required." : (e.message || "Could not load Catch Accuracy."); }
-    scanning = false; overlay.classList.remove("is-loading"); if (refreshBtn) refreshBtn.disabled = false; render();
+    scanning = false; overlay.classList.remove("is-loading"); if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove("is-spinning"); } render();
   }
   document.getElementById("cdCatchTabs")?.addEventListener("click", (event) => {
     const b = event.target.closest("button[data-catch-tab]"); if (!b || b.dataset.catchTab === tab) return;
