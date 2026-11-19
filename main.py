@@ -4021,8 +4021,10 @@ def telegram_test(authorization: str = Header(None)):
 
 
 @app.get("/api/owner/telegram-pa/test")
-def telegram_pa_test(authorization: str = Header(None)):
-    _focus_radar_owner(authorization)
+def telegram_pa_test(request: Request, authorization: str = Header(None)):
+    is_localhost = request.client and request.client.host in ("127.0.0.1", "localhost", "::1")
+    if not is_localhost:
+        _focus_radar_owner(authorization)
     sample_text = (
         "⚡ <b>CryptoDock Price Action Alert Test</b>\n\n"
         "✅ Dedicated Price Action Bot connection is active!\n"
