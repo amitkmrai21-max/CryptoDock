@@ -3120,38 +3120,112 @@ body[data-theme="light"] .cd-more-tile.cd-more-pro-swings {
 /* Catch Accuracy mobile layout fixes: prevent screen overflow and cutoffs */
 #cdCatchAcc {
   box-sizing: border-box;
+  width: 100%;
   max-width: 100%;
   overflow-x: hidden;
 }
 #cdCatchAcc .cd-dash {
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   overflow-x: hidden;
 }
-#cdCatchAcc .cd-fr-bar {
+#cdCatchAcc .cd-fr-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+#cdCatchAcc .cd-fr-top > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#cdCatchAcc .cd-fr-top strong {
+  font-size: 19px;
+  line-height: 1.2;
+}
+#cdCatchAcc .cd-fr-top small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: .06em;
+  line-height: 1.3;
+  white-space: normal;
+  word-break: break-word;
+  color: var(--text-muted, #94a3b8);
+}
+#cdCatchAcc #cdCatchRefresh.cd-fr-iconbtn {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.5));
+  background: var(--surface-soft, #171325);
+  color: #ede9fe;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.25);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+#cdCatchAcc #cdCatchRefresh.cd-fr-iconbtn:active {
+  transform: scale(0.92);
+}
+#cdCatchAcc .cd-fr-notice {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+#cdCatchAcc .cd-fr-bar {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 #cdCatchAcc .cd-pills {
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  padding: 2px 0;
-}
-#cdCatchAcc .cd-pills::-webkit-scrollbar {
-  display: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0;
 }
 #cdCatchAcc .cd-pill {
-  flex: 0 0 auto;
-  padding: 5px 10px;
-  font-size: 11.5px;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  border-radius: 10px;
+}
+@media (min-width: 768px) {
+  #cdCatchAcc .cd-pills {
+    display: flex;
+    flex-wrap: nowrap;
+    width: auto;
+  }
+  #cdCatchAcc .cd-pill {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 6px 14px;
+    font-size: 12.5px;
+  }
 }
 
 /* Fix card header when no sparkline exists (avatar, id, price, star) */
