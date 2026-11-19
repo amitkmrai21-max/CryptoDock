@@ -4157,8 +4157,17 @@ def _run_telegram_catch_scan():
             _send_telegram_alert(
                 "🚀 <b>CryptoDock Alert System Active</b>\n\n"
                 "Background scanner is active on your server.\n"
-                "You will receive instant alerts whenever a new <b>Smart MTF</b>, <b>1H Swing</b>, or <b>15m Swing</b> setup triggers."
+                "Smart MTF alerts will arrive here.\n"
+                "⚡ Price Action alerts are routed to your dedicated Price Action Bot."
             )
+            pa_token = (os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip() or TELEGRAM_PA_BOT_TOKEN).strip()
+            pa_chat = (os.getenv("TELEGRAM_PA_CHAT_ID", "").strip() or TELEGRAM_PA_CHAT_ID).strip()
+            if pa_token and pa_chat:
+                _send_telegram_pa_alert(
+                    "⚡ <b>CryptoDock Price Action Alerts Active</b>\n\n"
+                    "Multi-Timeframe Price Action Scanner (1W · 1D · 1H · 15m) is running.\n"
+                    "New high-confluence setups will arrive here automatically."
+                )
             return
 
         for item in items:
