@@ -3219,132 +3219,335 @@ def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf
 
 
 
-def _catch_price_action_structure(keys4h, candles_1h, candles_15m, live_price):
-    """Price Action Market Structure Scanner (Liquidity Sweep & Trap Reversal):
-    Detects institutional liquidity sweeps (Swing Failure Patterns / Traps) at 4H & 1H key swing pivots / range extremes.
-    Does NOT trade breakout traps; requires candle to sweep the level and close back inside with strong rejection wick.
-    Independent of macro BTC EMA lag; Smart MTF remains 100% untouched."""
-    if not keys4h or not candles_1h or not candles_15m or live_price <= 0:
+def _find_swing_pivots(candles, window=2):
+    """Find fractal swing highs and swing lows (window on each side)."""
+    highs, lows = [], []
+    for i in range(window, len(candles) - window):
+        c = candles[i]
+        is_high = all(c[2] >= candles[j][2] for j in range(i - window, i + window + 1) if j != i)
+        is_low = all(c[3] <= candles[j][3] for j in range(i - window, i + window + 1) if j != i)
+        if is_high:
+            highs.append({"price": c[2], "ts": c[0], "idx": i})
+        if is_low:
+            lows.append({"price": c[3], "ts": c[0], "idx": i})
+    return highs, lows
+
+
+def _detect_15m_pattern(candles_15m, side, level_price):
+    """Detect Candlestick & Micro-Structure patterns on 15m trigger candles:
+    Bullish: Hammer, Bullish Engulfing, Double Bottom (W-pattern), Breakout Retest Bounce.
+    Bearish: Shooting Star, Bearish Engulfing, Double Top (M-pattern), Breakdown Retest Rejection.
+    """
+    if len(candles_15m) < 4:
         return None
-    if len(keys4h) < 15 or len(candles_1h) < 8 or len(candles_15m) < 6:
+
+    c_curr = candles_15m[-1]
+    c_prev = candles_15m[-2]
+
+    curr_o, curr_h, curr_l, curr_c = c_curr[1], c_curr[2], c_curr[3], c_curr[4]
+    curr_range = curr_h - curr_l
+    if curr_range <= 0:
         return None
 
-    # 1. Extract prominent Swing Lows (Support) and Swing Highs (Resistance) from 4H and 1H
-    supports = []
-    resistances = []
+    curr_is_green = curr_c > curr_o
+    curr_lower_wick = (min(curr_o, curr_c) - curr_l) / curr_range
+    curr_upper_wick = (curr_h - max(curr_o, curr_c)) / curr_range
 
-    # 4H Pivots (5-candle fractal window)
-    c4 = keys4h[:-1] if len(keys4h) > 1 else keys4h
-    for i in range(2, len(c4) - 2):
-        if c4[i][3] < c4[i-1][3] and c4[i][3] < c4[i-2][3] and c4[i][3] <= c4[i+1][3] and c4[i][3] <= c4[i+2][3]:
-            supports.append(("4H Swing Support", c4[i][3], c4[i][0]))
-        if c4[i][2] > c4[i-1][2] and c4[i][2] > c4[i-2][2] and c4[i][2] >= c4[i+1][2] and c4[i][2] >= c4[i+2][2]:
-            resistances.append(("4H Swing Resistance", c4[i][2], c4[i][0]))
+    prev_o, prev_h, prev_l, prev_c = c_prev[1], c_prev[2], c_prev[3], c_prev[4]
 
-    # 1H Pivots (5-candle fractal window)
-    c1 = candles_1h[:-1] if len(candles_1h) > 1 else candles_1h
-    for i in range(2, len(c1) - 2):
-        if c1[i][3] < c1[i-1][3] and c1[i][3] < c1[i-2][3] and c1[i][3] <= c1[i+1][3] and c1[i][3] <= c1[i+2][3]:
-            supports.append(("1H Swing Support", c1[i][3], c1[i][0]))
-        if c1[i][2] > c1[i-1][2] and c1[i][2] > c1[i-2][2] and c1[i][2] >= c1[i+1][2] and c1[i][2] >= c1[i+2][2]:
-            resistances.append(("1H Swing Resistance", c1[i][2], c1[i][0]))
+    if side == "bullish":
+        if curr_is_green and prev_c < prev_o and curr_c >= prev_o and curr_o <= prev_c:
+            return "Bullish Engulfing"
+        if curr_lower_wick >= 0.32 and curr_upper_wick <= 0.25 and curr_c >= curr_l + (curr_range * 0.45):
+            return "Hammer / Pinbar"
+        if curr_is_green and curr_l <= level_price <= curr_h and curr_c > level_price:
+            return "Breakout Retest & Bounce"
+        if len(candles_15m) >= 8:
+            lows = [c[3] for c in candles_15m[-8:]]
+            l1 = min(lows[:4])
+            l2 = min(lows[4:])
+            if abs(l1 - l2) / l1 <= 0.005 and curr_is_green:
+                return "Double Bottom (W-Pattern)"
 
-    # Range extremes (last 20 4H candles)
-    recent_4h = c4[-20:] if len(c4) >= 20 else c4
-    if recent_4h:
-        sup_range = min(c[3] for c in recent_4h)
-        res_range = max(c[2] for c in recent_4h)
-        supports.append(("4H Range Low", sup_range, recent_4h[0][0]))
-        resistances.append(("4H Range High", res_range, recent_4h[0][0]))
-
-    # Filter levels within relevant distance from live price (max 3.5%)
-    valid_supports = [s for s in supports if 0 < (live_price - s[1]) / live_price <= 0.035]
-    valid_resistances = [r for r in resistances if 0 < (r[1] - live_price) / live_price <= 0.035]
-
-    # Evaluate recent closed trigger candles (last 3 1H candles + last 5 15m candles)
-    recent_triggers = [(c, '1H') for c in candles_1h[-3:]] + [(c, '15m') for c in candles_15m[-5:]]
-
-    # Check Bullish Liquidity Sweep (Support Sweep + Reclaim / Bear Trap)
-    for c, tf_label in reversed(recent_triggers):
-        c_low, c_close, c_open, c_high = c[3], c[4], c[1], c[2]
-        c_range = c_high - c_low
-        if c_range <= 0:
-            continue
-        lower_wick = min(c_open, c_close) - c_low
-        wick_ratio = lower_wick / c_range
-
-        for sup_label, sup_lvl, lvl_ts in valid_supports:
-            if c_low < sup_lvl and c_close > sup_lvl and live_price > sup_lvl:
-                sweep_pct = round(((sup_lvl - c_low) / sup_lvl) * 100, 2)
-                if 0.10 <= sweep_pct <= 3.5 and wick_ratio >= 0.22:
-                    stop = round(c_low * 0.998, 6)
-                    risk = live_price - stop
-                    risk_pct = (risk / live_price) * 100
-                    if 0.3 <= risk_pct <= 2.5:
-                        t1 = round(live_price + 1.5 * risk, 6)
-                        t2 = round(live_price + 2.5 * risk, 6)
-                        return {
-                            "kind": "pa",
-                            "timeframe": "pa",
-                            "side": "bullish",
-                            "state": "confirmed",
-                            "trigger_state": "CONFIRMED",
-                            "entry": live_price,
-                            "stop": stop,
-                            "t1": t1,
-                            "t2": t2,
-                            "risk_pct": round(risk_pct, 2),
-                            "rr1": 1.5,
-                            "rr2": 2.5,
-                            "level": round(sup_lvl, 6),
-                            "sweep_pct": sweep_pct,
-                            "wick_pct": round(wick_ratio * 100, 1),
-                            "pa_type": "SUPPORT_SWEEP_REVERSAL",
-                            "candle_at": c[0],
-                            "key_tf": f"{sup_label} ({tf_label} Sweep)",
-                        }
-
-    # Check Bearish Liquidity Sweep (Resistance Sweep + Rejection / Bull Trap)
-    for c, tf_label in reversed(recent_triggers):
-        c_low, c_close, c_open, c_high = c[3], c[4], c[1], c[2]
-        c_range = c_high - c_low
-        if c_range <= 0:
-            continue
-        upper_wick = c_high - max(c_open, c_close)
-        wick_ratio = upper_wick / c_range
-
-        for res_label, res_lvl, lvl_ts in valid_resistances:
-            if c_high > res_lvl and c_close < res_lvl and live_price < res_lvl:
-                sweep_pct = round(((c_high - res_lvl) / res_lvl) * 100, 2)
-                if 0.10 <= sweep_pct <= 3.5 and wick_ratio >= 0.22:
-                    stop = round(c_high * 1.002, 6)
-                    risk = stop - live_price
-                    risk_pct = (risk / live_price) * 100
-                    if 0.3 <= risk_pct <= 2.5:
-                        t1 = round(live_price - 1.5 * risk, 6)
-                        t2 = round(live_price - 2.5 * risk, 6)
-                        return {
-                            "kind": "pa",
-                            "timeframe": "pa",
-                            "side": "bearish",
-                            "state": "confirmed",
-                            "trigger_state": "CONFIRMED",
-                            "entry": live_price,
-                            "stop": stop,
-                            "t1": t1,
-                            "t2": t2,
-                            "risk_pct": round(risk_pct, 2),
-                            "rr1": 1.5,
-                            "rr2": 2.5,
-                            "level": round(res_lvl, 6),
-                            "sweep_pct": sweep_pct,
-                            "wick_pct": round(wick_ratio * 100, 1),
-                            "pa_type": "RESISTANCE_SWEEP_REVERSAL",
-                            "candle_at": c[0],
-                            "key_tf": f"{res_label} ({tf_label} Sweep)",
-                        }
+    elif side == "bearish":
+        if not curr_is_green and prev_c > prev_o and curr_c <= prev_o and curr_o >= prev_c:
+            return "Bearish Engulfing"
+        if curr_upper_wick >= 0.32 and curr_lower_wick <= 0.25 and curr_c <= curr_l + (curr_range * 0.55):
+            return "Shooting Star / Pinbar"
+        if not curr_is_green and curr_l <= level_price <= curr_h and curr_c < level_price:
+            return "Breakdown Retest & Rejection"
+        if len(candles_15m) >= 8:
+            highs = [c[2] for c in candles_15m[-8:]]
+            h1 = max(highs[:4])
+            h2 = max(highs[4:])
+            if abs(h1 - h2) / h1 <= 0.005 and not curr_is_green:
+                return "Double Top (M-Pattern)"
 
     return None
+
+
+def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15m, live_price):
+    """Institutional Multi-Timeframe Price Action Confluence Scanner (1W + 1D + 4H + 1H + 15m):
+    1. 1W/1D Higher Timeframe Trend & S/R Structure
+    2. 1D ADX Trend Strength Confirmation (>= 18) & DI Alignment
+    3. Market Structure: Higher Highs / Higher Lows (HH/HL) vs Lower Highs / Lower Lows (LH/LL)
+    4. 1H Breakout / BOS (Break of Structure) OR High-Probability Liquidity Sweep (SFP)
+    5. Moving Averages Alignment (EMA 20 & EMA 50)
+    6. Fibonacci Golden Zone Confluence (0.50 - 0.618 OTE Retracement or Breakout Extension)
+    7. 15m Candlestick & Pattern Trigger Confirmation (Engulfing, Pinbar/Hammer, W/M Pattern, Retest)
+    Smart MTF remains 100% untouched.
+    """
+    if not keys1d or not candles_1h or not candles_15m or live_price <= 0:
+        return None
+    if len(keys1d) < 25 or len(candles_1h) < 25 or len(candles_15m) < 10:
+        return None
+
+    # --- 1. 1W MACRO BIAS ---
+    w_trend = "neutral"
+    if keys1w and len(keys1w) >= 10:
+        w_closes = [c[4] for c in keys1w]
+        w_ema = _catch_ema(w_closes, 10)
+        if w_ema:
+            w_trend = "bullish" if w_closes[-1] >= w_ema else "bearish"
+
+    # --- 2. 1D INTERMEDIATE TREND & ADX ---
+    d_closes = [c[4] for c in keys1d]
+    d_highs = [c[2] for c in keys1d]
+    d_lows = [c[3] for c in keys1d]
+    d_ema20 = _catch_ema(d_closes, 20)
+    d_ema50 = _catch_ema(d_closes, min(len(d_closes), 50))
+
+    d_adx_data = adx(d_highs, d_lows, d_closes, 14)
+    d_adx = d_adx_data.get("adx_14", 0)
+    d_pdi = d_adx_data.get("plus_di_14", 0)
+    d_mdi = d_adx_data.get("minus_di_14", 0)
+
+    d_trend = "neutral"
+    if d_ema20 and d_ema50:
+        if d_closes[-1] > d_ema20 and d_ema20 >= d_ema50:
+            d_trend = "bullish"
+        elif d_closes[-1] < d_ema20 and d_ema20 <= d_ema50:
+            d_trend = "bearish"
+        elif d_closes[-1] > d_ema20:
+            d_trend = "bullish"
+        elif d_closes[-1] < d_ema20:
+            d_trend = "bearish"
+
+    # --- 3. 1H MARKET STRUCTURE & PIVOTS ---
+    h_closes = [c[4] for c in candles_1h]
+    h_ema20 = _catch_ema(h_closes, 20)
+    h_ema50 = _catch_ema(h_closes, min(len(h_closes), 50))
+
+    swing_highs, swing_lows = _find_swing_pivots(candles_1h, window=2)
+    if not swing_highs or not swing_lows:
+        return None
+
+    recent_sh = swing_highs[-1]["price"]
+    recent_sl = swing_lows[-1]["price"]
+    prev_sh = swing_highs[-2]["price"] if len(swing_highs) >= 2 else recent_sh
+    prev_sl = swing_lows[-2]["price"] if len(swing_lows) >= 2 else recent_sl
+
+    h_structure = "neutral"
+    if recent_sh > prev_sh and recent_sl > prev_sl:
+        h_structure = "bullish"
+    elif recent_sh < prev_sh and recent_sl < prev_sl:
+        h_structure = "bearish"
+
+    # --- EVALUATE BULLISH CONFLUENCES ---
+    bullish_confluences = []
+    bearish_confluences = []
+
+    if d_trend == "bullish" or (w_trend == "bullish" and d_pdi >= d_mdi):
+        bullish_confluences.append("Macro Trend Alignment (1D/1W Bullish)")
+    if d_adx >= 18 and d_pdi > d_mdi:
+        bullish_confluences.append(f"Strong Bullish Trend ADX ({d_adx})")
+    if h_structure == "bullish":
+        bullish_confluences.append("1H Market Structure: Higher Highs & Higher Lows (HH/HL)")
+    if h_ema20 and live_price >= h_ema20:
+        bullish_confluences.append("1H Price Above EMA 20 Dynamic Support")
+
+    if d_trend == "bearish" or (w_trend == "bearish" and d_mdi >= d_pdi):
+        bearish_confluences.append("Macro Trend Alignment (1D/1W Bearish)")
+    if d_adx >= 18 and d_mdi > d_pdi:
+        bearish_confluences.append(f"Strong Bearish Trend ADX ({d_adx})")
+    if h_structure == "bearish":
+        bearish_confluences.append("1H Market Structure: Lower Highs & Lower Lows (LH/LL)")
+    if h_ema20 and live_price <= h_ema20:
+        bearish_confluences.append("1H Price Below EMA 20 Dynamic Resistance")
+
+    latest_1h = candles_1h[-1]
+    prev_1h = candles_1h[-2]
+
+    # Bullish Setup Evaluation
+    bullish_setup = None
+    if len(bullish_confluences) >= 2:
+        if (latest_1h[4] > recent_sh or prev_1h[4] > recent_sh) and live_price >= recent_sh * 0.996:
+            pat_name = _detect_15m_pattern(candles_15m, "bullish", recent_sh)
+            if pat_name:
+                stop = min([c[3] for c in candles_15m[-5:]] + [recent_sh * 0.992])
+                bullish_setup = {
+                    "type": f"BOS Breakout & {pat_name}",
+                    "level": recent_sh,
+                    "level_name": "1H Swing High Breakout (BOS)",
+                    "pattern": pat_name,
+                    "stop": round(stop * 0.998, 6),
+                    "extra_conf": f"1H Breakout of ${recent_sh:,.2f} + 15m {pat_name}",
+                }
+        if not bullish_setup:
+            for sl in swing_lows[-3:]:
+                sl_p = sl["price"]
+                swept = False
+                sweep_low = sl_p
+                for c in candles_1h[-2:] + candles_15m[-4:]:
+                    if c[3] < sl_p and c[4] > sl_p and live_price > sl_p:
+                        lower_wick = (min(c[1], c[4]) - c[3]) / (c[2] - c[3]) if (c[2] - c[3]) > 0 else 0
+                        if lower_wick >= 0.30:
+                            swept = True
+                            sweep_low = c[3]
+                            break
+                if swept:
+                    pat_name = _detect_15m_pattern(candles_15m, "bullish", sl_p)
+                    stop = round(sweep_low * 0.998, 6)
+                    bullish_setup = {
+                        "type": f"Liquidity Sweep & {pat_name or 'Reclaim'}",
+                        "level": sl_p,
+                        "level_name": "1H Swing Low Liquidity Sweep (SFP)",
+                        "pattern": pat_name or "Reclaim",
+                        "stop": stop,
+                        "extra_conf": f"Key Low ${sl_p:,.2f} Swept & Strong Reclaim",
+                    }
+                    break
+        if not bullish_setup and recent_sh > recent_sl:
+            fib_range = recent_sh - recent_sl
+            fib_50 = recent_sh - (fib_range * 0.50)
+            fib_618 = recent_sh - (fib_range * 0.618)
+            if fib_618 <= live_price <= fib_50 * 1.008:
+                pat_name = _detect_15m_pattern(candles_15m, "bullish", fib_618)
+                if pat_name:
+                    stop = round(fib_618 * 0.994, 6)
+                    bullish_setup = {
+                        "type": f"Fib Golden Pocket & {pat_name}",
+                        "level": fib_618,
+                        "level_name": "1H Fib 0.618 Golden Pocket Retest",
+                        "pattern": pat_name,
+                        "stop": stop,
+                        "extra_conf": f"Fib 0.618 (${fib_618:,.2f}) Support Held + 15m {pat_name}",
+                    }
+
+    # Bearish Setup Evaluation
+    bearish_setup = None
+    if len(bearish_confluences) >= 2:
+        if (latest_1h[4] < recent_sl or prev_1h[4] < recent_sl) and live_price <= recent_sl * 1.004:
+            pat_name = _detect_15m_pattern(candles_15m, "bearish", recent_sl)
+            if pat_name:
+                stop = max([c[2] for c in candles_15m[-5:]] + [recent_sl * 1.008])
+                bearish_setup = {
+                    "type": f"BOS Breakdown & {pat_name}",
+                    "level": recent_sl,
+                    "level_name": "1H Swing Low Breakdown (BOS)",
+                    "pattern": pat_name,
+                    "stop": round(stop * 1.002, 6),
+                    "extra_conf": f"1H Breakdown of ${recent_sl:,.2f} + 15m {pat_name}",
+                }
+        if not bearish_setup:
+            for sh in swing_highs[-3:]:
+                sh_p = sh["price"]
+                swept = False
+                sweep_high = sh_p
+                for c in candles_1h[-2:] + candles_15m[-4:]:
+                    if c[2] > sh_p and c[4] < sh_p and live_price < sh_p:
+                        upper_wick = (c[2] - max(c[1], c[4])) / (c[2] - c[3]) if (c[2] - c[3]) > 0 else 0
+                        if upper_wick >= 0.30:
+                            swept = True
+                            sweep_high = c[2]
+                            break
+                if swept:
+                    pat_name = _detect_15m_pattern(candles_15m, "bearish", sh_p)
+                    stop = round(sweep_high * 1.002, 6)
+                    bearish_setup = {
+                        "type": f"Liquidity Sweep & {pat_name or 'Rejection'}",
+                        "level": sh_p,
+                        "level_name": "1H Swing High Liquidity Sweep (SFP)",
+                        "pattern": pat_name or "Rejection",
+                        "stop": stop,
+                        "extra_conf": f"Key High ${sh_p:,.2f} Swept & Strong Rejection",
+                    }
+                    break
+        if not bearish_setup and prev_sh > recent_sl:
+            fib_range = prev_sh - recent_sl
+            fib_50 = recent_sl + (fib_range * 0.50)
+            fib_618 = recent_sl + (fib_range * 0.618)
+            if fib_50 * 0.992 <= live_price <= fib_618:
+                pat_name = _detect_15m_pattern(candles_15m, "bearish", fib_618)
+                if pat_name:
+                    stop = round(fib_618 * 1.006, 6)
+                    bearish_setup = {
+                        "type": f"Fib Golden Pocket & {pat_name}",
+                        "level": fib_618,
+                        "level_name": "1H Fib 0.618 Golden Pocket Retest",
+                        "pattern": pat_name,
+                        "stop": stop,
+                        "extra_conf": f"Fib 0.618 (${fib_618:,.2f}) Resistance Held + 15m {pat_name}",
+                    }
+
+    setup = None
+    side = None
+    confluences = []
+
+    if bullish_setup and len(bullish_confluences) >= 2:
+        side = "bullish"
+        setup = bullish_setup
+        confluences = bullish_confluences + [setup["extra_conf"]]
+    elif bearish_setup and len(bearish_confluences) >= 2:
+        side = "bearish"
+        setup = bearish_setup
+        confluences = bearish_confluences + [setup["extra_conf"]]
+
+    if not setup or not side:
+        return None
+
+    stop = setup["stop"]
+    if side == "bullish":
+        if stop >= live_price:
+            return None
+        risk = live_price - stop
+        risk_pct = (risk / live_price) * 100
+        if not (0.35 <= risk_pct <= 3.0):
+            return None
+        t1 = round(live_price + (1.5 * risk), 6)
+        t2 = round(live_price + (2.5 * risk), 6)
+    else:
+        if stop <= live_price:
+            return None
+        risk = stop - live_price
+        risk_pct = (risk / live_price) * 100
+        if not (0.35 <= risk_pct <= 3.0):
+            return None
+        t1 = round(live_price - (1.5 * risk), 6)
+        t2 = round(live_price - (2.5 * risk), 6)
+
+    return {
+        "kind": "pa",
+        "timeframe": "pa",
+        "side": side,
+        "state": "confirmed",
+        "trigger_state": "CONFIRMED",
+        "entry": live_price,
+        "stop": stop,
+        "t1": t1,
+        "t2": t2,
+        "risk_pct": round(risk_pct, 2),
+        "rr1": 1.5,
+        "rr2": 2.5,
+        "level": round(setup["level"], 6),
+        "pa_type": setup["type"],
+        "key_tf": setup["level_name"],
+        "pattern": setup["pattern"],
+        "confluences": confluences,
+        "adx": d_adx,
+        "candle_at": candles_15m[-1][0],
+    }
+
 
 
 def _catch_scan(ttl=CATCH_TTL_S):
@@ -3388,7 +3591,7 @@ def _catch_scan(ttl=CATCH_TTL_S):
                 if mtf_item:
                     found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
                                   "volume_usdt": coin.get("volume_usdt"), "spark": [], **mtf_item})
-                pa_item = _catch_price_action_structure(keys4h, triggers_1h, triggers_15m, price)
+                pa_item = _catch_price_action_structure(keys1w, keys1d, keys4h, triggers_1h, triggers_15m, price)
                 if pa_item:
                     found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
                                   "volume_usdt": coin.get("volume_usdt"), "spark": [], **pa_item})
@@ -3837,8 +4040,8 @@ def _format_telegram_alert(item: dict) -> str:
         cat_title = "🎯 Smart MTF Confluence"
         timeframe_label = "1W / 1D / 1H / 15m"
     elif kind == "pa" or tf == "pa":
-        cat_title = "⚡ Price Action: Liquidity Sweep"
-        timeframe_label = item.get("key_tf") or "Swing S/R Sweep"
+        cat_title = "⚡ Price Action: Institutional Multi-TF"
+        timeframe_label = item.get("key_tf") or "1W / 1D / 1H / 15m Confluence"
     elif tf == "1h":
         cat_title = "⚡ 1H Swing Setup"
         timeframe_label = f"1H Trigger ({item.get('key_tf', '4H')} Key)"
@@ -3890,12 +4093,22 @@ def _format_telegram_alert(item: dict) -> str:
         lines.append("")
         lines.append(extra)
     elif kind == "pa" or tf == "pa":
-        pa_type = item.get("pa_type") or "Liquidity Sweep Reversal"
-        sweep_pct = item.get("sweep_pct", 0.0)
-        wick_pct = item.get("wick_pct", 0.0)
-        extra = f"⚡ <b>Setup:</b> {_tg_esc(pa_type)} | <b>Sweep:</b> {sweep_pct}% | <b>Wick:</b> {wick_pct}%"
+        pa_type = item.get("pa_type") or "Price Action Setup"
+        pattern = item.get("pattern")
+        adx_val = item.get("adx")
+        extra = f"⚡ <b>Setup:</b> {_tg_esc(pa_type)}"
+        if pattern:
+            extra += f" | <b>Pattern:</b> {_tg_esc(pattern)}"
+        if adx_val:
+            extra += f" | <b>ADX:</b> {round(float(adx_val), 1)}"
         lines.append("")
         lines.append(extra)
+        confs = item.get("confluences") or []
+        if confs:
+            lines.append("")
+            lines.append("🔍 <b>Institutional Confluences (1W+1D+1H+15m):</b>")
+            for c in confs[:4]:
+                lines.append(f"  • {_tg_esc(c)}")
     else:
         sweep_pct = item.get("sweep_pct")
         if sweep_pct:
