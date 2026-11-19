@@ -3220,114 +3220,129 @@ def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf
 
 
 def _catch_price_action_structure(keys4h, candles_1h, candles_15m, live_price):
-    """Price Action Market Structure Scanner:
-    Reads coin chart structure dynamically (4H S/R key levels + liquidity sweep + 15m Break of Structure / Reversal).
-    Independent of macro BTC EMA lag so valid reversals off support/resistance are detected in real-time."""
+    """Price Action Market Structure Scanner (Liquidity Sweep & Trap Reversal):
+    Detects institutional liquidity sweeps (Swing Failure Patterns / Traps) at 4H & 1H key swing pivots / range extremes.
+    Does NOT trade breakout traps; requires candle to sweep the level and close back inside with strong rejection wick.
+    Independent of macro BTC EMA lag; Smart MTF remains 100% untouched."""
     if not keys4h or not candles_1h or not candles_15m or live_price <= 0:
         return None
     if len(keys4h) < 15 or len(candles_1h) < 8 or len(candles_15m) < 6:
         return None
 
-    # Identify Key Support and Resistance from closed 4H candles (past 20 candles)
-    lookback_4h = keys4h[:-1][-20:] if len(keys4h) >= 21 else keys4h[:-1]
-    if not lookback_4h:
-        return None
-    sup_4h = min(c[3] for c in lookback_4h)
-    res_4h = max(c[2] for c in lookback_4h)
-    if sup_4h <= 0 or res_4h <= sup_4h:
-        return None
+    # 1. Extract prominent Swing Lows (Support) and Swing Highs (Resistance) from 4H and 1H
+    supports = []
+    resistances = []
 
-    # Evaluate recent trigger candles (last 3 1H candles and last 4 15m candles)
-    recent_triggers = candles_1h[-3:] + candles_15m[-4:]
+    # 4H Pivots (5-candle fractal window)
+    c4 = keys4h[:-1] if len(keys4h) > 1 else keys4h
+    for i in range(2, len(c4) - 2):
+        if c4[i][3] < c4[i-1][3] and c4[i][3] < c4[i-2][3] and c4[i][3] <= c4[i+1][3] and c4[i][3] <= c4[i+2][3]:
+            supports.append(("4H Swing Support", c4[i][3], c4[i][0]))
+        if c4[i][2] > c4[i-1][2] and c4[i][2] > c4[i-2][2] and c4[i][2] >= c4[i+1][2] and c4[i][2] >= c4[i+2][2]:
+            resistances.append(("4H Swing Resistance", c4[i][2], c4[i][0]))
 
-    # 1. Bullish Setup: Support Liquidity Sweep + Reclaim + 15m Bullish Confirmation
-    bull_sweep_candle = None
-    for c in reversed(recent_triggers):
-        c_low = c[3]
-        c_close = c[4]
-        c_open = c[1]
-        c_high = c[2]
+    # 1H Pivots (5-candle fractal window)
+    c1 = candles_1h[:-1] if len(candles_1h) > 1 else candles_1h
+    for i in range(2, len(c1) - 2):
+        if c1[i][3] < c1[i-1][3] and c1[i][3] < c1[i-2][3] and c1[i][3] <= c1[i+1][3] and c1[i][3] <= c1[i+2][3]:
+            supports.append(("1H Swing Support", c1[i][3], c1[i][0]))
+        if c1[i][2] > c1[i-1][2] and c1[i][2] > c1[i-2][2] and c1[i][2] >= c1[i+1][2] and c1[i][2] >= c1[i+2][2]:
+            resistances.append(("1H Swing Resistance", c1[i][2], c1[i][0]))
+
+    # Range extremes (last 20 4H candles)
+    recent_4h = c4[-20:] if len(c4) >= 20 else c4
+    if recent_4h:
+        sup_range = min(c[3] for c in recent_4h)
+        res_range = max(c[2] for c in recent_4h)
+        supports.append(("4H Range Low", sup_range, recent_4h[0][0]))
+        resistances.append(("4H Range High", res_range, recent_4h[0][0]))
+
+    # Filter levels within relevant distance from live price (max 3.5%)
+    valid_supports = [s for s in supports if 0 < (live_price - s[1]) / live_price <= 0.035]
+    valid_resistances = [r for r in resistances if 0 < (r[1] - live_price) / live_price <= 0.035]
+
+    # Evaluate recent closed trigger candles (last 3 1H candles + last 5 15m candles)
+    recent_triggers = [(c, '1H') for c in candles_1h[-3:]] + [(c, '15m') for c in candles_15m[-5:]]
+
+    # Check Bullish Liquidity Sweep (Support Sweep + Reclaim / Bear Trap)
+    for c, tf_label in reversed(recent_triggers):
+        c_low, c_close, c_open, c_high = c[3], c[4], c[1], c[2]
         c_range = c_high - c_low
+        if c_range <= 0:
+            continue
         lower_wick = min(c_open, c_close) - c_low
-        if c_low < sup_4h and c_close > sup_4h and c_range > 0:
-            if (lower_wick / c_range) >= 0.28:  # 28%+ lower rejection wick
-                bull_sweep_candle = c
-                break
+        wick_ratio = lower_wick / c_range
 
-    if bull_sweep_candle and live_price > sup_4h:
-        last_15m = candles_15m[-1]
-        # Confirmation: latest 15m is green or live price is above 15m low
-        if last_15m[4] >= last_15m[1] or live_price > last_15m[3]:
-            stop = min(bull_sweep_candle[3], sup_4h) * 0.998
-            risk = live_price - stop
-            risk_pct = risk / live_price
-            if 0.003 <= risk_pct <= 0.022:
-                t1 = live_price + 1.5 * risk
-                t2 = live_price + 2.5 * risk
-                sweep_pct = round(((sup_4h - bull_sweep_candle[3]) / sup_4h) * 100, 2)
-                return {
-                    "kind": "pa",
-                    "timeframe": "pa",
-                    "side": "bullish",
-                    "state": "confirmed",
-                    "trigger_state": "CONFIRMED",
-                    "entry": live_price,
-                    "stop": round(stop, 6),
-                    "t1": round(t1, 6),
-                    "t2": round(t2, 6),
-                    "risk_pct": round(risk_pct * 100, 2),
-                    "rr1": 1.5,
-                    "rr2": 2.5,
-                    "level": sup_4h,
-                    "sweep_pct": sweep_pct,
-                    "pa_type": "SUPPORT_SWEEP_BOS",
-                    "candle_at": bull_sweep_candle[0],
-                    "key_tf": "4H Support",
-                }
+        for sup_label, sup_lvl, lvl_ts in valid_supports:
+            if c_low < sup_lvl and c_close > sup_lvl and live_price > sup_lvl:
+                sweep_pct = round(((sup_lvl - c_low) / sup_lvl) * 100, 2)
+                if 0.10 <= sweep_pct <= 3.5 and wick_ratio >= 0.22:
+                    stop = round(c_low * 0.998, 6)
+                    risk = live_price - stop
+                    risk_pct = (risk / live_price) * 100
+                    if 0.3 <= risk_pct <= 2.5:
+                        t1 = round(live_price + 1.5 * risk, 6)
+                        t2 = round(live_price + 2.5 * risk, 6)
+                        return {
+                            "kind": "pa",
+                            "timeframe": "pa",
+                            "side": "bullish",
+                            "state": "confirmed",
+                            "trigger_state": "CONFIRMED",
+                            "entry": live_price,
+                            "stop": stop,
+                            "t1": t1,
+                            "t2": t2,
+                            "risk_pct": round(risk_pct, 2),
+                            "rr1": 1.5,
+                            "rr2": 2.5,
+                            "level": round(sup_lvl, 6),
+                            "sweep_pct": sweep_pct,
+                            "wick_pct": round(wick_ratio * 100, 1),
+                            "pa_type": "SUPPORT_SWEEP_REVERSAL",
+                            "candle_at": c[0],
+                            "key_tf": f"{sup_label} ({tf_label} Sweep)",
+                        }
 
-    # 2. Bearish Setup: Resistance Liquidity Sweep + Rejection + 15m Bearish Confirmation
-    bear_sweep_candle = None
-    for c in reversed(recent_triggers):
-        c_low = c[3]
-        c_close = c[4]
-        c_open = c[1]
-        c_high = c[2]
+    # Check Bearish Liquidity Sweep (Resistance Sweep + Rejection / Bull Trap)
+    for c, tf_label in reversed(recent_triggers):
+        c_low, c_close, c_open, c_high = c[3], c[4], c[1], c[2]
         c_range = c_high - c_low
+        if c_range <= 0:
+            continue
         upper_wick = c_high - max(c_open, c_close)
-        if c_high > res_4h and c_close < res_4h and c_range > 0:
-            if (upper_wick / c_range) >= 0.28:  # 28%+ upper rejection wick
-                bear_sweep_candle = c
-                break
+        wick_ratio = upper_wick / c_range
 
-    if bear_sweep_candle and live_price < res_4h:
-        last_15m = candles_15m[-1]
-        if last_15m[4] <= last_15m[1] or live_price < last_15m[2]:
-            stop = max(bear_sweep_candle[2], res_4h) * 1.002
-            risk = stop - live_price
-            risk_pct = risk / live_price
-            if 0.003 <= risk_pct <= 0.022:
-                t1 = live_price - 1.5 * risk
-                t2 = live_price - 2.5 * risk
-                sweep_pct = round(((bear_sweep_candle[2] - res_4h) / res_4h) * 100, 2)
-                return {
-                    "kind": "pa",
-                    "timeframe": "pa",
-                    "side": "bearish",
-                    "state": "confirmed",
-                    "trigger_state": "CONFIRMED",
-                    "entry": live_price,
-                    "stop": round(stop, 6),
-                    "t1": round(t1, 6),
-                    "t2": round(t2, 6),
-                    "risk_pct": round(risk_pct * 100, 2),
-                    "rr1": 1.5,
-                    "rr2": 2.5,
-                    "level": res_4h,
-                    "sweep_pct": sweep_pct,
-                    "pa_type": "RESISTANCE_SWEEP_BOS",
-                    "candle_at": bear_sweep_candle[0],
-                    "key_tf": "4H Resistance",
-                }
+        for res_label, res_lvl, lvl_ts in valid_resistances:
+            if c_high > res_lvl and c_close < res_lvl and live_price < res_lvl:
+                sweep_pct = round(((c_high - res_lvl) / res_lvl) * 100, 2)
+                if 0.10 <= sweep_pct <= 3.5 and wick_ratio >= 0.22:
+                    stop = round(c_high * 1.002, 6)
+                    risk = stop - live_price
+                    risk_pct = (risk / live_price) * 100
+                    if 0.3 <= risk_pct <= 2.5:
+                        t1 = round(live_price - 1.5 * risk, 6)
+                        t2 = round(live_price - 2.5 * risk, 6)
+                        return {
+                            "kind": "pa",
+                            "timeframe": "pa",
+                            "side": "bearish",
+                            "state": "confirmed",
+                            "trigger_state": "CONFIRMED",
+                            "entry": live_price,
+                            "stop": stop,
+                            "t1": t1,
+                            "t2": t2,
+                            "risk_pct": round(risk_pct, 2),
+                            "rr1": 1.5,
+                            "rr2": 2.5,
+                            "level": round(res_lvl, 6),
+                            "sweep_pct": sweep_pct,
+                            "wick_pct": round(wick_ratio * 100, 1),
+                            "pa_type": "RESISTANCE_SWEEP_REVERSAL",
+                            "candle_at": c[0],
+                            "key_tf": f"{res_label} ({tf_label} Sweep)",
+                        }
 
     return None
 
@@ -3790,8 +3805,8 @@ def _format_telegram_alert(item: dict) -> str:
         cat_title = "🎯 Smart MTF Confluence"
         timeframe_label = "1W / 1D / 1H / 15m"
     elif kind == "pa" or tf == "pa":
-        cat_title = "⚡ Price Action Structure"
-        timeframe_label = "4H S/R & 15m BOS"
+        cat_title = "⚡ Price Action: Liquidity Sweep"
+        timeframe_label = item.get("key_tf") or "Swing S/R Sweep"
     elif tf == "1h":
         cat_title = "⚡ 1H Swing Setup"
         timeframe_label = f"1H Trigger ({item.get('key_tf', '4H')} Key)"
@@ -3843,9 +3858,10 @@ def _format_telegram_alert(item: dict) -> str:
         lines.append("")
         lines.append(extra)
     elif kind == "pa" or tf == "pa":
-        pa_type = item.get("pa_type") or "S/R Sweep + BOS"
+        pa_type = item.get("pa_type") or "Liquidity Sweep Reversal"
         sweep_pct = item.get("sweep_pct", 0.0)
-        extra = f"⚡ <b>Setup:</b> {_tg_esc(pa_type)} | <b>Sweep:</b> {sweep_pct}%"
+        wick_pct = item.get("wick_pct", 0.0)
+        extra = f"⚡ <b>Setup:</b> {_tg_esc(pa_type)} | <b>Sweep:</b> {sweep_pct}% | <b>Wick:</b> {wick_pct}%"
         lines.append("")
         lines.append(extra)
     else:
