@@ -60,32 +60,32 @@
     const badgePill = isFib
       ? (item.trigger_state === "CONFIRMED" ? `🎯 SMART MTF · ${dir}` : `⏳ MTF IN ZONE · ${dir}`)
       : isPa
-      ? `⚡ PRICE ACTION · ${dir}`
+      ? `💧 LIQUIDITY SWEEP · ${dir}`
       : `✅ SFP CONFIRMED · ${dir}`;
     const tagText = isFib
       ? `1W/1D PIVOT + FIB 0.618 + 15m REJECT`
       : isPa
-      ? `4H S/R SWEEP + 15m STRUCTURE BREAK`
+      ? `${esc(item.key_tf || "SWING S/R")} + REJECTION`
       : `${esc(item.key_tf || "KEY LEVEL")} LIQUIDITY SWEEP`;
     const subTitle = isFib
       ? `1W·1D·1H·15m SMART CONFLUENCE · ${item.trigger_state === "CONFIRMED" ? "TRIGGER CONFIRMED" : "IN ZONE"}`
       : isPa
-      ? `PRICE ACTION STRUCTURE · ${esc(item.pa_type || "S/R REVERSAL")}`
+      ? `LIQUIDITY SWEEP REVERSAL · ${esc(item.pa_type || "SWEEP REVERSAL")}`
       : `${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}`;
 
     const step1Title = isFib ? "1W/1D Levels" : isPa ? "Key Level" : "BTC 4H";
-    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : isPa ? `${esc(item.key_tf || "4H Level")} ${money(item.level)}` : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
+    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : isPa ? `${esc(item.key_tf || "Level")} ${money(item.level)}` : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
     const step2Title = isFib ? "1H Trend & ADX" : isPa ? "Liquidity Sweep" : "Liquidity";
     const step2Desc = isFib ? `ADX ${item.adx || 20}+ · EMA20/50` : isPa ? `Swept ${item.sweep_pct || 0}% & Reclaimed` : `${esc(item.key_tf || "")} level swept`;
-    const step3Title = isFib ? "Fib OTE Zone" : isPa ? "15m Structure" : "Reclaim";
-    const step3Desc = isFib ? (item.fib_zone || "0.50 – 0.618 OTE") : isPa ? "Structure Shift / BOS Confirmed" : "Closed candle back inside";
+    const step3Title = isFib ? "Fib OTE Zone" : isPa ? "Rejection Wick" : "Reclaim";
+    const step3Desc = isFib ? (item.fib_zone || "0.50 – 0.618 OTE") : isPa ? `${item.wick_pct || 25}%+ Rejection Shadow` : "Closed candle back inside";
     const step4Title = isFib ? "15m Trigger" : isPa ? "Risk / Reward" : "Risk";
     const step4Desc = isFib ? (item.trigger_state === "CONFIRMED" ? "Rejection Wick Confirmed" : "In Confluence Zone") : `${pct(item.risk_pct)} · 1:${item.rr1 || 1.5} / 1:${item.rr2 || 2.5}`;
 
     const infoLine = isFib
       ? `<i>1W Pivot</i> <b>${money(item.w_level)}</b> · <i>1D Level</i> <b>${money(item.d_level)}</b> · <i>Fib 0.618</i> <b>${money(item.fib_level)}</b> · ${ago(item.candle_at)}`
       : isPa
-      ? `<i>Key S/R</i> <b>${money(item.level)}</b> · <i>Sweep</i> <b>${item.sweep_pct || 0}%</b> · <i>Setup</i> <b>${esc(item.pa_type || "Price Action")}</b> · ${ago(item.candle_at)}`
+      ? `<i>Key Level</i> <b>${money(item.level)}</b> · <i>Sweep</i> <b>${item.sweep_pct || 0}%</b> · <i>Wick</i> <b>${item.wick_pct || 0}%</b> · ${ago(item.candle_at)}`
       : `<i>Key level</i> <b>${money(item.level)}</b> · <i>Trigger close</i> <b>${money(item.trigger_close)}</b> · ${ago(item.candle_at)}`;
 
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
