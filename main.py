@@ -3293,6 +3293,8 @@ def get_owner_catch_accuracy(authorization: str = Header(None), refresh: str = "
 # Scans in the background every 15 minutes, independent of app visitors.
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "9246646399:AAGK-SUjXs46ESa3hhkCV4BAUvKWUFy6hAE").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8391540111").strip()
+TELEGRAM_LOSS_BOT_TOKEN = os.getenv("TELEGRAM_LOSS_BOT_TOKEN", "").strip()
+TELEGRAM_LOSS_CHAT_ID = os.getenv("TELEGRAM_LOSS_CHAT_ID", "").strip()
 TELEGRAM_SCAN_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
 
 TELEGRAM_DAILY_COUNTS_FILE = os.getenv("TELEGRAM_DAILY_COUNTS_FILE") or os.path.join(
@@ -3545,7 +3547,7 @@ def _check_repeat_positions_loss():
                     f"⚠️ <i>Threshold reached (${threshold:,.0f} limit). Position continues running.</i>"
                 )
                 
-                sent = _send_telegram_alert(alert_text)
+                sent = _send_telegram_loss_alert(alert_text)
                 if sent:
                     p["loss_alert_sent"] = True
                     p["loss_alert_at"] = int(time.time())
@@ -3567,6 +3569,35 @@ def _repeat_positions_loss_monitor_loop():
         except Exception as err:
             print(f"[Loss Monitor] Loop exception: {err}")
         time.sleep(30)
+
+
+
+def _send_telegram_loss_alert(text: str) -> bool:
+    """Sends alert to a dedicated Loss Alert Telegram bot/chat if configured,
+    otherwise falls back to main Telegram bot."""
+    token = TELEGRAM_LOSS_BOT_TOKEN or TELEGRAM_BOT_TOKEN
+    chat_id = TELEGRAM_LOSS_CHAT_ID or TELEGRAM_CHAT_ID
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except Exception as exc:
+        print(f"[Telegram Loss Alert Error]: {exc}")
+        return False
 
 
 def _send_telegram_alert(text: str) -> bool:
