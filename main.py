@@ -3,8 +3,10 @@ import gzip
 import json
 import math
 import os
+import random
 import re
 import time
+import urllib.request
 from datetime import datetime, timezone, timedelta
 
 import requests
@@ -3406,7 +3408,7 @@ def _auto_open_repeat_position(item: dict):
     liq = price * (1.0 - 0.95 / lev) if pos_side == "LONG" else price * (1.0 + 0.95 / lev)
     
     now_ms = int(time.time() * 1000)
-    uid = f"auto_{now_ms}_{random.randint(1000, 9999)}"
+    uid = f"auto_{now_ms}_{int((time.time() * 10000) % 10000)}"
     
     pos = {
         "id": uid,
@@ -3558,6 +3560,37 @@ def _check_repeat_positions_loss():
             record["rev"] = int(record.get("rev", 0)) + 1
             record["updated_at"] = int(time.time())
             _save_paper(data)
+
+
+
+def _backfill_missed_today_repeats():
+    """Checks if repeat alerts already triggered earlier today (like QQQB, TQQQB)
+    and ensures they exist in the owner's open positions."""
+    try:
+        time.sleep(3)
+        _load_telegram_daily_counts()
+        counts = _telegram_daily_counts.get("counts", {})
+        if not counts:
+            return
+        
+        missed = [
+            {"base": "QQQB", "entry": 666.09, "side": "bearish", "repeat_count": counts.get("QQQB", 7)},
+            {"base": "TQQQB", "entry": 53.95, "side": "bearish", "repeat_count": counts.get("TQQQB", 3)},
+        ]
+        
+        with paper_write_lock():
+            data = _load_paper()
+            record = data.get(FOCUS_RADAR_OWNER) or {}
+            st = record.get("state") or {}
+            existing_bases = {p.get("base") for p in st.get("positions", [])}
+            
+        for item in missed:
+            b = item["base"]
+            if counts.get(b, 0) >= 2 and b not in existing_bases:
+                print(f"[Backfill] Opening missed repeat position for {b}")
+                _auto_open_repeat_position(item)
+    except Exception as err:
+        print(f"[Backfill Error]: {err}")
 
 
 def _repeat_positions_loss_monitor_loop():
@@ -4225,6 +4258,7 @@ def _start_broadcast_and_rrg():
     threading.Thread(target=_markets_warmer, name="markets-warmer", daemon=True).start()
     threading.Thread(target=_catch_accuracy_telegram_scanner_loop, name="catch-telegram-scanner", daemon=True).start()
     threading.Thread(target=_repeat_positions_loss_monitor_loop, name="repeat-loss-monitor", daemon=True).start()
+    threading.Thread(target=_backfill_missed_today_repeats, name="repeat-backfill", daemon=True).start()
 
 def _old_rrg_warmer_skip():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
