@@ -1567,19 +1567,26 @@
         </div>
 
         <!-- Settings Grid -->
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:12px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:12px;">
           <!-- Max Open Positions -->
           <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <label style="display:block; font-size:0.72rem; color:#94a3b8; font-weight:600; margin-bottom:6px;">Max Active Positions</label>
+            <label style="display:block; font-size:0.72rem; color:#94a3b8; font-weight:600; margin-bottom:6px;">Max Positions</label>
             <input type="number" id="cdDeltaMaxPos" min="1" max="10" value="3" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:#f8fafc; padding:6px 8px; font-size:0.88rem; font-weight:700;">
-            <div style="font-size:0.65rem; color:#64748b; margin-top:3px;">Max concurrent coins</div>
+            <div style="font-size:0.65rem; color:#64748b; margin-top:3px;">Max active coins</div>
           </div>
 
           <!-- Margin per Trade -->
           <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px;">
-            <label style="display:block; font-size:0.72rem; color:#94a3b8; font-weight:600; margin-bottom:6px;">Margin per Trade ($)</label>
+            <label style="display:block; font-size:0.72rem; color:#94a3b8; font-weight:600; margin-bottom:6px;">Margin / Trade ($)</label>
             <input type="number" id="cdDeltaMargin" min="10" max="5000" step="10" value="150" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid rgba(255,255,255,0.15); border-radius:6px; color:#f8fafc; padding:6px 8px; font-size:0.88rem; font-weight:700;">
-            <div style="font-size:0.65rem; color:#64748b; margin-top:3px;">Cross Margin (USDT)</div>
+            <div style="font-size:0.65rem; color:#64748b; margin-top:3px;">Cross Margin ($)</div>
+          </div>
+
+          <!-- Auto Take-Profit -->
+          <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.25); border-radius:10px; padding:10px;">
+            <label style="display:block; font-size:0.72rem; color:#34d399; font-weight:700; margin-bottom:6px;">Auto Profit ($)</label>
+            <input type="number" id="cdDeltaTakeProfit" min="5" max="5000" step="5" value="40" style="width:100%; box-sizing:border-box; background:#0f172a; border:1px solid rgba(16,185,129,0.4); border-radius:6px; color:#34d399; padding:6px 8px; font-size:0.88rem; font-weight:700;">
+            <div style="font-size:0.65rem; color:#10b981; margin-top:3px;">Auto-close at +$40</div>
           </div>
         </div>
 
@@ -1592,7 +1599,7 @@
         </div>
 
         <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255, 255, 255, 0.06); font-size:0.68rem; color:#64748b;">
-          Market Order • Cross Margin • No Target / No SL • Auto-stops when toggled OFF
+          Market Order • Cross Margin • Auto-closes on +$40 profit (or manual close) • Auto-stops when toggled OFF
         </div>
       </div>
     </section>
@@ -2283,6 +2290,6 @@
       });
     }
   </script>
-  <script src="/frontend/settings.js?v=20261119-delta-v2"></script>
+  <script src="/frontend/settings.js?v=20261119-delta-v3"></script>
 </body>
 </html>

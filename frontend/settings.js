@@ -195,6 +195,7 @@
     const slider = document.getElementById("cdDeltaAutoSlider");
     const maxPosInput = document.getElementById("cdDeltaMaxPos");
     const marginInput = document.getElementById("cdDeltaMargin");
+    const takeProfitInput = document.getElementById("cdDeltaTakeProfit");
     const statusEl = document.getElementById("cdDeltaConnStatus");
     const saveBtn = document.getElementById("cdDeltaSaveBtn");
     const saveMsg = document.getElementById("cdDeltaSaveMsg");
@@ -232,6 +233,9 @@
         if (marginInput && cfg.margin_per_trade != null) {
           marginInput.value = cfg.margin_per_trade;
         }
+        if (takeProfitInput && cfg.take_profit_usd != null) {
+          takeProfitInput.value = cfg.take_profit_usd;
+        }
         if (statusEl) {
           if (data.status === "connected") {
             statusEl.textContent = `🟢 Connected (${data.delta_open_positions} active)`;
@@ -266,7 +270,8 @@
         const payload = {
           enabled: !!(enabledToggle && enabledToggle.checked),
           max_open_positions: parseInt(maxPosInput?.value || "3", 10),
-          margin_per_trade: parseFloat(marginInput?.value || "150")
+          margin_per_trade: parseFloat(marginInput?.value || "150"),
+          take_profit_usd: parseFloat(takeProfitInput?.value || "40")
         };
 
         try {

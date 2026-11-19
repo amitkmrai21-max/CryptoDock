@@ -4263,6 +4263,7 @@ def _start_broadcast_and_rrg():
     threading.Thread(target=_catch_accuracy_telegram_scanner_loop, name="catch-telegram-scanner", daemon=True).start()
     threading.Thread(target=_repeat_positions_loss_monitor_loop, name="repeat-loss-monitor", daemon=True).start()
     threading.Thread(target=_backfill_missed_today_repeats, name="repeat-backfill", daemon=True).start()
+    threading.Thread(target=_delta_profit_monitor_loop, name="delta-profit-monitor", daemon=True).start()
 
 def _old_rrg_warmer_skip():
     threading.Thread(target=_rrg_warmer, name="rrg-warmer", daemon=True).start()
@@ -4467,7 +4468,8 @@ def _load_delta_config():
         "enabled": False,
         "max_open_positions": 3,
         "margin_per_trade": 150.0,
-        "margin_mode": "cross"
+        "margin_mode": "cross",
+        "take_profit_usd": 40.0
     }
     if os.path.exists(DELTA_CONFIG_PATH):
         try:
@@ -4644,6 +4646,78 @@ def _trigger_delta_auto_trade(item):
         except Exception as e:
             print(f"[Delta Auto Trade Order Exception]: {e}")
 
+_delta_closed_profit_trades = {}  # product_id -> timestamp
+
+def _check_delta_positions_profit():
+    """Checks open positions on Delta India and auto-closes positions when profit reaches target ($40)."""
+    api_key = os.getenv("DELTA_INDIA_API_KEY", "").strip()
+    api_secret = os.getenv("DELTA_INDIA_API_SECRET", "").strip()
+    if not api_key or not api_secret:
+        return
+
+    cfg = _load_delta_config()
+    target_profit = float(cfg.get("take_profit_usd", 40.0) or 40.0)
+    if target_profit <= 0:
+        return
+
+    pos_res = _delta_api_request("GET", "/v2/positions/margined", api_key=api_key, api_secret=api_secret)
+    if not pos_res or not pos_res.get("success"):
+        return
+
+    positions = pos_res.get("result", [])
+    now = time.time()
+    for pos in positions:
+        try:
+            size = int(pos.get("size") or 0)
+            if size == 0:
+                continue
+            unrealized_pnl = float(pos.get("unrealized_pnl") or 0.0)
+            product_id = pos.get("product_id")
+            prod_sym = pos.get("product_symbol") or f"ID-{product_id}"
+
+            if unrealized_pnl >= target_profit:
+                last_close_ts = _delta_closed_profit_trades.get(product_id, 0)
+                if now - last_close_ts < 60:
+                    continue  # Cooldown 60s per coin to prevent duplicate market close orders
+
+                close_side = "sell" if size > 0 else "buy"
+                close_payload = {
+                    "product_id": product_id,
+                    "size": abs(size),
+                    "side": close_side,
+                    "order_type": "market_order",
+                    "reduce_only": "true"
+                }
+                close_res = _delta_api_request("POST", "/v2/orders", payload=close_payload, api_key=api_key, api_secret=api_secret)
+                if close_res.get("success"):
+                    _delta_closed_profit_trades[product_id] = now
+                    ord_id = close_res.get("result", {}).get("id", "N/A")
+                    print(f"[Delta Auto Take-Profit SUCCESS] {prod_sym} closed at +${unrealized_pnl:.2f}! Order ID={ord_id}")
+                    alert_msg = (
+                        f"🎯 <b>Delta India Auto Take-Profit Hit!</b>\n\n"
+                        f"• <b>Coin:</b> {prod_sym}\n"
+                        f"• <b>Action:</b> Position Closed at Market\n"
+                        f"• <b>Profit Realized:</b> +${unrealized_pnl:.2f} (Target: ${target_profit:.2f})\n"
+                        f"• <b>Order ID:</b> <code>{ord_id}</code>\n\n"
+                        f"<i>Auto-closed live on Delta Exchange India</i>"
+                    )
+                    _send_telegram_alert(alert_msg)
+                else:
+                    print(f"[Delta Auto Take-Profit Order Error]: {close_res}")
+        except Exception as pe:
+            print(f"[Delta Auto Take-Profit Pos Error]: {pe}")
+
+def _delta_profit_monitor_loop():
+    """Background monitor checking open Delta positions every 10 seconds for profit target ($40)."""
+    time.sleep(15)
+    while True:
+        try:
+            _check_delta_positions_profit()
+        except Exception as e:
+            print(f"[Delta Profit Monitor Loop Error]: {e}")
+        time.sleep(10)
+
+
 
 # --- Delta India Owner Endpoints ---
 @app.get("/api/owner/delta/config")
@@ -4685,6 +4759,8 @@ def update_owner_delta_config(payload: dict, authorization: str = Header(None)):
         cfg["max_open_positions"] = max(1, min(20, int(payload["max_open_positions"])))
     if "margin_per_trade" in payload:
         cfg["margin_per_trade"] = max(5.0, min(50000.0, float(payload["margin_per_trade"])))
+    if "take_profit_usd" in payload:
+        cfg["take_profit_usd"] = max(1.0, min(100000.0, float(payload["take_profit_usd"])))
     _save_delta_config(cfg)
     return {"success": True, "config": cfg}
 
