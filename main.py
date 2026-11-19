@@ -3430,6 +3430,8 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "9246646399:AAGK-SUjXs46ESa
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8391540111").strip()
 TELEGRAM_LOSS_BOT_TOKEN = os.getenv("TELEGRAM_LOSS_BOT_TOKEN", "").strip()
 TELEGRAM_LOSS_CHAT_ID = os.getenv("TELEGRAM_LOSS_CHAT_ID", "").strip()
+TELEGRAM_PA_BOT_TOKEN = os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip()
+TELEGRAM_PA_CHAT_ID = os.getenv("TELEGRAM_PA_CHAT_ID", "").strip()
 TELEGRAM_SCAN_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
 
 TELEGRAM_DAILY_COUNTS_FILE = os.getenv("TELEGRAM_DAILY_COUNTS_FILE") or os.path.join(
@@ -3519,6 +3521,8 @@ def _get_delta_leverage(base: str) -> int:
 def _auto_open_repeat_position(item: dict):
     """Automatically open a Cross Margin ($150 USDT margin) position for the owner
     on repeated alert coins (2 R, 3 R, 4 R, etc.) without stop-loss or target."""
+    if item.get("kind") != "fib":
+        return
     base = item.get("base")
     if not base:
         return
@@ -3593,6 +3597,10 @@ def _auto_open_repeat_position(item: dict):
             st["cash"] = max(0.0, round(cash - fee, 4))
             
         positions_list = st.get("positions", [])
+        # Prevent duplicate positions: if coin is already open, do not open another!
+        if any(str(p.get("base", "")).upper() == str(base).upper() for p in positions_list):
+            print(f"[Auto Repeat Trade] Skipped {base}: position already open in portfolio.")
+            return
         positions_list.insert(0, pos)
         st["positions"] = positions_list
         
@@ -3766,6 +3774,29 @@ def _send_telegram_loss_alert(text: str) -> bool:
         return False
 
 
+def _send_telegram_pa_alert(text: str) -> bool:
+    token = TELEGRAM_PA_BOT_TOKEN
+    chat_id = TELEGRAM_PA_CHAT_ID
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        r = requests.post(url, json=payload, timeout=12)
+        if r.status_code != 200:
+            print(f"[Telegram PA Alert] Error {r.status_code}: {r.text[:200]}")
+            return False
+        return True
+    except Exception as e:
+        print(f"[Telegram PA Alert] Failed to send: {e}")
+        return False
+
+
 def _send_telegram_alert(text: str) -> bool:
     token = TELEGRAM_BOT_TOKEN
     chat_id = TELEGRAM_CHAT_ID
@@ -3917,13 +3948,25 @@ def _run_telegram_catch_scan():
             return
 
         for item in items:
+            k = _alert_dedup_key(item)
+            if k in _telegram_seen_alerts:
+                continue
+
+            # Price Action isolation:
+            # 1. Price Action MUST NOT be sent to Smart MTF Telegram Bot
+            # 2. Price Action MUST NEVER auto-trade (neither paper nor Delta India)
+            if item.get("kind") == "pa":
+                if TELEGRAM_PA_BOT_TOKEN and TELEGRAM_PA_CHAT_ID:
+                    msg = _format_telegram_alert(item)
+                    if _send_telegram_pa_alert(msg):
+                        _telegram_seen_alerts[k] = now
+                else:
+                    _telegram_seen_alerts[k] = now
+                continue
+
             if item.get("kind") == "fib" and item.get("trigger_state") != "CONFIRMED":
                 continue
             if item.get("state") not in ("ready", "confirmed") and not item.get("has_wick", False):
-                continue
-
-            k = _alert_dedup_key(item)
-            if k in _telegram_seen_alerts:
                 continue
 
             base = item.get("base")
@@ -4705,6 +4748,8 @@ def _get_delta_product_for_base(base):
 
 def _trigger_delta_auto_trade(item):
     """Executes Market Order on Delta Exchange India for verified Smart MTF signals."""
+    if item.get("kind") != "fib":
+        return
     cfg = _load_delta_config()
     if not cfg.get("enabled", False):
         return
