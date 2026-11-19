@@ -3218,6 +3218,120 @@ def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf
     }
 
 
+
+def _catch_price_action_structure(keys4h, candles_1h, candles_15m, live_price):
+    """Price Action Market Structure Scanner:
+    Reads coin chart structure dynamically (4H S/R key levels + liquidity sweep + 15m Break of Structure / Reversal).
+    Independent of macro BTC EMA lag so valid reversals off support/resistance are detected in real-time."""
+    if not keys4h or not candles_1h or not candles_15m or live_price <= 0:
+        return None
+    if len(keys4h) < 15 or len(candles_1h) < 8 or len(candles_15m) < 6:
+        return None
+
+    # Identify Key Support and Resistance from closed 4H candles (past 20 candles)
+    lookback_4h = keys4h[:-1][-20:] if len(keys4h) >= 21 else keys4h[:-1]
+    if not lookback_4h:
+        return None
+    sup_4h = min(c[3] for c in lookback_4h)
+    res_4h = max(c[2] for c in lookback_4h)
+    if sup_4h <= 0 or res_4h <= sup_4h:
+        return None
+
+    # Evaluate recent trigger candles (last 3 1H candles and last 4 15m candles)
+    recent_triggers = candles_1h[-3:] + candles_15m[-4:]
+
+    # 1. Bullish Setup: Support Liquidity Sweep + Reclaim + 15m Bullish Confirmation
+    bull_sweep_candle = None
+    for c in reversed(recent_triggers):
+        c_low = c[3]
+        c_close = c[4]
+        c_open = c[1]
+        c_high = c[2]
+        c_range = c_high - c_low
+        lower_wick = min(c_open, c_close) - c_low
+        if c_low < sup_4h and c_close > sup_4h and c_range > 0:
+            if (lower_wick / c_range) >= 0.28:  # 28%+ lower rejection wick
+                bull_sweep_candle = c
+                break
+
+    if bull_sweep_candle and live_price > sup_4h:
+        last_15m = candles_15m[-1]
+        # Confirmation: latest 15m is green or live price is above 15m low
+        if last_15m[4] >= last_15m[1] or live_price > last_15m[3]:
+            stop = min(bull_sweep_candle[3], sup_4h) * 0.998
+            risk = live_price - stop
+            risk_pct = risk / live_price
+            if 0.003 <= risk_pct <= 0.022:
+                t1 = live_price + 1.5 * risk
+                t2 = live_price + 2.5 * risk
+                sweep_pct = round(((sup_4h - bull_sweep_candle[3]) / sup_4h) * 100, 2)
+                return {
+                    "kind": "pa",
+                    "timeframe": "pa",
+                    "side": "bullish",
+                    "state": "confirmed",
+                    "trigger_state": "CONFIRMED",
+                    "entry": live_price,
+                    "stop": round(stop, 6),
+                    "t1": round(t1, 6),
+                    "t2": round(t2, 6),
+                    "risk_pct": round(risk_pct * 100, 2),
+                    "rr1": 1.5,
+                    "rr2": 2.5,
+                    "level": sup_4h,
+                    "sweep_pct": sweep_pct,
+                    "pa_type": "SUPPORT_SWEEP_BOS",
+                    "candle_at": bull_sweep_candle[0],
+                    "key_tf": "4H Support",
+                }
+
+    # 2. Bearish Setup: Resistance Liquidity Sweep + Rejection + 15m Bearish Confirmation
+    bear_sweep_candle = None
+    for c in reversed(recent_triggers):
+        c_low = c[3]
+        c_close = c[4]
+        c_open = c[1]
+        c_high = c[2]
+        c_range = c_high - c_low
+        upper_wick = c_high - max(c_open, c_close)
+        if c_high > res_4h and c_close < res_4h and c_range > 0:
+            if (upper_wick / c_range) >= 0.28:  # 28%+ upper rejection wick
+                bear_sweep_candle = c
+                break
+
+    if bear_sweep_candle and live_price < res_4h:
+        last_15m = candles_15m[-1]
+        if last_15m[4] <= last_15m[1] or live_price < last_15m[2]:
+            stop = max(bear_sweep_candle[2], res_4h) * 1.002
+            risk = stop - live_price
+            risk_pct = risk / live_price
+            if 0.003 <= risk_pct <= 0.022:
+                t1 = live_price - 1.5 * risk
+                t2 = live_price - 2.5 * risk
+                sweep_pct = round(((bear_sweep_candle[2] - res_4h) / res_4h) * 100, 2)
+                return {
+                    "kind": "pa",
+                    "timeframe": "pa",
+                    "side": "bearish",
+                    "state": "confirmed",
+                    "trigger_state": "CONFIRMED",
+                    "entry": live_price,
+                    "stop": round(stop, 6),
+                    "t1": round(t1, 6),
+                    "t2": round(t2, 6),
+                    "risk_pct": round(risk_pct * 100, 2),
+                    "rr1": 1.5,
+                    "rr2": 2.5,
+                    "level": res_4h,
+                    "sweep_pct": sweep_pct,
+                    "pa_type": "RESISTANCE_SWEEP_BOS",
+                    "candle_at": bear_sweep_candle[0],
+                    "key_tf": "4H Resistance",
+                }
+
+    return None
+
+
 def _catch_scan(ttl=CATCH_TTL_S):
     now = time.time()
     bias = _catch_btc_bias(now, ttl)
@@ -3259,6 +3373,10 @@ def _catch_scan(ttl=CATCH_TTL_S):
                 if mtf_item:
                     found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
                                   "volume_usdt": coin.get("volume_usdt"), "spark": [], **mtf_item})
+                pa_item = _catch_price_action_structure(keys4h, triggers_1h, triggers_15m, price)
+                if pa_item:
+                    found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
+                                  "volume_usdt": coin.get("volume_usdt"), "spark": [], **pa_item})
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
             print(f"Catch Accuracy skipped {base}: {error}")
         # Prefer 1h swing signals; avoid duplicate symbol/timeframe/key combinations.
@@ -3671,6 +3789,9 @@ def _format_telegram_alert(item: dict) -> str:
     if kind == "fib" or tf == "fib":
         cat_title = "🎯 Smart MTF Confluence"
         timeframe_label = "1W / 1D / 1H / 15m"
+    elif kind == "pa" or tf == "pa":
+        cat_title = "⚡ Price Action Structure"
+        timeframe_label = "4H S/R & 15m BOS"
     elif tf == "1h":
         cat_title = "⚡ 1H Swing Setup"
         timeframe_label = f"1H Trigger ({item.get('key_tf', '4H')} Key)"
@@ -3719,6 +3840,12 @@ def _format_telegram_alert(item: dict) -> str:
         extra = f"⚡ <b>State:</b> {_tg_esc(state)} | <b>Fib:</b> {_tg_esc(fib_zone)}"
         if adx_val:
             extra += f" | <b>ADX:</b> {round(float(adx_val), 1)}"
+        lines.append("")
+        lines.append(extra)
+    elif kind == "pa" or tf == "pa":
+        pa_type = item.get("pa_type") or "S/R Sweep + BOS"
+        sweep_pct = item.get("sweep_pct", 0.0)
+        extra = f"⚡ <b>Setup:</b> {_tg_esc(pa_type)} | <b>Sweep:</b> {sweep_pct}%"
         lines.append("")
         lines.append(extra)
     else:
