@@ -125,17 +125,31 @@
     const refreshBtn = document.getElementById("cdOwnerRefreshBtn");
     if (refreshBtn && !refreshBtn.dataset.bound) {
       refreshBtn.dataset.bound = "true";
-      refreshBtn.addEventListener("click", checkAndSyncOwnerStats);
-    }
-    const settingsBtn = document.getElementById("cdMoreSettings");
-    if (settingsBtn) {
-      settingsBtn.addEventListener("click", function() {
-        setTimeout(() => { checkAndSyncOwnerStats(); checkAndSyncDeltaAutoTrade(); }, 200);
+      refreshBtn.addEventListener("click", function() {
+        checkAndSyncOwnerStats();
+        checkAndSyncDeltaAutoTrade();
       });
+    }
+    // Retry periodically after page load to sync as soon as auth session resolves
+    let syncAttempts = 0;
+    const syncTimer = setInterval(() => {
+      syncAttempts++;
+      checkAndSyncOwnerStats();
+      checkAndSyncDeltaAutoTrade();
+      if (syncAttempts >= 8) clearInterval(syncTimer);
+    }, 800);
+  });
+
+  document.addEventListener("click", function(e) {
+    if (e.target && (e.target.closest("#topSettingsMenuButton") || e.target.closest("[data-more-settings]") || e.target.closest("#cdOwnerRefreshBtn"))) {
+      setTimeout(() => { checkAndSyncOwnerStats(); checkAndSyncDeltaAutoTrade(); }, 100);
     }
   });
 
   window.addEventListener("cd-auth-state", function() {
+    setTimeout(() => { checkAndSyncOwnerStats(); checkAndSyncDeltaAutoTrade(); }, 150);
+  });
+  window.addEventListener("cd-user-changed", function() {
     setTimeout(() => { checkAndSyncOwnerStats(); checkAndSyncDeltaAutoTrade(); }, 150);
   });
 
