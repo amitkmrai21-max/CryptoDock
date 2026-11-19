@@ -3775,8 +3775,9 @@ def _send_telegram_loss_alert(text: str) -> bool:
 
 
 def _send_telegram_pa_alert(text: str) -> bool:
-    token = TELEGRAM_PA_BOT_TOKEN
-    chat_id = TELEGRAM_PA_CHAT_ID
+    _load_env()
+    token = (os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip() or TELEGRAM_PA_BOT_TOKEN).strip()
+    chat_id = (os.getenv("TELEGRAM_PA_CHAT_ID", "").strip() or TELEGRAM_PA_CHAT_ID).strip()
     if not token or not chat_id:
         return False
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -3956,7 +3957,9 @@ def _run_telegram_catch_scan():
             # 1. Price Action MUST NOT be sent to Smart MTF Telegram Bot
             # 2. Price Action MUST NEVER auto-trade (neither paper nor Delta India)
             if item.get("kind") == "pa":
-                if TELEGRAM_PA_BOT_TOKEN and TELEGRAM_PA_CHAT_ID:
+                pa_token = (os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip() or TELEGRAM_PA_BOT_TOKEN).strip()
+                pa_chat = (os.getenv("TELEGRAM_PA_CHAT_ID", "").strip() or TELEGRAM_PA_CHAT_ID).strip()
+                if pa_token and pa_chat:
                     msg = _format_telegram_alert(item)
                     if _send_telegram_pa_alert(msg):
                         _telegram_seen_alerts[k] = now
@@ -4015,6 +4018,20 @@ def telegram_test(authorization: str = Header(None)):
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to send test message via Telegram API. Check bot token and chat ID.")
     return {"ok": True, "message": "Test alert sent successfully to Telegram."}
+
+
+@app.get("/api/owner/telegram-pa/test")
+def telegram_pa_test(authorization: str = Header(None)):
+    _focus_radar_owner(authorization)
+    sample_text = (
+        "⚡ <b>CryptoDock Price Action Alert Test</b>\n\n"
+        "✅ Dedicated Price Action Bot connection is active!\n"
+        "Liquidity sweeps (SFP) & Rejection triggers will be sent here exclusively."
+    )
+    ok = _send_telegram_pa_alert(sample_text)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to send test message via Price Action Telegram API. Make sure you pressed Start on @cryptodock_pa_amit_bot and configured TELEGRAM_PA_BOT_TOKEN and TELEGRAM_PA_CHAT_ID.")
+    return {"ok": True, "message": "Test alert sent successfully to Price Action Telegram Bot."}
 
 
 
@@ -4510,6 +4527,8 @@ def _load_env():
                             os.environ[key] = value
         except OSError:
             pass
+
+_load_env()
 
 
 # The trial / plan records live in one JSON file. Every change is a
