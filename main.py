@@ -4155,10 +4155,8 @@ def _run_telegram_catch_scan():
             _telegram_scanner_initialized = True
             print(f"[Telegram Scanner] Initialized with {len(_telegram_seen_alerts)} seeded setups.")
             _send_telegram_alert(
-                "🚀 <b>CryptoDock Alert System Active</b>\n\n"
-                "Background scanner is active on your server.\n"
-                "Smart MTF alerts will arrive here.\n"
-                "⚡ Price Action alerts are routed to your dedicated Price Action Bot."
+                "🚀 <b>CryptoDock Smart MTF Active</b>\n\n"
+                "Smart MTF alerts will arrive here exclusively."
             )
             pa_token = (os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip() or TELEGRAM_PA_BOT_TOKEN).strip()
             pa_chat = (os.getenv("TELEGRAM_PA_CHAT_ID", "").strip() or TELEGRAM_PA_CHAT_ID).strip()
