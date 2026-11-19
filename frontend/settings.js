@@ -121,6 +121,7 @@
 
   document.addEventListener("DOMContentLoaded", function() {
     checkAndSyncOwnerStats();
+    checkAndSyncDeltaAutoTrade();
     const refreshBtn = document.getElementById("cdOwnerRefreshBtn");
     if (refreshBtn && !refreshBtn.dataset.bound) {
       refreshBtn.dataset.bound = "true";
@@ -129,13 +130,13 @@
     const settingsBtn = document.getElementById("cdMoreSettings");
     if (settingsBtn) {
       settingsBtn.addEventListener("click", function() {
-        setTimeout(checkAndSyncOwnerStats, 200);
+        setTimeout(() => { checkAndSyncOwnerStats(); checkAndSyncDeltaAutoTrade(); }, 200);
       });
     }
   });
 
   window.addEventListener("cd-auth-state", function() {
-    setTimeout(checkAndSyncOwnerStats, 150);
+    setTimeout(() => { checkAndSyncOwnerStats(); checkAndSyncDeltaAutoTrade(); }, 150);
   });
 
   // "Help & Support": opens the user's email app with a ready message to the
@@ -152,4 +153,130 @@
   document.addEventListener("DOMContentLoaded", updateSupportLink);
   window.addEventListener("cd-user-changed", updateSupportLink);
   window.addEventListener("cd-auth-state", updateSupportLink);
+
+
+  // Owner Delta India Auto-Trading Sync & Control
+  async function checkAndSyncDeltaAutoTrade() {
+    const section = document.getElementById("cdOwnerDeltaAutoTradeSection");
+    if (!section) return;
+
+    let email = getActiveEmail();
+    if (!email && window.marketDockSupabase) {
+      try {
+        const { data } = await window.marketDockSupabase.auth.getSession();
+        if (data && data.session && data.session.user && data.session.user.email) {
+          email = data.session.user.email.trim().toLowerCase();
+        }
+      } catch (e) {}
+    }
+
+    if (email !== OWNER_EMAIL) {
+      section.style.display = "none";
+      return;
+    }
+
+    section.style.display = "block";
+
+    const enabledToggle = document.getElementById("cdDeltaAutoEnabled");
+    const slider = document.getElementById("cdDeltaAutoSlider");
+    const maxPosInput = document.getElementById("cdDeltaMaxPos");
+    const marginInput = document.getElementById("cdDeltaMargin");
+    const statusEl = document.getElementById("cdDeltaConnStatus");
+    const saveBtn = document.getElementById("cdDeltaSaveBtn");
+    const saveMsg = document.getElementById("cdDeltaSaveMsg");
+
+    function updateSliderUi(checked) {
+      if (!slider) return;
+      slider.style.backgroundColor = checked ? "#10b981" : "#334155";
+      slider.innerHTML = checked
+        ? '<span style="position:absolute; top:3px; right:4px; width:20px; height:20px; background:#fff; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>'
+        : '<span style="position:absolute; top:3px; left:4px; width:20px; height:20px; background:#94a3b8; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>';
+    }
+
+    let token = "";
+    if (window.marketDockSupabase) {
+      try {
+        const { data } = await window.marketDockSupabase.auth.getSession();
+        token = data?.session?.access_token || "";
+      } catch (e) {}
+    }
+    const headers = {};
+    if (token) headers["Authorization"] = "Bearer " + token;
+
+    try {
+      const res = await fetch("/api/owner/delta/config", { headers });
+      if (res.ok) {
+        const data = await res.json();
+        const cfg = data.config || {};
+        if (enabledToggle) {
+          enabledToggle.checked = !!cfg.enabled;
+          updateSliderUi(enabledToggle.checked);
+        }
+        if (maxPosInput && cfg.max_open_positions != null) {
+          maxPosInput.value = cfg.max_open_positions;
+        }
+        if (marginInput && cfg.margin_per_trade != null) {
+          marginInput.value = cfg.margin_per_trade;
+        }
+        if (statusEl) {
+          if (data.status === "connected") {
+            statusEl.textContent = `🟢 Connected (${data.delta_open_positions} active)`;
+            statusEl.style.color = "#34d399";
+          } else if (data.status === "missing_keys") {
+            statusEl.textContent = "⚠️ Keys missing on server";
+            statusEl.style.color = "#fbbf24";
+          } else {
+            statusEl.textContent = `⚠️ ${data.status}`;
+            statusEl.style.color = "#f87171";
+          }
+        }
+      }
+    } catch (e) {
+      if (statusEl) statusEl.textContent = "⚠️ Error loading status";
+    }
+
+    if (enabledToggle && !enabledToggle.dataset.bound) {
+      enabledToggle.dataset.bound = "true";
+      enabledToggle.addEventListener("change", function() {
+        updateSliderUi(enabledToggle.checked);
+      });
+    }
+
+    if (saveBtn && !saveBtn.dataset.bound) {
+      saveBtn.dataset.bound = "true";
+      saveBtn.addEventListener("click", async function() {
+        saveBtn.disabled = true;
+        saveBtn.style.opacity = "0.6";
+        if (saveMsg) saveMsg.textContent = "Saving...";
+
+        const payload = {
+          enabled: !!(enabledToggle && enabledToggle.checked),
+          max_open_positions: parseInt(maxPosInput?.value || "3", 10),
+          margin_per_trade: parseFloat(marginInput?.value || "150")
+        };
+
+        try {
+          const postRes = await fetch("/api/owner/delta/config", {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (postRes.ok) {
+            if (saveMsg) {
+              saveMsg.textContent = "Saved ✅";
+              setTimeout(() => { if (saveMsg) saveMsg.textContent = ""; }, 2500);
+            }
+          } else {
+            if (saveMsg) saveMsg.textContent = "Error saving";
+          }
+        } catch (err) {
+          if (saveMsg) saveMsg.textContent = "Network error";
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.style.opacity = "1";
+        }
+      });
+    }
+  }
+
 })();

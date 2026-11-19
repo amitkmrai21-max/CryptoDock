@@ -3798,6 +3798,10 @@ def _run_telegram_catch_scan():
                         _auto_open_repeat_position(item)
                     except Exception as err:
                         print(f"[Auto Repeat Trade Error]: {err}")
+                try:
+                    _trigger_delta_auto_trade(item)
+                except Exception as err:
+                    print(f"[Delta Auto Trade Trigger Error]: {err}")
                 time.sleep(1.2)
 
 
@@ -4449,6 +4453,242 @@ def start_user_trial(req: TrialSyncRequest):
 
 
 # ================= OWNER ANALYTICS (amitkmrai21@gmail.com Only) =================
+
+# =============================================================================
+# DELTA EXCHANGE INDIA AUTO-TRADING ENGINE (OWNER ONLY)
+# =============================================================================
+DELTA_INDIA_BASE_URL = "https://api.india.delta.exchange"
+DELTA_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "delta_autotrade_config.json")
+_delta_products_cache = {"ts": 0, "products": []}
+_delta_trade_lock = threading.Lock()
+
+def _load_delta_config():
+    default_cfg = {
+        "enabled": False,
+        "max_open_positions": 3,
+        "margin_per_trade": 150.0,
+        "margin_mode": "cross"
+    }
+    if os.path.exists(DELTA_CONFIG_PATH):
+        try:
+            with open(DELTA_CONFIG_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                default_cfg.update(data)
+        except Exception as e:
+            print(f"[Delta Config Read Error]: {e}")
+    return default_cfg
+
+def _save_delta_config(cfg):
+    try:
+        with open(DELTA_CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+    except Exception as e:
+        print(f"[Delta Config Write Error]: {e}")
+
+def _delta_api_request(method, path, query=None, payload=None, api_key=None, api_secret=None):
+    url = f"{DELTA_INDIA_BASE_URL}{path}"
+    query_str = ""
+    if query:
+        pairs = [f"{k}={urllib.parse.quote_plus(str(v))}" for k, v in query.items()]
+        query_str = "?" + "&".join(pairs)
+        url += query_str
+
+    body_bytes = None
+    body_str = ""
+    if payload is not None:
+        body_str = json.dumps(payload, separators=(',', ':'))
+        body_bytes = body_str.encode("utf-8")
+
+    headers = {
+        "User-Agent": "CryptoDock-DeltaAutoTrade/1.0",
+        "Content-Type": "application/json"
+    }
+
+    if api_key and api_secret:
+        timestamp = str(int(time.time()))
+        sig_data = method.upper() + timestamp + path + query_str + body_str
+        signature = hmac.new(api_secret.encode("utf-8"), sig_data.encode("utf-8"), hashlib.sha256).hexdigest()
+        headers["api-key"] = api_key
+        headers["timestamp"] = timestamp
+        headers["signature"] = signature
+
+    req = urllib.request.Request(url, data=body_bytes, headers=headers, method=method.upper())
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as he:
+        err_body = he.read().decode("utf-8", errors="ignore")
+        try:
+            return json.loads(err_body)
+        except Exception:
+            return {"success": False, "error": f"HTTP {he.code}: {err_body}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def _get_delta_products():
+    now = time.time()
+    if _delta_products_cache["products"] and now - _delta_products_cache["ts"] < 3600:
+        return _delta_products_cache["products"]
+    res = _delta_api_request("GET", "/v2/products")
+    if res.get("success"):
+        prods = [p for p in res.get("result", []) if p.get("contract_type") == "perpetual_futures"]
+        _delta_products_cache["products"] = prods
+        _delta_products_cache["ts"] = now
+        return prods
+    return _delta_products_cache.get("products", [])
+
+def _get_delta_product_for_base(base):
+    base_u = str(base).upper().strip()
+    prods = _get_delta_products()
+    for p in prods:
+        underlying = (p.get("underlying_asset") or {}).get("symbol", "").upper()
+        sym = p.get("symbol", "").upper()
+        if underlying == base_u or sym == f"{base_u}USD":
+            return p
+    for p in prods:
+        sym = p.get("symbol", "").upper()
+        if sym in (f"1000{base_u}USD", f"10000{base_u}USD", f"1M_{base_u}USD"):
+            return p
+    return None
+
+def _trigger_delta_auto_trade(item):
+    """Executes Market Order on Delta Exchange India for verified Smart MTF signals."""
+    cfg = _load_delta_config()
+    if not cfg.get("enabled", False):
+        return
+
+    api_key = os.getenv("DELTA_INDIA_API_KEY", "").strip()
+    api_secret = os.getenv("DELTA_INDIA_API_SECRET", "").strip()
+    if not api_key or not api_secret:
+        print("[Delta Auto Trade] Skipped: DELTA_INDIA_API_KEY or DELTA_INDIA_API_SECRET not set in environment.")
+        return
+
+    base = item.get("base")
+    price = float(item.get("entry") or item.get("price") or 0.0)
+    if not base or price <= 0:
+        return
+
+    with _delta_trade_lock:
+        max_pos = int(cfg.get("max_open_positions", 3))
+        try:
+            pos_res = _delta_api_request("GET", "/v2/positions/margined", api_key=api_key, api_secret=api_secret)
+            if pos_res.get("success"):
+                positions = pos_res.get("result", [])
+                active_positions = [p for p in positions if int(p.get("size") or 0) != 0]
+                if len(active_positions) >= max_pos:
+                    print(f"[Delta Auto Trade] Max active positions ({max_pos}) reached. Skipped {base}.")
+                    return
+
+                for p in active_positions:
+                    prod = p.get("product", {})
+                    prod_sym = prod.get("symbol", "").upper()
+                    underlying = (prod.get("underlying_asset") or {}).get("symbol", "").upper()
+                    if base.upper() in prod_sym or underlying == base.upper():
+                        print(f"[Delta Auto Trade] Position for {base} already active on Delta India. Skipped duplicate.")
+                        return
+        except Exception as e:
+            print(f"[Delta Auto Trade Error checking active positions]: {e}")
+            return
+
+        product = _get_delta_product_for_base(base)
+        if not product:
+            print(f"[Delta Auto Trade] No Delta perpetual product found for {base}. Skipped.")
+            return
+
+        product_id = product["id"]
+        contract_val = float(product.get("contract_value") or 1.0)
+        lev = _get_delta_leverage(base)
+
+        # Set Leverage on Delta
+        try:
+            _delta_api_request("POST", f"/v2/products/{product_id}/orders/leverage",
+                               payload={"leverage": lev}, api_key=api_key, api_secret=api_secret)
+        except Exception as e:
+            print(f"[Delta Auto Trade Set Leverage Warn]: {e}")
+
+        # Compute contract size
+        margin = float(cfg.get("margin_per_trade", 150.0))
+        notional = margin * lev
+        size = int(notional / (contract_val * price))
+        if size < 1:
+            size = 1
+
+        side_str = str(item.get("side", "")).lower()
+        delta_side = "buy" if side_str == "bullish" else "sell"
+
+        order_payload = {
+            "product_id": product_id,
+            "size": size,
+            "side": delta_side,
+            "order_type": "market_order"
+        }
+
+        try:
+            order_res = _delta_api_request("POST", "/v2/orders", payload=order_payload, api_key=api_key, api_secret=api_secret)
+            if order_res.get("success"):
+                res_ord = order_res.get("result", {})
+                ord_id = res_ord.get("id")
+                print(f"[Delta Auto Trade SUCCESS] {base} {delta_side.upper()} {size} contracts placed! ID={ord_id}")
+                exec_msg = (
+                    f"⚡ <b>Delta India Auto-Trade Executed!</b>\n\n"
+                    f"• <b>Coin:</b> {base} ({product.get('symbol')})\n"
+                    f"• <b>Action:</b> {delta_side.upper()} ({'LONG' if delta_side == 'buy' else 'SHORT'})\n"
+                    f"• <b>Contracts:</b> {size}\n"
+                    f"• <b>Margin:</b> ${margin:.2f} ({lev}x Cross)\n"
+                    f"• <b>Order ID:</b> <code>{ord_id}</code>\n\n"
+                    f"<i>Live execution on Delta Exchange India</i>"
+                )
+                _send_telegram_alert(exec_msg)
+            else:
+                print(f"[Delta Auto Trade Order Placement Error]: {order_res}")
+        except Exception as e:
+            print(f"[Delta Auto Trade Order Exception]: {e}")
+
+
+# --- Delta India Owner Endpoints ---
+@app.get("/api/owner/delta/config")
+def get_owner_delta_config(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    cfg = _load_delta_config()
+    api_key = os.getenv("DELTA_INDIA_API_KEY", "").strip()
+    api_secret = os.getenv("DELTA_INDIA_API_SECRET", "").strip()
+    has_keys = bool(api_key and api_secret)
+    status = "connected" if has_keys else "missing_keys"
+    open_count = 0
+    if has_keys:
+        try:
+            pos_res = _delta_api_request("GET", "/v2/positions/margined", api_key=api_key, api_secret=api_secret)
+            if pos_res.get("success"):
+                open_count = len([p for p in pos_res.get("result", []) if int(p.get("size") or 0) != 0])
+            elif "error" in pos_res:
+                status = f"error: {pos_res.get('error')}"
+        except Exception as e:
+            status = f"error: {e}"
+    return {
+        "config": cfg,
+        "status": status,
+        "has_keys": has_keys,
+        "delta_open_positions": open_count
+    }
+
+@app.post("/api/owner/delta/config")
+def update_owner_delta_config(payload: dict, authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    cfg = _load_delta_config()
+    if "enabled" in payload:
+        cfg["enabled"] = bool(payload["enabled"])
+    if "max_open_positions" in payload:
+        cfg["max_open_positions"] = max(1, min(20, int(payload["max_open_positions"])))
+    if "margin_per_trade" in payload:
+        cfg["margin_per_trade"] = max(5.0, min(50000.0, float(payload["margin_per_trade"])))
+    _save_delta_config(cfg)
+    return {"success": True, "config": cfg}
+
+
 @app.get("/api/owner/analytics")
 def get_owner_analytics(authorization: str = Header(None)):
     # Only the signed-in owner (verified through the Supabase session token):
