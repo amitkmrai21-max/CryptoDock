@@ -4482,10 +4482,17 @@ def _load_delta_config():
 
 def _save_delta_config(cfg):
     try:
-        with open(DELTA_CONFIG_PATH, "w", encoding="utf-8") as f:
+        tmp = DELTA_CONFIG_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
+        os.replace(tmp, DELTA_CONFIG_PATH)
     except Exception as e:
-        print(f"[Delta Config Write Error]: {e}")
+        print(f"[Delta Config Atomic Write Error]: {e}")
+        try:
+            with open(DELTA_CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(cfg, f, indent=2)
+        except Exception as err2:
+            print(f"[Delta Config Direct Write Error]: {err2}")
 
 def _delta_api_request(method, path, query=None, payload=None, api_key=None, api_secret=None):
     url = f"{DELTA_INDIA_BASE_URL}{path}"

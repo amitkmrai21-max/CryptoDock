@@ -170,6 +170,19 @@
 
 
   // Owner Delta India Auto-Trading Sync & Control
+  let _deltaLastUserEditTime = 0;
+  let _deltaIsSaving = false;
+
+  async function getFreshOwnerToken() {
+    if (window.marketDockSupabase) {
+      try {
+        const { data } = await window.marketDockSupabase.auth.getSession();
+        return data?.session?.access_token || "";
+      } catch (e) {}
+    }
+    return "";
+  }
+
   async function checkAndSyncDeltaAutoTrade() {
     const section = document.getElementById("cdOwnerDeltaAutoTradeSection");
     if (!section) return;
@@ -208,92 +221,141 @@
         : '<span style="position:absolute; top:3px; left:4px; width:20px; height:20px; background:#94a3b8; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>';
     }
 
-    let token = "";
-    if (window.marketDockSupabase) {
-      try {
-        const { data } = await window.marketDockSupabase.auth.getSession();
-        token = data?.session?.access_token || "";
-      } catch (e) {}
-    }
-    const headers = {};
-    if (token) headers["Authorization"] = "Bearer " + token;
+    // Helper to send config to server immediately
+    async function persistDeltaConfig(source) {
+      if (_deltaIsSaving) return;
+      _deltaIsSaving = true;
+      _deltaLastUserEditTime = Date.now();
 
-    try {
-      const res = await fetch("/api/owner/delta/config", { headers });
-      if (res.ok) {
-        const data = await res.json();
-        const cfg = data.config || {};
-        if (enabledToggle) {
-          enabledToggle.checked = !!cfg.enabled;
-          updateSliderUi(enabledToggle.checked);
-        }
-        if (maxPosInput && cfg.max_open_positions != null) {
-          maxPosInput.value = cfg.max_open_positions;
-        }
-        if (marginInput && cfg.margin_per_trade != null) {
-          marginInput.value = cfg.margin_per_trade;
-        }
-        if (takeProfitInput && cfg.take_profit_usd != null) {
-          takeProfitInput.value = cfg.take_profit_usd;
-        }
-        if (statusEl) {
-          if (data.status === "connected") {
-            statusEl.textContent = `🟢 Connected (${data.delta_open_positions} active)`;
-            statusEl.style.color = "#34d399";
-          } else if (data.status === "missing_keys") {
-            statusEl.textContent = "⚠️ Keys missing on server";
-            statusEl.style.color = "#fbbf24";
-          } else {
-            statusEl.textContent = `⚠️ ${data.status}`;
-            statusEl.style.color = "#f87171";
-          }
-        }
-      }
-    } catch (e) {
-      if (statusEl) statusEl.textContent = "⚠️ Error loading status";
-    }
-
-    if (enabledToggle && !enabledToggle.dataset.bound) {
-      enabledToggle.dataset.bound = "true";
-      enabledToggle.addEventListener("change", function() {
-        updateSliderUi(enabledToggle.checked);
-      });
-    }
-
-    if (saveBtn && !saveBtn.dataset.bound) {
-      saveBtn.dataset.bound = "true";
-      saveBtn.addEventListener("click", async function() {
+      if (source === "button" && saveBtn) {
         saveBtn.disabled = true;
         saveBtn.style.opacity = "0.6";
-        if (saveMsg) saveMsg.textContent = "Saving...";
+      }
+      if (saveMsg) {
+        saveMsg.textContent = source === "toggle" ? "Saving..." : "Saving...";
+        saveMsg.style.color = "#94a3b8";
+      }
 
-        const payload = {
-          enabled: !!(enabledToggle && enabledToggle.checked),
-          max_open_positions: parseInt(maxPosInput?.value || "3", 10),
-          margin_per_trade: parseFloat(marginInput?.value || "150"),
-          take_profit_usd: parseFloat(takeProfitInput?.value || "40")
-        };
+      const token = await getFreshOwnerToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = "Bearer " + token;
 
-        try {
-          const postRes = await fetch("/api/owner/delta/config", {
-            method: "POST",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-          if (postRes.ok) {
-            if (saveMsg) {
-              saveMsg.textContent = "Saved ✅";
-              setTimeout(() => { if (saveMsg) saveMsg.textContent = ""; }, 2500);
-            }
-          } else {
-            if (saveMsg) saveMsg.textContent = "Error saving";
+      const payload = {
+        enabled: !!(enabledToggle && enabledToggle.checked),
+        max_open_positions: parseInt(maxPosInput?.value || "3", 10),
+        margin_per_trade: parseFloat(marginInput?.value || "150"),
+        take_profit_usd: parseFloat(takeProfitInput?.value || "40")
+      };
+
+      try {
+        const postRes = await fetch("/api/owner/delta/config", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (postRes.ok) {
+          const resData = await postRes.json();
+          const isEnabled = !!(resData.config && resData.config.enabled);
+          if (enabledToggle) {
+            enabledToggle.checked = isEnabled;
+            updateSliderUi(isEnabled);
           }
-        } catch (err) {
-          if (saveMsg) saveMsg.textContent = "Network error";
-        } finally {
+          if (saveMsg) {
+            saveMsg.textContent = isEnabled ? "Auto-Trading Active 🟢 (Saved)" : "Auto-Trading Stopped ⚪ (Saved)";
+            saveMsg.style.color = isEnabled ? "#34d399" : "#94a3b8";
+            setTimeout(() => { if (saveMsg && !_deltaIsSaving) saveMsg.textContent = ""; }, 3000);
+          }
+        } else {
+          if (saveMsg) {
+            saveMsg.textContent = "Error saving (HTTP " + postRes.status + ")";
+            saveMsg.style.color = "#f87171";
+          }
+        }
+      } catch (err) {
+        if (saveMsg) {
+          saveMsg.textContent = "Network error saving";
+          saveMsg.style.color = "#f87171";
+        }
+      } finally {
+        _deltaIsSaving = false;
+        _deltaLastUserEditTime = Date.now();
+        if (saveBtn) {
           saveBtn.disabled = false;
           saveBtn.style.opacity = "1";
         }
+      }
+    }
+
+    // Only load from server if user isn't actively interacting
+    const timeSinceLastEdit = Date.now() - _deltaLastUserEditTime;
+    if (timeSinceLastEdit > 3500 && !_deltaIsSaving) {
+      const token = await getFreshOwnerToken();
+      const headers = {};
+      if (token) headers["Authorization"] = "Bearer " + token;
+
+      try {
+        const res = await fetch("/api/owner/delta/config", { headers });
+        if (res.ok) {
+          const data = await res.json();
+          const cfg = data.config || {};
+          if (Date.now() - _deltaLastUserEditTime > 3500 && !_deltaIsSaving) {
+            if (enabledToggle) {
+              enabledToggle.checked = !!cfg.enabled;
+              updateSliderUi(enabledToggle.checked);
+            }
+            if (maxPosInput && cfg.max_open_positions != null) {
+              maxPosInput.value = cfg.max_open_positions;
+            }
+            if (marginInput && cfg.margin_per_trade != null) {
+              marginInput.value = cfg.margin_per_trade;
+            }
+            if (takeProfitInput && cfg.take_profit_usd != null) {
+              takeProfitInput.value = cfg.take_profit_usd;
+            }
+          }
+          if (statusEl) {
+            if (data.status === "connected") {
+              statusEl.textContent = "🟢 Connected (" + (data.delta_open_positions || 0) + " active)";
+              statusEl.style.color = "#34d399";
+            } else if (data.status === "missing_keys") {
+              statusEl.textContent = "⚠️ Keys missing on server";
+              statusEl.style.color = "#fbbf24";
+            } else {
+              statusEl.textContent = "⚠️ " + data.status;
+              statusEl.style.color = "#f87171";
+            }
+          }
+        }
+      } catch (e) {
+        if (statusEl) statusEl.textContent = "⚠️ Error loading status";
+      }
+    }
+
+    // Bind Toggle Change to AUTO-SAVE immediately!
+    if (enabledToggle && !enabledToggle.dataset.bound) {
+      enabledToggle.dataset.bound = "true";
+      enabledToggle.addEventListener("change", function() {
+        _deltaLastUserEditTime = Date.now();
+        updateSliderUi(enabledToggle.checked);
+        persistDeltaConfig("toggle");
+      });
+    }
+
+    // Also track input changes so polling doesn't overwrite while user is typing
+    [maxPosInput, marginInput, takeProfitInput].forEach(inp => {
+      if (inp && !inp.dataset.bound) {
+        inp.dataset.bound = "true";
+        inp.addEventListener("input", function() {
+          _deltaLastUserEditTime = Date.now();
+        });
+      }
+    });
+
+    // Bind Save Settings button
+    if (saveBtn && !saveBtn.dataset.bound) {
+      saveBtn.dataset.bound = "true";
+      saveBtn.addEventListener("click", function() {
+        persistDeltaConfig("button");
       });
     }
   }
