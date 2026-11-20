@@ -3221,17 +3221,15 @@ def _catch_sfp(key_candles, trigger_candles, side, live_price, timeframe, key_tf
 
 
 # -----------------------------------------------------------------------------------
-# INSTITUTIONAL MULTI-STRATEGY PRICE ACTION ENGINE (1W + 1D + 4H + 1H + 15m)
+# PRO-GRADE MULTI-STRATEGY PRICE ACTION ENGINE (1W + 1D + 4H + 1H + 15m)
 # -----------------------------------------------------------------------------------
-# Completely re-engineered based on Classic Technical Analysis & Institutional Strategies:
-#   1. Fibonacci Golden Pocket (0.50 - 0.618) Retracement & Confluence
-#   2. Institutional Liquidity Sweep & Wick Trap (SFP / Smart Money Reversal)
-#   3. Key Horizontal Support & Resistance Breakout with Retest Confirmation
-#   4. Trend Momentum & VWAP Expansion (Volume Weighted Average Price + 20/50 EMA)
-#   5. Opening / Session Range Breakout (ORB / High-Low Expansion)
-# Evaluates Higher Timeframe (1W/1D), Market Structure (HH/HL vs LH/LL), Candle Wicks,
-# ADX Trend Strength, VWAP, and Candlestick Patterns (Double Bottom/Top, Engulfing, Hammer/Shooting Star).
-# Scores every coin (0-100) and selects ONLY the highest-confluence A+ setups.
+# Deep Technical Chart Reading:
+#   1. Parallel Trendline Channel (Ascending / Descending / Horizontal Range boundaries & midline)
+#   2. Major Rally & Drop Origin Analysis (Pinpoints exact institutional demand/supply impulse origins)
+#   3. Fibonacci Golden Pocket (0.50 - 0.618 - 0.786) Retracement & Confluence
+#   4. Deep Candlestick Recognition (A+ Hammer, Shooting Star, Morning/Evening Star, Engulfing, Doji)
+#   5. S/R Breakout-Retest, Liquidity Sweep (SFP), and Trend Momentum / VWAP
+# Filters every coin through all pro tools at refresh time and scores (0-100).
 # NOTE: Smart MTF remains 100% UNTOUCHED and unchanged.
 # -----------------------------------------------------------------------------------
 
@@ -3263,10 +3261,95 @@ def _find_swing_pivots(candles, window=2):
     return highs, lows
 
 
-def _detect_15m_pattern(candles_15m, side, level_price):
-    """Detect Candlestick & Micro-Structure patterns on 15m execution candles:
-    Bullish: Hammer/Pinbar, Bullish Engulfing, Double Bottom (W-Pattern), Breakout Retest Bounce.
-    Bearish: Shooting Star/Pinbar, Bearish Engulfing, Double Top (M-Pattern), Breakdown Retest Rejection.
+def _detect_parallel_channel(candles_1h):
+    """Pure-Python Linear Regression Parallel Channel on 1H candles:
+    Determines Channel Type (Ascending, Descending, Horizontal Range),
+    Upper Boundary (Resistance), Lower Boundary (Support), Midline, and Position %.
+    """
+    n = len(candles_1h)
+    if n < 15:
+        return None
+    closes = [c[4] for c in candles_1h]
+    highs = [c[2] for c in candles_1h]
+    lows = [c[3] for c in candles_1h]
+
+    x_mean = (n - 1) / 2.0
+    y_mean = sum(closes) / float(n)
+
+    num = sum((i - x_mean) * (closes[i] - y_mean) for i in range(n))
+    den = sum((i - x_mean) ** 2 for i in range(n))
+    slope = (num / den) if den > 0 else 0.0
+    intercept = y_mean - (slope * x_mean)
+
+    mid_line = [slope * i + intercept for i in range(n)]
+
+    upper_dev = max(highs[i] - mid_line[i] for i in range(n))
+    lower_dev = max(mid_line[i] - lows[i] for i in range(n))
+
+    curr_mid = mid_line[-1]
+    curr_upper = curr_mid + upper_dev
+    curr_lower = curr_mid - lower_dev
+    curr_price = closes[-1]
+
+    ch_range = curr_upper - curr_lower
+    pos_pct = ((curr_price - curr_lower) / ch_range * 100.0) if ch_range > 0 else 50.0
+    slope_pct = (slope * n / (closes[0] or 1.0)) * 100.0
+
+    if slope_pct > 1.2:
+        ch_type = "Ascending Channel"
+    elif slope_pct < -1.2:
+        ch_type = "Descending Channel"
+    else:
+        ch_type = "Horizontal Channel / Range"
+
+    return {
+        "type": ch_type,
+        "upper": round(curr_upper, 6),
+        "lower": round(curr_lower, 6),
+        "mid": round(curr_mid, 6),
+        "pos_pct": round(pos_pct, 1),
+        "slope_pct": round(slope_pct, 2)
+    }
+
+
+def _detect_major_rally_drop_origins(candles_1h):
+    """Detects the historical origin of the strongest rally (+X%) and strongest drop (-Y%)
+    across recent 1H candles to map institutional demand and supply anchor zones.
+    """
+    n = len(candles_1h)
+    if n < 15:
+        return None, None
+
+    max_rally = {"pct": 0.0, "start": 0.0, "end": 0.0, "ago": 0}
+    max_drop = {"pct": 0.0, "start": 0.0, "end": 0.0, "ago": 0}
+
+    start_idx = max(0, n - 60)
+    for i in range(start_idx, n - 2):
+        for span in [1, 2, 3, 4, 6]:
+            if i + span < n:
+                start_l = float(candles_1h[i][3])
+                end_h = float(candles_1h[i + span][2])
+                if start_l > 0:
+                    up_pct = ((end_h - start_l) / start_l) * 100.0
+                    if up_pct > max_rally["pct"]:
+                        max_rally = {"pct": round(up_pct, 2), "start": start_l, "end": end_h, "ago": n - 1 - i}
+
+                start_h = float(candles_1h[i][2])
+                end_l = float(candles_1h[i + span][3])
+                if start_h > 0:
+                    down_pct = ((start_h - end_l) / start_h) * 100.0
+                    if down_pct > max_drop["pct"]:
+                        max_drop = {"pct": round(down_pct, 2), "start": start_h, "end": end_l, "ago": n - 1 - i}
+
+    return max_rally, max_drop
+
+
+def _detect_deep_candlestick(candles_15m, side, level_price):
+    """Deep Candlestick & Micro-Structure Pattern Recognition on 15m execution candles:
+    Bullish: A+ Hammer (≥50% lower wick), Bullish Engulfing Expansion, Morning Star (3-Candle Reversal),
+             Dragonfly Doji (Buyer Defense), Breakout Retest Bounce.
+    Bearish: A+ Shooting Star (≥50% upper wick), Bearish Engulfing Expansion, Evening Star (3-Candle Reversal),
+             Gravestone Doji (Seller Rejection), Breakdown Retest Rejection.
     """
     if len(candles_15m) < 4:
         return None
@@ -3274,42 +3357,70 @@ def _detect_15m_pattern(candles_15m, side, level_price):
     c_curr = candles_15m[-1]
     c_prev = candles_15m[-2]
 
-    curr_o, curr_h, curr_l, curr_c = c_curr[1], c_curr[2], c_curr[3], c_curr[4]
-    curr_range = curr_h - curr_l
-    if curr_range <= 0:
+    curr_o, curr_h, curr_l, curr_c = float(c_curr[1]), float(c_curr[2]), float(c_curr[3]), float(c_curr[4])
+    curr_rng = curr_h - curr_l
+    if curr_rng <= 0:
         return None
 
     curr_is_green = curr_c > curr_o
-    curr_lower_wick = (min(curr_o, curr_c) - curr_l) / curr_range
-    curr_upper_wick = (curr_h - max(curr_o, curr_c)) / curr_range
+    curr_body = abs(curr_c - curr_o)
+    lower_wick = min(curr_o, curr_c) - curr_l
+    upper_wick = curr_h - max(curr_o, curr_c)
+    lower_wick_ratio = lower_wick / curr_rng
+    upper_wick_ratio = upper_wick / curr_rng
 
-    prev_o, prev_h, prev_l, prev_c = c_prev[1], c_prev[2], c_prev[3], c_prev[4]
+    prev_o, prev_h, prev_l, prev_c = float(c_prev[1]), float(c_prev[2]), float(c_prev[3]), float(c_prev[4])
+    prev_rng = prev_h - prev_l
+    prev_body = abs(prev_c - prev_o)
+    prev_is_green = prev_c > prev_o
+
+    # 3-Candle Structural Formations
+    if len(candles_15m) >= 5:
+        c_p2 = candles_15m[-3]
+        p2_o, p2_h, p2_l, p2_c = float(c_p2[1]), float(c_p2[2]), float(c_p2[3]), float(c_p2[4])
+        p2_rng = p2_h - p2_l
+        p2_body = abs(p2_c - p2_o)
+
+        if side == "bullish":
+            # Morning Star: Bearish impulse, small body star/doji, strong bullish reclaim
+            if p2_c < p2_o and (p2_body / (p2_rng or 1.0)) >= 0.40:
+                if (prev_body / (prev_rng or 1.0)) <= 0.35 and prev_l <= p2_l:
+                    if curr_is_green and curr_c >= (p2_o + p2_c) / 2.0:
+                        return "Morning Star (3-Candle Reversal)"
+        elif side == "bearish":
+            # Evening Star: Bullish impulse, small body star/doji, strong bearish rejection
+            if p2_c > p2_o and (p2_body / (p2_rng or 1.0)) >= 0.40:
+                if (prev_body / (prev_rng or 1.0)) <= 0.35 and prev_h >= p2_h:
+                    if not curr_is_green and curr_c <= (p2_o + p2_c) / 2.0:
+                        return "Evening Star (3-Candle Reversal)"
 
     if side == "bullish":
-        if curr_is_green and prev_c < prev_o and curr_c >= prev_o and curr_o <= prev_c:
-            return "Bullish Engulfing"
-        if curr_lower_wick >= 0.30 and curr_upper_wick <= 0.25 and curr_c >= curr_l + (curr_range * 0.45):
-            return "Hammer / Pinbar (Buyer Absorption)"
+        if lower_wick_ratio >= 0.50 and upper_wick_ratio <= 0.20 and curr_c >= curr_l + (curr_rng * 0.45):
+            return f"A+ Hammer ({int(lower_wick_ratio*100)}% Absorption Wick)"
+        if curr_is_green and not prev_is_green and curr_c >= prev_o and curr_o <= prev_c and curr_body > prev_body:
+            return "Bullish Engulfing Expansion"
+        if (curr_body / curr_rng) <= 0.12 and lower_wick_ratio >= 0.55:
+            return "Dragonfly Doji (Buyer Defense)"
         if curr_is_green and curr_l <= level_price <= curr_h and curr_c > level_price:
             return "Breakout Retest Bounce"
         if len(candles_15m) >= 8:
             lows = [c[3] for c in candles_15m[-8:]]
-            l1 = min(lows[:4])
-            l2 = min(lows[4:])
+            l1, l2 = min(lows[:4]), min(lows[4:])
             if abs(l1 - l2) / (l1 or 1) <= 0.005 and curr_is_green:
                 return "Double Bottom (W-Pattern)"
 
     elif side == "bearish":
-        if not curr_is_green and prev_c > prev_o and curr_c <= prev_o and curr_o >= prev_c:
-            return "Bearish Engulfing"
-        if curr_upper_wick >= 0.30 and curr_lower_wick <= 0.25 and curr_c <= curr_l + (curr_range * 0.55):
-            return "Shooting Star / Pinbar (Seller Rejection)"
+        if upper_wick_ratio >= 0.50 and lower_wick_ratio <= 0.20 and curr_c <= curr_l + (curr_rng * 0.55):
+            return f"A+ Shooting Star ({int(upper_wick_ratio*100)}% Rejection Wick)"
+        if not curr_is_green and prev_is_green and curr_c <= prev_o and curr_o >= prev_c and curr_body > prev_body:
+            return "Bearish Engulfing Expansion"
+        if (curr_body / curr_rng) <= 0.12 and upper_wick_ratio >= 0.55:
+            return "Gravestone Doji (Seller Rejection)"
         if not curr_is_green and curr_l <= level_price <= curr_h and curr_c < level_price:
             return "Breakdown Retest Rejection"
         if len(candles_15m) >= 8:
             highs = [c[2] for c in candles_15m[-8:]]
-            h1 = max(highs[:4])
-            h2 = max(highs[4:])
+            h1, h2 = max(highs[:4]), max(highs[4:])
             if abs(h1 - h2) / (h1 or 1) <= 0.005 and not curr_is_green:
                 return "Double Top (M-Pattern)"
 
@@ -3317,15 +3428,14 @@ def _detect_15m_pattern(candles_15m, side, level_price):
 
 
 def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15m, live_price):
-    """Institutional Multi-Strategy Price Action Engine:
-    Evaluates 5 Classic Strategies across 1W, 1D, 1H, and 15m timeframes:
-      1. Fibonacci Golden Pocket (0.50 - 0.618) Retracement & Confluence
-      2. Liquidity Sweep & Wick Trap (SFP / Smart Money Reversal)
-      3. Key Horizontal Support & Resistance Breakout with Retest
-      4. Trend Momentum & VWAP Expansion
-      5. Opening / Session Range Breakout (ORB)
-    Filters by Market Structure (HH/HL vs LH/LL), ADX Trend Strength, VWAP, Candle Wicks,
-    and assigns a 0-100 Confluence Score. Selects the BEST qualifying setup per coin.
+    """Institutional & Pro-Trader Multi-Strategy Price Action Engine:
+    Deep Chart Reading:
+      - 1H Parallel Channel (Boundary Support / Resistance & Midline Equilibrium)
+      - Major Rally & Drop Origins (Maps historical demand/supply impulse anchors)
+      - Fibonacci Golden Pocket (0.50 - 0.618 - 0.786) Retracement
+      - Deep Candlestick Patterns (Hammer, Shooting Star, Morning/Evening Star, Engulfing)
+      - 1W/1D Macro Trend, ADX Momentum, VWAP, and Volume Absorption
+    Scores all setups and selects ONLY the highest-quality A+ setups per coin.
     Smart MTF is 100% untouched.
     """
     if not keys1d or not candles_1h or not candles_15m or live_price <= 0:
@@ -3364,7 +3474,11 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         elif d_closes[-1] < d_ema20:
             d_trend = "bearish"
 
-    # --- 3. 1H INTERMEDIATE MARKET STRUCTURE & INDICATORS ---
+    # --- 3. 1H PARALLEL CHANNEL & RALLY/DROP ORIGINS ---
+    channel = _detect_parallel_channel(candles_1h[-48:])
+    max_rally, max_drop = _detect_major_rally_drop_origins(candles_1h[-60:])
+
+    # --- 4. 1H INTERMEDIATE MARKET STRUCTURE & INDICATORS ---
     h_closes = [c[4] for c in candles_1h]
     h_ema20 = _catch_ema(h_closes, 20)
     h_ema50 = _catch_ema(h_closes, min(len(h_closes), 50))
@@ -3379,11 +3493,9 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     prev_sh = swing_highs[-2]["price"] if len(swing_highs) >= 2 else recent_sh
     prev_sl = swing_lows[-2]["price"] if len(swing_lows) >= 2 else recent_sl
 
-    # Market Structure: HH/HL (Uptrend) vs LH/LL (Downtrend)
     is_hh_hl = (recent_sh >= prev_sh and recent_sl >= prev_sl)
     is_lh_ll = (recent_sh <= prev_sh and recent_sl <= prev_sl)
 
-    # 1H Volume expansion check
     vol_recent = candles_1h[-1][5] if len(candles_1h[-1]) > 5 else 1.0
     vol_avg = (sum([c[5] for c in candles_1h[-20:]]) / 20.0) if len(candles_1h) >= 20 else 1.0
     vol_ratio = (vol_recent / vol_avg) if vol_avg > 0 else 1.0
@@ -3395,18 +3507,18 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     candidates = []
 
     # =========================================================================
-    # STRATEGY 1: FIBONACCI GOLDEN POCKET (0.50 - 0.618) RETRACEMENT
+    # STRATEGY 1: FIBONACCI GOLDEN POCKET & DEEP RETRACEMENT (0.50 - 0.618 - 0.786)
     # =========================================================================
     # Bullish Fib Pullback
     if recent_sh > recent_sl * 1.012:
         fib_range = recent_sh - recent_sl
         fib_50 = recent_sh - (fib_range * 0.50)
         fib_618 = recent_sh - (fib_range * 0.618)
-        fib_65 = recent_sh - (fib_range * 0.65)
-        if fib_65 * 0.994 <= live_price <= fib_50 * 1.010:
-            pat = _detect_15m_pattern(candles_15m, "bullish", fib_618)
+        fib_786 = recent_sh - (fib_range * 0.786)
+        if fib_786 * 0.995 <= live_price <= fib_50 * 1.010:
+            pat = _detect_deep_candlestick(candles_15m, "bullish", fib_618)
             if pat:
-                stop = round(min(fib_65 * 0.994, [c[3] for c in candles_15m[-4:]][0] * 0.998), 6)
+                stop = round(min(fib_786 * 0.994, [c[3] for c in candles_15m[-4:]][0] * 0.998), 6)
                 score = 65
                 confs = [f"Fib 0.618 Golden Pocket (${fib_618:,.2f})", f"15m {pat}"]
                 if d_trend == "bullish" or w_trend == "bullish":
@@ -3421,6 +3533,15 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 if is_hh_hl:
                     score += 8
                     confs.append("1H Structure: Higher Highs & Higher Lows (HH/HL)")
+                if channel:
+                    if channel["pos_pct"] <= 35.0:
+                        score += 10
+                        confs.append(f"At {channel['type']} Lower Boundary ({channel['pos_pct']}%)")
+                    elif channel["pos_pct"] >= 78.0:
+                        score -= 15
+                if max_rally and max_rally["start"] > 0 and abs(live_price - max_rally["start"]) / live_price <= 0.020:
+                    score += 10
+                    confs.append(f"Retesting Major Rally Origin (${max_rally['start']:,.2f}, +{max_rally['pct']}%)")
                 if vol_ratio >= 1.15:
                     score += 6
                     confs.append(f"Volume Expansion ({vol_ratio:.2f}x)")
@@ -3433,6 +3554,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "stop": stop,
                     "score": score,
                     "confluences": confs,
+                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                    "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
                 })
 
     # Bearish Fib Pullback
@@ -3440,11 +3563,11 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         fib_range = prev_sh - recent_sl
         fib_50 = recent_sl + (fib_range * 0.50)
         fib_618 = recent_sl + (fib_range * 0.618)
-        fib_65 = recent_sl + (fib_range * 0.65)
-        if fib_50 * 0.990 <= live_price <= fib_65 * 1.006:
-            pat = _detect_15m_pattern(candles_15m, "bearish", fib_618)
+        fib_786 = recent_sl + (fib_range * 0.786)
+        if fib_50 * 0.990 <= live_price <= fib_786 * 1.005:
+            pat = _detect_deep_candlestick(candles_15m, "bearish", fib_618)
             if pat:
-                stop = round(max(fib_65 * 1.006, [c[2] for c in candles_15m[-4:]][0] * 1.002), 6)
+                stop = round(max(fib_786 * 1.006, [c[2] for c in candles_15m[-4:]][0] * 1.002), 6)
                 score = 65
                 confs = [f"Fib 0.618 Golden Pocket Resistance (${fib_618:,.2f})", f"15m {pat}"]
                 if d_trend == "bearish" or w_trend == "bearish":
@@ -3459,6 +3582,15 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 if is_lh_ll:
                     score += 8
                     confs.append("1H Structure: Lower Highs & Lower Lows (LH/LL)")
+                if channel:
+                    if channel["pos_pct"] >= 65.0:
+                        score += 10
+                        confs.append(f"At {channel['type']} Upper Boundary ({channel['pos_pct']}%)")
+                    elif channel["pos_pct"] <= 22.0:
+                        score -= 15
+                if max_drop and max_drop["start"] > 0 and abs(live_price - max_drop["start"]) / live_price <= 0.020:
+                    score += 10
+                    confs.append(f"Retesting Major Drop Origin (${max_drop['start']:,.2f}, -{max_drop['pct']}%)")
                 if vol_ratio >= 1.15:
                     score += 6
                     confs.append(f"Volume Expansion ({vol_ratio:.2f}x)")
@@ -3471,6 +3603,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "stop": stop,
                     "score": score,
                     "confluences": confs,
+                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                    "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
                 })
 
     # =========================================================================
@@ -3490,7 +3624,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     sweep_low = min(sweep_low, c[3])
                     break
         if swept:
-            pat = _detect_15m_pattern(candles_15m, "bullish", sl_p) or "Wick Trap Reclaim"
+            pat = _detect_deep_candlestick(candles_15m, "bullish", sl_p) or "Wick Trap Reclaim"
             stop = round(sweep_low * 0.997, 6)
             score = 66
             confs = [f"Liquidity Sweep of Low (${sl_p:,.2f})", f"15m {pat}"]
@@ -3500,6 +3634,12 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             if h_vwap and live_price >= h_vwap * 0.995:
                 score += 8
                 confs.append("VWAP Reclaimed")
+            if channel and channel["pos_pct"] <= 35.0:
+                score += 10
+                confs.append(f"At {channel['type']} Lower Boundary ({channel['pos_pct']}%)")
+            if max_rally and max_rally["start"] > 0 and abs(live_price - max_rally["start"]) / live_price <= 0.020:
+                score += 10
+                confs.append(f"Retesting Major Rally Origin (${max_rally['start']:,.2f}, +{max_rally['pct']}%)")
             if vol_ratio >= 1.20:
                 score += 8
                 confs.append(f"High Absorption Volume ({vol_ratio:.2f}x)")
@@ -3512,6 +3652,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "stop": stop,
                 "score": score,
                 "confluences": confs,
+                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
             })
             break
 
@@ -3529,7 +3671,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     sweep_high = max(sweep_high, c[2])
                     break
         if swept:
-            pat = _detect_15m_pattern(candles_15m, "bearish", sh_p) or "Wick Trap Rejection"
+            pat = _detect_deep_candlestick(candles_15m, "bearish", sh_p) or "Wick Trap Rejection"
             stop = round(sweep_high * 1.003, 6)
             score = 66
             confs = [f"Liquidity Sweep of High (${sh_p:,.2f})", f"15m {pat}"]
@@ -3539,6 +3681,12 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             if h_vwap and live_price <= h_vwap * 1.005:
                 score += 8
                 confs.append("VWAP Rejection")
+            if channel and channel["pos_pct"] >= 65.0:
+                score += 10
+                confs.append(f"At {channel['type']} Upper Boundary ({channel['pos_pct']}%)")
+            if max_drop and max_drop["start"] > 0 and abs(live_price - max_drop["start"]) / live_price <= 0.020:
+                score += 10
+                confs.append(f"Retesting Major Drop Origin (${max_drop['start']:,.2f}, -{max_drop['pct']}%)")
             if vol_ratio >= 1.20:
                 score += 8
                 confs.append(f"High Rejection Volume ({vol_ratio:.2f}x)")
@@ -3551,6 +3699,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "stop": stop,
                 "score": score,
                 "confluences": confs,
+                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
             })
             break
 
@@ -3559,7 +3709,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     # =========================================================================
     # Bullish Breakout & Retest
     if (latest_1h[4] > recent_sh or prev_1h[4] > recent_sh) and (recent_sh * 0.996 <= live_price <= recent_sh * 1.020):
-        pat = _detect_15m_pattern(candles_15m, "bullish", recent_sh)
+        pat = _detect_deep_candlestick(candles_15m, "bullish", recent_sh)
         if pat:
             stop = round(recent_sh * 0.992, 6)
             score = 64
@@ -3573,6 +3723,9 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             if is_hh_hl:
                 score += 8
                 confs.append("1H Higher Highs Market Structure")
+            if channel and channel["pos_pct"] <= 50.0:
+                score += 8
+                confs.append(f"{channel['type']} Breakout Continuation")
             if vol_ratio >= 1.20:
                 score += 8
                 confs.append(f"Breakout Volume Surge ({vol_ratio:.2f}x)")
@@ -3585,11 +3738,13 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "stop": stop,
                 "score": score,
                 "confluences": confs,
+                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
             })
 
     # Bearish Breakdown & Retest
     if (latest_1h[4] < recent_sl or prev_1h[4] < recent_sl) and (recent_sl * 0.980 <= live_price <= recent_sl * 1.004):
-        pat = _detect_15m_pattern(candles_15m, "bearish", recent_sl)
+        pat = _detect_deep_candlestick(candles_15m, "bearish", recent_sl)
         if pat:
             stop = round(recent_sl * 1.008, 6)
             score = 64
@@ -3603,6 +3758,9 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             if is_lh_ll:
                 score += 8
                 confs.append("1H Lower Lows Market Structure")
+            if channel and channel["pos_pct"] >= 50.0:
+                score += 8
+                confs.append(f"{channel['type']} Breakdown Continuation")
             if vol_ratio >= 1.20:
                 score += 8
                 confs.append(f"Breakdown Volume Surge ({vol_ratio:.2f}x)")
@@ -3615,6 +3773,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "stop": stop,
                 "score": score,
                 "confluences": confs,
+                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
             })
 
     # =========================================================================
@@ -3623,7 +3783,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     # Bullish Momentum & VWAP
     if d_trend == "bullish" and (w_trend == "bullish" or w_trend == "neutral") and d_adx >= 20 and d_pdi > d_mdi:
         if h_vwap and live_price >= h_vwap and h_ema20 and (h_ema20 * 0.995 <= live_price <= h_ema20 * 1.020):
-            pat = _detect_15m_pattern(candles_15m, "bullish", h_vwap)
+            pat = _detect_deep_candlestick(candles_15m, "bullish", h_vwap)
             if pat:
                 stop = round(min(h_vwap, h_ema20) * 0.993, 6)
                 score = 68
@@ -3631,6 +3791,9 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 if is_hh_hl:
                     score += 10
                     confs.append("1H Higher Highs Market Structure")
+                if channel and channel["pos_pct"] <= 40.0:
+                    score += 10
+                    confs.append(f"{channel['type']} Dynamic Support")
                 if vol_ratio >= 1.15:
                     score += 8
                     confs.append(f"Volume Surge ({vol_ratio:.2f}x)")
@@ -3643,12 +3806,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "stop": stop,
                     "score": score,
                     "confluences": confs,
+                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                    "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
                 })
 
     # Bearish Momentum & VWAP
     if d_trend == "bearish" and (w_trend == "bearish" or w_trend == "neutral") and d_adx >= 20 and d_mdi > d_pdi:
         if h_vwap and live_price <= h_vwap and h_ema20 and (h_ema20 * 0.980 <= live_price <= h_ema20 * 1.005):
-            pat = _detect_15m_pattern(candles_15m, "bearish", h_vwap)
+            pat = _detect_deep_candlestick(candles_15m, "bearish", h_vwap)
             if pat:
                 stop = round(max(h_vwap, h_ema20) * 1.007, 6)
                 score = 68
@@ -3656,6 +3821,9 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 if is_lh_ll:
                     score += 10
                     confs.append("1H Lower Lows Market Structure")
+                if channel and channel["pos_pct"] >= 60.0:
+                    score += 10
+                    confs.append(f"{channel['type']} Dynamic Resistance")
                 if vol_ratio >= 1.15:
                     score += 8
                     confs.append(f"Volume Surge ({vol_ratio:.2f}x)")
@@ -3668,6 +3836,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "stop": stop,
                     "score": score,
                     "confluences": confs,
+                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+                    "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
                 })
 
     # =========================================================================
@@ -3676,7 +3846,6 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     if not candidates:
         return None
 
-    # Filter by minimum score of 74 and valid risk bounds
     valid_candidates = []
     for cand in candidates:
         if cand["score"] < 74:
@@ -3732,6 +3901,8 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         "key_tf": best["level_name"],
         "pattern": best["pattern"],
         "confluences": best["confluences"],
+        "channel_info": best.get("channel_info", ""),
+        "origin_info": best.get("origin_info", ""),
         "adx": round(d_adx, 1),
         "score": best["score"],
         "candle_at": candles_15m[-1][0],
@@ -4296,11 +4467,17 @@ def _format_telegram_alert(item: dict) -> str:
             extra += f" | <b>ADX:</b> {round(float(adx_val), 1)}"
         lines.append("")
         lines.append(extra)
+        ch_info = item.get("channel_info")
+        if ch_info:
+            lines.append(f"📊 <b>Channel:</b> {_tg_esc(ch_info)}")
+        org_info = item.get("origin_info")
+        if org_info:
+            lines.append(f"💥 <b>Impulse Origin:</b> {_tg_esc(org_info)}")
         confs = item.get("confluences") or []
         if confs:
             lines.append("")
-            lines.append("🔍 <b>Institutional Confluences (1W+1D+1H+15m):</b>")
-            for c in confs[:4]:
+            lines.append("🔍 <b>Pro Confluences (1W+1D+1H+15m):</b>")
+            for c in confs[:5]:
                 lines.append(f"  • {_tg_esc(c)}")
     else:
         sweep_pct = item.get("sweep_pct")
