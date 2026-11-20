@@ -3427,12 +3427,128 @@ def _detect_deep_candlestick(candles_15m, side, level_price):
     return None
 
 
+def _format_price_clean(val):
+    if not val:
+        return "$0.00"
+    try:
+        fv = float(val)
+        if fv >= 1000:
+            return f"${fv:,.2f}"
+        elif fv >= 1:
+            return f"${fv:,.4f}"
+        elif fv > 0:
+            return f"${fv:,.6f}"
+    except Exception:
+        pass
+    return str(val)
+
+
+def _calculate_fibonacci_chart_tool(candles_1h, live_price, side):
+    """Dual Fibonacci Engine: Chart Drawing Tool + Mathematical Indicator.
+    1. Chart Tool: Identifies dominant structural impulse wave (Swing Low to Swing High
+       or Swing High to Swing Low over recent 48 1H candles), plots exact drawn horizontal
+       levels (0.236, 0.382, 0.50 Equilibrium, 0.618 Golden Pocket, 0.786 Deep OTE)
+       and Fibonacci Expansion Targets (1.272 and 1.618).
+    2. Indicator: Calculates live retracement percentage, validates if live price is
+       holding/reacting at key levels, and determines confluence quality.
+    """
+    if not candles_1h or len(candles_1h) < 20 or live_price <= 0:
+        return None
+    highs = [c[2] for c in candles_1h]
+    lows = [c[3] for c in candles_1h]
+
+    # Look back over recent 48 1H candles (2 days of swing impulse)
+    window = min(len(candles_1h), 48)
+    anchor_high = max(highs[-window:])
+    anchor_low = min(lows[-window:])
+    diff = anchor_high - anchor_low
+    if diff <= 0:
+        return None
+
+    if side == "bullish":
+        # Upward impulse wave from anchor_low to anchor_high.
+        # Retracement measured downward from anchor_high (0.0% at peak, 100% at base).
+        fib_0 = anchor_high
+        fib_236 = anchor_high - (0.236 * diff)
+        fib_382 = anchor_high - (0.382 * diff)
+        fib_500 = anchor_high - (0.500 * diff)
+        fib_618 = anchor_high - (0.618 * diff)
+        fib_786 = anchor_high - (0.786 * diff)
+        fib_100 = anchor_low
+        ext_1272 = anchor_high + (0.272 * diff)
+        ext_1618 = anchor_high + (0.618 * diff)
+        retrace = (anchor_high - live_price) / diff
+    else:
+        # Downward impulse wave from anchor_high to anchor_low.
+        # Retracement measured upward from anchor_low (0.0% at bottom, 100% at peak).
+        fib_0 = anchor_low
+        fib_236 = anchor_low + (0.236 * diff)
+        fib_382 = anchor_low + (0.382 * diff)
+        fib_500 = anchor_low + (0.500 * diff)
+        fib_618 = anchor_low + (0.618 * diff)
+        fib_786 = anchor_low + (0.786 * diff)
+        fib_100 = anchor_high
+        ext_1272 = anchor_low - (0.272 * diff)
+        ext_1618 = anchor_low - (0.618 * diff)
+        retrace = (live_price - anchor_low) / diff
+
+    retrace_pct = round(retrace * 100.0, 1)
+
+    # Indicator Zone & Status Classification
+    if 0.58 <= retrace <= 0.66:
+        zone_name = "0.618 Golden Pocket"
+        is_golden = True
+        is_ote = True
+    elif 0.46 <= retrace < 0.58:
+        zone_name = "0.50 Equilibrium"
+        is_golden = False
+        is_ote = True
+    elif 0.66 < retrace <= 0.82:
+        zone_name = "0.786 Deep OTE Discount" if side == "bullish" else "0.786 Deep OTE Premium"
+        is_golden = False
+        is_ote = True
+    elif 0.30 <= retrace < 0.46:
+        zone_name = "0.382 Shallow Pullback"
+        is_golden = False
+        is_ote = False
+    elif retrace < 0.30:
+        zone_name = "Impulse Expansion"
+        is_golden = False
+        is_ote = False
+    else:
+        zone_name = "Base Invalidation"
+        is_golden = False
+        is_ote = False
+
+    return {
+        "anchor_high": round(anchor_high, 6),
+        "anchor_low": round(anchor_low, 6),
+        "diff": round(diff, 6),
+        "fib_236": round(fib_236, 6),
+        "fib_382": round(fib_382, 6),
+        "fib_500": round(fib_500, 6),
+        "fib_618": round(fib_618, 6),
+        "fib_786": round(fib_786, 6),
+        "ext_1272": round(ext_1272, 6),
+        "ext_1618": round(ext_1618, 6),
+        "retrace_pct": retrace_pct,
+        "zone_name": zone_name,
+        "is_golden": is_golden,
+        "is_ote": is_ote,
+        "indicator_state": f"{retrace_pct}% Retrace ({zone_name})",
+        "tool_levels_str": f"0.618: {_format_price_clean(fib_618)} · 0.50: {_format_price_clean(fib_500)} · 0.786: {_format_price_clean(fib_786)}",
+        "anchors_str": f"Impulse Low: {_format_price_clean(anchor_low)} → High: {_format_price_clean(anchor_high)}" if side == "bullish" else f"Impulse High: {_format_price_clean(anchor_high)} → Low: {_format_price_clean(anchor_low)}",
+        "summary": f"0.618 @ {_format_price_clean(fib_618)} | 0.50 @ {_format_price_clean(fib_500)}"
+    }
+
+
 def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15m, live_price):
     """Institutional & Pro-Trader Multi-Strategy Price Action Engine:
     Deep Chart Reading:
       - 1H Parallel Channel (Boundary Support / Resistance & Midline Equilibrium)
       - Major Rally & Drop Origins (Maps historical demand/supply impulse anchors)
-      - Fibonacci Golden Pocket (0.50 - 0.618 - 0.786) Retracement
+      - Dual Fibonacci Engine: Mathematical Indicator + Chart Drawing Tool
+        (0.236, 0.382, 0.50 Equilibrium, 0.618 Golden Pocket, 0.786 Deep OTE & 1.272/1.618 Extensions)
       - Deep Candlestick Patterns (Hammer, Shooting Star, Morning/Evening Star, Engulfing)
       - 1W/1D Macro Trend, ADX Momentum, VWAP, and Volume Absorption
     Scores all setups and selects ONLY the highest-quality A+ setups per coin.
@@ -3474,9 +3590,11 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         elif d_closes[-1] < d_ema20:
             d_trend = "bearish"
 
-    # --- 3. 1H PARALLEL CHANNEL & RALLY/DROP ORIGINS ---
+    # --- 3. 1H PARALLEL CHANNEL, RALLY/DROP ORIGINS & DUAL FIBONACCI TOOL ---
     channel = _detect_parallel_channel(candles_1h[-48:])
     max_rally, max_drop = _detect_major_rally_drop_origins(candles_1h[-60:])
+    fib_tool_bull = _calculate_fibonacci_chart_tool(candles_1h, live_price, "bullish")
+    fib_tool_bear = _calculate_fibonacci_chart_tool(candles_1h, live_price, "bearish")
 
     # --- 4. 1H INTERMEDIATE MARKET STRUCTURE & INDICATORS ---
     h_closes = [c[4] for c in candles_1h]
@@ -3507,20 +3625,26 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     candidates = []
 
     # =========================================================================
-    # STRATEGY 1: FIBONACCI GOLDEN POCKET & DEEP RETRACEMENT (0.50 - 0.618 - 0.786)
+    # STRATEGY 1: FIBONACCI GOLDEN POCKET & CHART TOOL RETRACEMENT
     # =========================================================================
-    # Bullish Fib Pullback
-    if recent_sh > recent_sl * 1.012:
-        fib_range = recent_sh - recent_sl
-        fib_50 = recent_sh - (fib_range * 0.50)
-        fib_618 = recent_sh - (fib_range * 0.618)
-        fib_786 = recent_sh - (fib_range * 0.786)
-        if fib_786 * 0.995 <= live_price <= fib_50 * 1.010:
+    # Bullish Fib Retracement
+    if fib_tool_bull and (fib_tool_bull["is_ote"] or fib_tool_bull["is_golden"]):
+        fib_618 = fib_tool_bull["fib_618"]
+        fib_50 = fib_tool_bull["fib_500"]
+        fib_786 = fib_tool_bull["fib_786"]
+        if fib_786 * 0.995 <= live_price <= fib_50 * 1.012:
             pat = _detect_deep_candlestick(candles_15m, "bullish", fib_618)
             if pat:
                 stop = round(min(fib_786 * 0.994, [c[3] for c in candles_15m[-4:]][0] * 0.998), 6)
-                score = 65
-                confs = [f"Fib 0.618 Golden Pocket (${fib_618:,.2f})", f"15m {pat}"]
+                score = 66
+                confs = [
+                    f"Fib Indicator: {fib_tool_bull['indicator_state']}",
+                    f"Fib Chart Tool: 0.618 ({_format_price_clean(fib_618)})",
+                    f"15m {pat}"
+                ]
+                if fib_tool_bull["is_golden"]:
+                    score += 15
+                    confs.append("At 0.618 Golden Pocket Equilibrium")
                 if d_trend == "bullish" or w_trend == "bullish":
                     score += 10
                     confs.append("Macro Trend Aligned (1D/1W)")
@@ -3529,7 +3653,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     confs.append(f"ADX Trend Strength ({d_adx:.1f})")
                 if h_vwap and live_price >= h_vwap * 0.995:
                     score += 8
-                    confs.append(f"VWAP Dynamic Confluence (${h_vwap:,.2f})")
+                    confs.append(f"VWAP Dynamic Confluence ({_format_price_clean(h_vwap)})")
                 if is_hh_hl:
                     score += 8
                     confs.append("1H Structure: Higher Highs & Higher Lows (HH/HL)")
@@ -3541,7 +3665,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                         score -= 15
                 if max_rally and max_rally["start"] > 0 and abs(live_price - max_rally["start"]) / live_price <= 0.020:
                     score += 10
-                    confs.append(f"Retesting Major Rally Origin (${max_rally['start']:,.2f}, +{max_rally['pct']}%)")
+                    confs.append(f"Retesting Major Rally Origin ({_format_price_clean(max_rally['start'])}, +{max_rally['pct']}%)")
                 if vol_ratio >= 1.15:
                     score += 6
                     confs.append(f"Volume Expansion ({vol_ratio:.2f}x)")
@@ -3549,27 +3673,40 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "strategy": "Fib Golden Pocket Retest & Bounce",
                     "side": "bullish",
                     "level": fib_618,
-                    "level_name": "1H Fib 0.618 Golden Pocket",
+                    "level_name": f"1H Fib 0.618 ({fib_tool_bull['zone_name']})",
                     "pattern": pat,
                     "stop": stop,
                     "score": score,
                     "confluences": confs,
                     "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                    "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                    "fib_indicator": fib_tool_bull["indicator_state"],
+                    "fib_tool": fib_tool_bull["tool_levels_str"],
+                    "fib_anchors": fib_tool_bull["anchors_str"],
+                    "fib_zone": fib_tool_bull["indicator_state"],
+                    "fib_level": fib_618,
+                    "fib_ext1": fib_tool_bull["ext_1272"],
+                    "fib_ext2": fib_tool_bull["ext_1618"],
                 })
 
-    # Bearish Fib Pullback
-    if prev_sh > recent_sl * 1.012:
-        fib_range = prev_sh - recent_sl
-        fib_50 = recent_sl + (fib_range * 0.50)
-        fib_618 = recent_sl + (fib_range * 0.618)
-        fib_786 = recent_sl + (fib_range * 0.786)
-        if fib_50 * 0.990 <= live_price <= fib_786 * 1.005:
+    # Bearish Fib Retracement
+    if fib_tool_bear and (fib_tool_bear["is_ote"] or fib_tool_bear["is_golden"]):
+        fib_618 = fib_tool_bear["fib_618"]
+        fib_50 = fib_tool_bear["fib_500"]
+        fib_786 = fib_tool_bear["fib_786"]
+        if fib_50 * 0.988 <= live_price <= fib_786 * 1.005:
             pat = _detect_deep_candlestick(candles_15m, "bearish", fib_618)
             if pat:
                 stop = round(max(fib_786 * 1.006, [c[2] for c in candles_15m[-4:]][0] * 1.002), 6)
-                score = 65
-                confs = [f"Fib 0.618 Golden Pocket Resistance (${fib_618:,.2f})", f"15m {pat}"]
+                score = 66
+                confs = [
+                    f"Fib Indicator: {fib_tool_bear['indicator_state']}",
+                    f"Fib Chart Tool: 0.618 ({_format_price_clean(fib_618)})",
+                    f"15m {pat}"
+                ]
+                if fib_tool_bear["is_golden"]:
+                    score += 15
+                    confs.append("At 0.618 Golden Pocket Resistance")
                 if d_trend == "bearish" or w_trend == "bearish":
                     score += 10
                     confs.append("Macro Trend Aligned (1D/1W)")
@@ -3578,7 +3715,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     confs.append(f"ADX Trend Strength ({d_adx:.1f})")
                 if h_vwap and live_price <= h_vwap * 1.005:
                     score += 8
-                    confs.append(f"VWAP Resistance Confluence (${h_vwap:,.2f})")
+                    confs.append(f"VWAP Dynamic Confluence ({_format_price_clean(h_vwap)})")
                 if is_lh_ll:
                     score += 8
                     confs.append("1H Structure: Lower Highs & Lower Lows (LH/LL)")
@@ -3590,7 +3727,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                         score -= 15
                 if max_drop and max_drop["start"] > 0 and abs(live_price - max_drop["start"]) / live_price <= 0.020:
                     score += 10
-                    confs.append(f"Retesting Major Drop Origin (${max_drop['start']:,.2f}, -{max_drop['pct']}%)")
+                    confs.append(f"Retesting Major Drop Origin ({_format_price_clean(max_drop['start'])}, -{max_drop['pct']}%)")
                 if vol_ratio >= 1.15:
                     score += 6
                     confs.append(f"Volume Expansion ({vol_ratio:.2f}x)")
@@ -3598,13 +3735,20 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "strategy": "Fib Golden Pocket Resistance & Rejection",
                     "side": "bearish",
                     "level": fib_618,
-                    "level_name": "1H Fib 0.618 Golden Pocket",
+                    "level_name": f"1H Fib 0.618 ({fib_tool_bear['zone_name']})",
                     "pattern": pat,
                     "stop": stop,
                     "score": score,
                     "confluences": confs,
                     "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                    "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                    "fib_indicator": fib_tool_bear["indicator_state"],
+                    "fib_tool": fib_tool_bear["tool_levels_str"],
+                    "fib_anchors": fib_tool_bear["anchors_str"],
+                    "fib_zone": fib_tool_bear["indicator_state"],
+                    "fib_level": fib_618,
+                    "fib_ext1": fib_tool_bear["ext_1272"],
+                    "fib_ext2": fib_tool_bear["ext_1618"],
                 })
 
     # =========================================================================
@@ -3627,7 +3771,10 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             pat = _detect_deep_candlestick(candles_15m, "bullish", sl_p) or "Wick Trap Reclaim"
             stop = round(sweep_low * 0.997, 6)
             score = 66
-            confs = [f"Liquidity Sweep of Low (${sl_p:,.2f})", f"15m {pat}"]
+            confs = [f"Liquidity Sweep of Low ({_format_price_clean(sl_p)})", f"15m {pat}"]
+            if fib_tool_bull and (fib_tool_bull["is_golden"] or fib_tool_bull["is_ote"]):
+                score += 10
+                confs.append(f"Swept into Fib {fib_tool_bull['zone_name']} ({_format_price_clean(fib_tool_bull['fib_618'])})")
             if d_pdi > d_mdi:
                 score += 8
                 confs.append("Positive Momentum Shift")
@@ -3639,7 +3786,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 confs.append(f"At {channel['type']} Lower Boundary ({channel['pos_pct']}%)")
             if max_rally and max_rally["start"] > 0 and abs(live_price - max_rally["start"]) / live_price <= 0.020:
                 score += 10
-                confs.append(f"Retesting Major Rally Origin (${max_rally['start']:,.2f}, +{max_rally['pct']}%)")
+                confs.append(f"Retesting Major Rally Origin ({_format_price_clean(max_rally['start'])}, +{max_rally['pct']}%)")
             if vol_ratio >= 1.20:
                 score += 8
                 confs.append(f"High Absorption Volume ({vol_ratio:.2f}x)")
@@ -3653,7 +3800,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "score": score,
                 "confluences": confs,
                 "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+                "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
+                "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
+                "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+                "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else sl_p,
+                "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
+                "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
             })
             break
 
@@ -3674,7 +3828,10 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             pat = _detect_deep_candlestick(candles_15m, "bearish", sh_p) or "Wick Trap Rejection"
             stop = round(sweep_high * 1.003, 6)
             score = 66
-            confs = [f"Liquidity Sweep of High (${sh_p:,.2f})", f"15m {pat}"]
+            confs = [f"Liquidity Sweep of High ({_format_price_clean(sh_p)})", f"15m {pat}"]
+            if fib_tool_bear and (fib_tool_bear["is_golden"] or fib_tool_bear["is_ote"]):
+                score += 10
+                confs.append(f"Swept into Fib {fib_tool_bear['zone_name']} ({_format_price_clean(fib_tool_bear['fib_618'])})")
             if d_mdi > d_pdi:
                 score += 8
                 confs.append("Negative Momentum Shift")
@@ -3686,7 +3843,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 confs.append(f"At {channel['type']} Upper Boundary ({channel['pos_pct']}%)")
             if max_drop and max_drop["start"] > 0 and abs(live_price - max_drop["start"]) / live_price <= 0.020:
                 score += 10
-                confs.append(f"Retesting Major Drop Origin (${max_drop['start']:,.2f}, -{max_drop['pct']}%)")
+                confs.append(f"Retesting Major Drop Origin ({_format_price_clean(max_drop['start'])}, -{max_drop['pct']}%)")
             if vol_ratio >= 1.20:
                 score += 8
                 confs.append(f"High Rejection Volume ({vol_ratio:.2f}x)")
@@ -3700,7 +3857,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "score": score,
                 "confluences": confs,
                 "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+                "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
+                "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
+                "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+                "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else sh_p,
+                "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
+                "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
             })
             break
 
@@ -3713,7 +3877,10 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         if pat:
             stop = round(recent_sh * 0.992, 6)
             score = 64
-            confs = [f"1H Breakout of S/R Level (${recent_sh:,.2f})", f"15m {pat}"]
+            confs = [f"1H Breakout of S/R Level ({_format_price_clean(recent_sh)})", f"15m {pat}"]
+            if fib_tool_bull and 0.28 <= fib_tool_bull["retrace_pct"] <= 0.65:
+                score += 8
+                confs.append(f"Fib Retest Alignment: {fib_tool_bull['indicator_state']}")
             if d_trend == "bullish":
                 score += 10
                 confs.append("1D Trend Aligned")
@@ -3739,7 +3906,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "score": score,
                 "confluences": confs,
                 "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+                "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
+                "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
+                "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+                "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else recent_sh,
+                "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
+                "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
             })
 
     # Bearish Breakdown & Retest
@@ -3748,7 +3922,10 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         if pat:
             stop = round(recent_sl * 1.008, 6)
             score = 64
-            confs = [f"1H Breakdown of S/R Level (${recent_sl:,.2f})", f"15m {pat}"]
+            confs = [f"1H Breakdown of S/R Level ({_format_price_clean(recent_sl)})", f"15m {pat}"]
+            if fib_tool_bear and 0.28 <= fib_tool_bear["retrace_pct"] <= 0.65:
+                score += 8
+                confs.append(f"Fib Retest Alignment: {fib_tool_bear['indicator_state']}")
             if d_trend == "bearish":
                 score += 10
                 confs.append("1D Trend Aligned")
@@ -3774,7 +3951,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                 "score": score,
                 "confluences": confs,
                 "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+                "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
+                "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
+                "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+                "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else recent_sl,
+                "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
+                "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
             })
 
     # =========================================================================
@@ -3787,7 +3971,10 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             if pat:
                 stop = round(min(h_vwap, h_ema20) * 0.993, 6)
                 score = 68
-                confs = [f"1H VWAP Support (${h_vwap:,.2f})", f"1H 20 EMA Dynamic Bounce", f"15m {pat}"]
+                confs = [f"1H VWAP Support ({_format_price_clean(h_vwap)})", f"1H 20 EMA Dynamic Bounce", f"15m {pat}"]
+                if fib_tool_bull and (fib_tool_bull["is_golden"] or fib_tool_bull["is_ote"] or fib_tool_bull["retrace_pct"] <= 45.0):
+                    score += 8
+                    confs.append(f"Fib Alignment: {fib_tool_bull['indicator_state']}")
                 if is_hh_hl:
                     score += 10
                     confs.append("1H Higher Highs Market Structure")
@@ -3807,7 +3994,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "score": score,
                     "confluences": confs,
                     "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Rally Origin ${max_rally['start']:,.2f} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                    "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+                    "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+                    "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
+                    "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
+                    "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+                    "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else h_vwap,
+                    "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
+                    "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
                 })
 
     # Bearish Momentum & VWAP
@@ -3817,7 +4011,10 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
             if pat:
                 stop = round(max(h_vwap, h_ema20) * 1.007, 6)
                 score = 68
-                confs = [f"1H VWAP Resistance (${h_vwap:,.2f})", f"1H 20 EMA Dynamic Rejection", f"15m {pat}"]
+                confs = [f"1H VWAP Resistance ({_format_price_clean(h_vwap)})", f"1H 20 EMA Dynamic Rejection", f"15m {pat}"]
+                if fib_tool_bear and (fib_tool_bear["is_golden"] or fib_tool_bear["is_ote"] or fib_tool_bear["retrace_pct"] <= 45.0):
+                    score += 8
+                    confs.append(f"Fib Alignment: {fib_tool_bear['indicator_state']}")
                 if is_lh_ll:
                     score += 10
                     confs.append("1H Lower Lows Market Structure")
@@ -3837,7 +4034,14 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
                     "score": score,
                     "confluences": confs,
                     "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Drop Origin ${max_drop['start']:,.2f} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                    "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+                    "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+                    "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
+                    "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
+                    "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+                    "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else h_vwap,
+                    "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
+                    "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
                 })
 
     # =========================================================================
@@ -3903,11 +4107,17 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         "confluences": best["confluences"],
         "channel_info": best.get("channel_info", ""),
         "origin_info": best.get("origin_info", ""),
+        "fib_indicator": best.get("fib_indicator", ""),
+        "fib_tool": best.get("fib_tool", ""),
+        "fib_anchors": best.get("fib_anchors", ""),
+        "fib_zone": best.get("fib_zone", ""),
+        "fib_level": best.get("fib_level", 0.0),
+        "fib_ext1": best.get("fib_ext1", 0.0),
+        "fib_ext2": best.get("fib_ext2", 0.0),
         "adx": round(d_adx, 1),
         "score": best["score"],
         "candle_at": candles_15m[-1][0],
     }
-
 
 
 def _catch_scan(ttl=CATCH_TTL_S):
@@ -4467,6 +4677,19 @@ def _format_telegram_alert(item: dict) -> str:
             extra += f" | <b>ADX:</b> {round(float(adx_val), 1)}"
         lines.append("")
         lines.append(extra)
+        fib_ind = item.get("fib_indicator")
+        fib_tool = item.get("fib_tool")
+        fib_anchors = item.get("fib_anchors")
+        if fib_ind:
+            lines.append(f"📐 <b>Fib Indicator:</b> {_tg_esc(fib_ind)}")
+        if fib_tool:
+            lines.append(f"📏 <b>Fib Chart Tool:</b> {_tg_esc(fib_tool)}")
+        if fib_anchors:
+            lines.append(f"📌 <b>Fib Anchors:</b> {_tg_esc(fib_anchors)}")
+        ext1 = item.get("fib_ext1")
+        ext2 = item.get("fib_ext2")
+        if ext1 and ext2:
+            lines.append(f"🎯 <b>Fib Extension Targets:</b> 1.272 @ <code>${fmt_px(ext1)}</code> | 1.618 @ <code>${fmt_px(ext2)}</code>")
         ch_info = item.get("channel_info")
         if ch_info:
             lines.append(f"📊 <b>Channel:</b> {_tg_esc(ch_info)}")
