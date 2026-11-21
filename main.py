@@ -3542,6 +3542,85 @@ def _calculate_fibonacci_chart_tool(candles_1h, live_price, side):
     }
 
 
+def _detect_macro_weekly_daily_levels(keys1w, keys1d, live_price):
+    """Deep Macro Chart Reading:
+    Extracts Previous Week High/Low (PWH/PWL), Multi-Week Swing Extremes,
+    Previous Day High/Low (PDH/PDL), and Multi-Day Demand/Supply Swings.
+    Evaluates whether live price is testing, sweeping, or bouncing from major Macro Support or Resistance.
+    """
+    res = {
+        "pw_high": None, "pw_low": None, "w_swing_high": None, "w_swing_low": None, "w_trend": "neutral",
+        "pd_high": None, "pd_low": None, "d_swing_high": None, "d_swing_low": None,
+        "near_macro_support": False, "near_macro_resistance": False,
+        "support_name": "", "support_level": None,
+        "resist_name": "", "resist_level": None,
+        "summary": ""
+    }
+    if keys1w and len(keys1w) >= 3:
+        w_prev = keys1w[-2] if len(keys1w) >= 4 else keys1w[-1]
+        res["pw_high"] = float(w_prev[2])
+        res["pw_low"] = float(w_prev[3])
+        w_look = min(12, len(keys1w))
+        w_win = keys1w[-w_look:]
+        res["w_swing_low"] = min(float(c[3]) for c in w_win)
+        res["w_swing_high"] = max(float(c[2]) for c in w_win)
+        w_closes = [float(c[4]) for c in keys1w]
+        w_ema = _catch_ema(w_closes, min(len(w_closes), 10))
+        if w_ema:
+            res["w_trend"] = "bullish" if w_closes[-1] >= w_ema else "bearish"
+
+    if keys1d and len(keys1d) >= 3:
+        d_prev = keys1d[-2] if len(keys1d) >= 4 else keys1d[-1]
+        res["pd_high"] = float(d_prev[2])
+        res["pd_low"] = float(d_prev[3])
+        d_look = min(20, len(keys1d))
+        d_win = keys1d[-d_look:]
+        res["d_swing_low"] = min(float(c[3]) for c in d_win)
+        res["d_swing_high"] = max(float(c[2]) for c in d_win)
+
+    # Check Macro Support Proximity / Sweeps
+    pwl = res["pw_low"]
+    pdl = res["pd_low"]
+    wsl = res["w_swing_low"]
+    if pwl and pwl > 0 and (pwl * 0.990 <= live_price <= pwl * 1.025):
+        res["near_macro_support"] = True
+        res["support_name"] = "Previous Week Low (PWL)"
+        res["support_level"] = pwl
+    elif pdl and pdl > 0 and (pdl * 0.992 <= live_price <= pdl * 1.020):
+        res["near_macro_support"] = True
+        res["support_name"] = "Previous Day Low (PDL)"
+        res["support_level"] = pdl
+    elif wsl and wsl > 0 and (wsl * 0.988 <= live_price <= wsl * 1.025):
+        res["near_macro_support"] = True
+        res["support_name"] = "Major Weekly Swing Low"
+        res["support_level"] = wsl
+
+    # Check Macro Resistance Proximity / Sweeps
+    pwh = res["pw_high"]
+    pdh = res["pd_high"]
+    wsh = res["w_swing_high"]
+    if pwh and pwh > 0 and (pwh * 0.975 <= live_price <= pwh * 1.010):
+        res["near_macro_resistance"] = True
+        res["resist_name"] = "Previous Week High (PWH)"
+        res["resist_level"] = pwh
+    elif pdh and pdh > 0 and (pdh * 0.980 <= live_price <= pdh * 1.008):
+        res["near_macro_resistance"] = True
+        res["resist_name"] = "Previous Day High (PDH)"
+        res["resist_level"] = pdh
+    elif wsh and wsh > 0 and (wsh * 0.975 <= live_price <= wsh * 1.012):
+        res["near_macro_resistance"] = True
+        res["resist_name"] = "Major Weekly Swing High"
+        res["resist_level"] = wsh
+
+    items = []
+    if res["support_name"]:
+        items.append(f"Macro Sup: {res['support_name']} ({_format_price_clean(res['support_level'])})")
+    if res["resist_name"]:
+        items.append(f"Macro Res: {res['resist_name']} ({_format_price_clean(res['resist_level'])})")
+    res["summary"] = " | ".join(items)
+    return res
+
+
 def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15m, live_price):
     """Institutional & Pro-Trader Multi-Strategy Price Action Engine:
     Deep Chart Reading:
@@ -3621,8 +3700,100 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
     latest_1h = candles_1h[-1]
     prev_1h = candles_1h[-2]
 
+    # --- 5. DEEP MACRO WEEKLY & DAILY STRUCTURE READING ---
+    macro_info = _detect_macro_weekly_daily_levels(keys1w, keys1d, live_price)
+
+    # 1H and 15m Market Structure Shifts (BOS / CHoCH)
+    is_bullish_choch = (live_price > recent_sh and prev_1h[4] <= recent_sh)
+    is_bearish_choch = (live_price < recent_sl and prev_1h[4] >= recent_sl)
+
     # --- CANDIDATE STRATEGIES EVALUATION ---
     candidates = []
+
+    # =========================================================================
+    # STRATEGY 0: WEEKLY & DAILY KEY LEVEL LIQUIDITY SWEEP & REVERSAL (PWL/PDL & PWH/PDH)
+    # =========================================================================
+    # 0A. Bullish Weekly / Daily Low Bounce & Reclaim
+    if macro_info.get("near_macro_support") and macro_info.get("support_level"):
+        sup_lvl = macro_info["support_level"]
+        sup_name = macro_info["support_name"]
+        pat = _detect_deep_candlestick(candles_15m, "bullish", sup_lvl) or "Key Support Reclaim"
+        stop = round(min(sup_lvl * 0.995, min(c[3] for c in candles_15m[-4:]) * 0.997), 6)
+        score = 80
+        confs = [f"Macro Support: Bounced from {sup_name} ({_format_price_clean(sup_lvl)})", f"15m {pat}"]
+        if is_bullish_choch or is_hh_hl:
+            score += 10
+            confs.append("Market Structure Shift (Higher High / CHoCH Confirmed)")
+        if fib_tool_bull and (fib_tool_bull["is_golden"] or fib_tool_bull["is_ote"]):
+            score += 8
+            confs.append(f"Confluence with Fib {fib_tool_bull['zone_name']}")
+        if vol_ratio >= 1.15:
+            score += 8
+            confs.append(f"Strong Reversal Volume ({vol_ratio:.2f}x)")
+        if h_vwap and live_price >= h_vwap * 0.995:
+            score += 6
+            confs.append("VWAP Reclaimed")
+        candidates.append({
+            "strategy": f"Macro {sup_name} Reversal & Reclaim",
+            "side": "bullish",
+            "level": sup_lvl,
+            "level_name": f"1W/1D {sup_name}",
+            "macro_level": f"{sup_name} @ {_format_price_clean(sup_lvl)}",
+            "pattern": pat,
+            "stop": stop,
+            "score": score,
+            "confluences": confs,
+            "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+            "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
+            "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+            "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
+            "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
+            "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
+            "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else sup_lvl,
+            "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
+            "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
+        })
+
+    # 0B. Bearish Weekly / Daily High Rejection & Sweep
+    if macro_info.get("near_macro_resistance") and macro_info.get("resist_level"):
+        res_lvl = macro_info["resist_level"]
+        res_name = macro_info["resist_name"]
+        pat = _detect_deep_candlestick(candles_15m, "bearish", res_lvl) or "Key Resistance Rejection"
+        stop = round(max(res_lvl * 1.005, max(c[2] for c in candles_15m[-4:]) * 1.003), 6)
+        score = 80
+        confs = [f"Macro Resistance: Rejected at {res_name} ({_format_price_clean(res_lvl)})", f"15m {pat}"]
+        if is_bearish_choch or is_lh_ll:
+            score += 10
+            confs.append("Market Structure Shift (Lower Low / CHoCH Confirmed)")
+        if fib_tool_bear and (fib_tool_bear["is_golden"] or fib_tool_bear["is_ote"]):
+            score += 8
+            confs.append(f"Confluence with Fib {fib_tool_bear['zone_name']}")
+        if vol_ratio >= 1.15:
+            score += 8
+            confs.append(f"Strong Rejection Volume ({vol_ratio:.2f}x)")
+        if h_vwap and live_price <= h_vwap * 1.005:
+            score += 6
+            confs.append("VWAP Resistance")
+        candidates.append({
+            "strategy": f"Macro {res_name} Rejection & Sweep",
+            "side": "bearish",
+            "level": res_lvl,
+            "level_name": f"1W/1D {res_name}",
+            "macro_level": f"{res_name} @ {_format_price_clean(res_lvl)}",
+            "pattern": pat,
+            "stop": stop,
+            "score": score,
+            "confluences": confs,
+            "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
+            "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
+            "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+            "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
+            "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
+            "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
+            "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else res_lvl,
+            "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
+            "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
+        })
 
     # =========================================================================
     # STRATEGY 1: FIBONACCI GOLDEN POCKET & CHART TOOL RETRACEMENT
@@ -4052,6 +4223,16 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
 
     valid_candidates = []
     for cand in candidates:
+        # Macro Protection: Prevent shorting at Macro Support, prevent longing at Macro Resistance
+        if cand["side"] == "bearish" and macro_info.get("near_macro_support"):
+            cand["score"] -= 30
+        elif cand["side"] == "bullish" and macro_info.get("near_macro_resistance"):
+            cand["score"] -= 30
+        if cand["side"] == "bullish" and is_bullish_choch:
+            cand["score"] += 8
+        elif cand["side"] == "bearish" and is_bearish_choch:
+            cand["score"] += 8
+
         if cand["score"] < 74:
             continue
         stop = cand["stop"]
@@ -4105,6 +4286,7 @@ def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15
         "key_tf": best["level_name"],
         "pattern": best["pattern"],
         "confluences": best["confluences"],
+        "macro_level": best.get("macro_level", macro_info.get("summary", "")),
         "channel_info": best.get("channel_info", ""),
         "origin_info": best.get("origin_info", ""),
         "fib_indicator": best.get("fib_indicator", ""),
@@ -4137,26 +4319,13 @@ def _catch_scan(ttl=CATCH_TTL_S):
             return []
         found = []
         try:
-            # Key levels come from closed 4H candles; triggers are confirmed only on closed 1H/15m candles.
-            keys4h = _catch_closed(_catch_klines(base, "4h", 80, ttl), 4 * 3600, now)
-            keys1d = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
-            triggers_1h = None
-            triggers_15m = None
-            for tf, interval, seconds, limit in (("1h", "1h", 3600, 100), ("15m", "15m", 900, 120)):
-                triggers = _catch_closed(_catch_klines(base, interval, limit, ttl), seconds, now)
-                if tf == "1h":
-                    triggers_1h = triggers
-                elif tf == "15m":
-                    triggers_15m = triggers
-                for key_tf, keys in (("4H", keys4h), ("1D", keys1d)):
-                    item = _catch_sfp(keys, triggers, bias["side"], price, tf, key_tf)
-                    if item:
-                        found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
-                                      "volume_usdt": coin.get("volume_usdt"), "spark": [], **item})
+            triggers_1h = _catch_closed(_catch_klines(base, "1h", 100, ttl), 3600, now)
+            triggers_15m = _catch_closed(_catch_klines(base, "15m", 120, ttl), 900, now)
             if triggers_1h and len(triggers_1h) >= 40:
+                keys4h = _catch_closed(_catch_klines(base, "4h", 80, ttl), 4 * 3600, now)
+                keys1d = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
                 keys1w = _catch_closed(_catch_klines(base, "1w", 35, ttl), 7 * 86400, now)
-                if not triggers_15m:
-                    triggers_15m = _catch_closed(_catch_klines(base, "15m", 30, ttl), 900, now)
+                # Catch Accuracy strictly features ONLY Smart MTF and Price Action:
                 mtf_item = _catch_smart_mtf_confluence(keys1w, keys1d, triggers_1h, triggers_15m, bias["side"], price)
                 if mtf_item:
                     found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
@@ -4167,19 +4336,18 @@ def _catch_scan(ttl=CATCH_TTL_S):
                                   "volume_usdt": coin.get("volume_usdt"), "spark": [], **pa_item})
         except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
             print(f"Catch Accuracy skipped {base}: {error}")
-        # Prefer 1h swing signals; avoid duplicate symbol/timeframe/key combinations.
         return found
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         rows = [item for group in pool.map(one, ranked) for item in group]
     def _row_sort_key(r):
-        if r.get("kind") == "pa":
-            return (2, -float(r.get("score") or 0), -float(r.get("volume_usdt") or 0))
-        return (0 if r.get("timeframe") == "1h" else 1, 0 if r.get("key_tf") == "1D" else 1, -float(r.get("volume_usdt") or 0))
+        if r.get("kind") == "fib":
+            return (0, 0 if r.get("trigger_state") == "CONFIRMED" else 1, -float(r.get("volume_usdt") or 0))
+        return (1, -float(r.get("score") or 0), -float(r.get("volume_usdt") or 0))
     rows.sort(key=_row_sort_key)
     unique, seen = [], set()
     for row in rows:
-        key = (row["base"], row["timeframe"])
+        key = (row["base"], row.get("kind", row.get("timeframe")))
         if key not in seen:
             seen.add(key)
             unique.append(row)
@@ -4677,6 +4845,9 @@ def _format_telegram_alert(item: dict) -> str:
             extra += f" | <b>ADX:</b> {round(float(adx_val), 1)}"
         lines.append("")
         lines.append(extra)
+        macro_lvl = item.get("macro_level")
+        if macro_lvl:
+            lines.append(f"🏛️ <b>Macro Level:</b> {_tg_esc(macro_lvl)}")
         fib_ind = item.get("fib_indicator")
         fib_tool = item.get("fib_tool")
         fib_anchors = item.get("fib_anchors")

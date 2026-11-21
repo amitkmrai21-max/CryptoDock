@@ -15,7 +15,7 @@
   const ago = (ts) => { const m = Math.max(0, Math.round((Date.now() / 1000 - Number(ts)) / 60)); return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
   const coinOf = (base) => window.cdMarkets?.coinsByBase?.get?.(base) || null;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  let tab = "1h", data = null, error = "", scanning = false, loadedAt = 0;
+  let tab = "fib", data = null, error = "", scanning = false, loadedAt = 0;
   const STALE_MS = 120000;
 
   async function getToken() {
@@ -73,8 +73,8 @@
       ? `1W·1D·1H·15m MULTI-TF CONFLUENCE · ${esc(item.pattern || "CONFIRMED")}`
       : `${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}`;
 
-    const step1Title = isFib ? "1W/1D Levels" : isPa ? "1W/1D Trend & ADX" : "BTC 4H";
-    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : isPa ? `ADX ${item.adx || 20}+ · Trend Aligned` : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
+    const step1Title = isFib ? "1W/1D Levels" : isPa ? (item.macro_level ? "🏛️ Macro Key Level" : "1W/1D Trend & ADX") : "BTC 4H";
+    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : isPa ? (item.macro_level ? esc(item.macro_level) : `ADX ${item.adx || 20}+ · Trend Aligned`) : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
     const step2Title = isFib ? "1H Trend & ADX" : isPa ? "Channel & Structure" : "Liquidity";
     const step2Desc = isFib ? `ADX ${item.adx || 20}+ · EMA20/50` : isPa ? `${esc(item.channel_info || item.key_tf || "Key Pivot")}` : `${esc(item.key_tf || "")} level swept`;
     const step3Title = isFib ? "Fib OTE Zone" : isPa ? "📐 Fib Tool & Retrace" : "Reclaim";
@@ -84,9 +84,7 @@
 
     const infoLine = isFib
       ? `<i>1W Pivot</i> <b>${money(item.w_level)}</b> · <i>1D Level</i> <b>${money(item.d_level)}</b> · <i>Fib 0.618</i> <b>${money(item.fib_level)}</b> · ${ago(item.candle_at)}`
-      : isPa
-      ? `<i>Level</i> <b>${money(item.level)}</b> · <i>Setup</i> <b>${esc(item.pa_type)}</b>${item.fib_tool ? ` · <i>Fib Levels</i> <b>${esc(item.fib_tool)}</b>` : ""}${item.channel_info ? ` · <i>Channel</i> <b>${esc(item.channel_info)}</b>` : ""}${item.origin_info ? ` · <i>Impulse</i> <b>${esc(item.origin_info)}</b>` : ""} · <i>ADX</i> <b>${item.adx || 20}</b> · ${ago(item.candle_at)}`
-      : `<i>Key level</i> <b>${money(item.level)}</b> · <i>Trigger close</i> <b>${money(item.trigger_close)}</b> · ${ago(item.candle_at)}`;
+      : `<i>Level</i> <b>${money(item.level)}</b> · <i>Setup</i> <b>${esc(item.pa_type)}</b>${item.macro_level ? ` · <i>Macro</i> <b>${esc(item.macro_level)}</b>` : ""}${item.fib_tool ? ` · <i>Fib Levels</i> <b>${esc(item.fib_tool)}</b>` : ""}${item.channel_info ? ` · <i>Channel</i> <b>${esc(item.channel_info)}</b>` : ""}${item.origin_info ? ` · <i>Impulse</i> <b>${esc(item.origin_info)}</b>` : ""} · <i>ADX</i> <b>${item.adx || 20}</b> · ${ago(item.candle_at)}`;
 
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       <div class="cd-fr-head">
@@ -116,17 +114,11 @@
   }
   function render() {
     const all = data?.full || [];
-    const count1h = all.filter((x) => x.timeframe === "1h" && x.kind !== "fib" && x.kind !== "pa").length;
-    const count15m = all.filter((x) => x.timeframe === "15m" && x.kind !== "fib" && x.kind !== "pa").length;
     const countFib = all.filter((x) => x.timeframe === "fib" || x.kind === "fib").length;
     const countPa = all.filter((x) => x.timeframe === "pa" || x.kind === "pa").length;
 
-    const b1h = document.querySelector('#cdCatchTabs [data-catch-tab="1h"]');
-    const b15m = document.querySelector('#cdCatchTabs [data-catch-tab="15m"]');
     const bfib = document.querySelector('#cdCatchTabs [data-catch-tab="fib"]');
     const bpa = document.querySelector('#cdCatchTabs [data-catch-tab="pa"]');
-    if (b1h) b1h.textContent = data ? `1H Swings (${count1h})` : "1H Swings";
-    if (b15m) b15m.textContent = data ? `15m Swings (${count15m})` : "15m Swings";
     if (bfib) bfib.textContent = data ? `🎯 Smart MTF (${countFib})` : "🎯 Smart MTF";
     if (bpa) bpa.textContent = data ? `⚡ Price Action (${countPa})` : "⚡ Price Action";
 
@@ -135,7 +127,7 @@
     const side = btc.side || "neutral";
     const biasText = side === "bullish" ? "BTC 4H BULLISH · LONGS ONLY" : side === "bearish" ? "BTC 4H BEARISH · SHORTS ONLY" : "BTC 4H NEUTRAL · WAIT";
     const biasClass = side === "bullish" ? "is-bull" : side === "bearish" ? "is-bear" : "";
-    const list = (data?.full || []).filter((x) => tab === "fib" ? (x.timeframe === "fib" || x.kind === "fib") : tab === "pa" ? (x.timeframe === "pa" || x.kind === "pa") : (x.timeframe === tab && x.kind !== "fib" && x.kind !== "pa"));
+    const list = (data?.full || []).filter((x) => tab === "fib" ? (x.timeframe === "fib" || x.kind === "fib") : (x.timeframe === "pa" || x.kind === "pa"));
         if (!data) {
       meta.textContent = error ? "Scan unavailable" : "Checking BTC bias and swing setups…";
       results.innerHTML = error ? `<p class="cd-focus-error">${esc(error)}</p>` : '<p class="cd-focus-loading">Scanning liquid coins on closed 15m / 1H candles…</p>';
@@ -144,9 +136,9 @@
     const btcPrice = Number(btc.price) > 0 ? ` · BTC ${money(btc.price)}` : "";
     const btcEma = Number(btc.ema50) > 0 ? ` · 4H EMA 50 ${money(btc.ema50)}` : "";
     const banner = `<div class="cd-fr-summary ${biasClass}"><div><b>${esc(biasText)}</b><small>${esc(btc.reason || data.message || "")}${btcPrice}${btcEma}</small></div></div>`;
-    meta.textContent = `${list.length} ${tab.toUpperCase()} setups · ${all.length} total · scanned ${Number(data.scanned) || 0} coins`;
-    const empty = side === "neutral" ? "BTC trend is mixed" : tab === "fib" ? "No confirmed Smart MTF Confluence setups right now" : tab === "pa" ? "No confirmed Price Action Structure setups right now" : `No confirmed ${tab.toUpperCase()} SFP setups right now`;
-    const detail = side === "neutral" ? (btc.reason || "Waiting for a clearer BTC 4H direction. No direction is being forced.") : tab === "fib" ? "Scanning 1W weekly turning points, 1D S/R structure, 1H Fib Golden Pocket (0.50–0.618 OTE), and 15m rejection wicks. Confirmed signals will appear automatically." : tab === "pa" ? "Scanning 1W/1D Macro Trend, ADX trend strength, 1H Market Structure (HH/HL or LH/LL), Breakout / Liquidity Sweeps, Fib Golden Zone, and 15m Pattern confirmations." : "The scanner needs a closed-candle sweep and reclaim, BTC trend alignment, and a stop within the 1.5% cap. No setup is not a trade signal.";
+    meta.textContent = `${list.length} ${tab === "fib" ? "Smart MTF" : "Price Action"} setups · ${all.length} total · scanned ${Number(data.scanned) || 0} coins`;
+    const empty = side === "neutral" ? "BTC trend is mixed" : tab === "fib" ? "No confirmed Smart MTF Confluence setups right now" : "No confirmed Price Action setups right now";
+    const detail = side === "neutral" ? (btc.reason || "Waiting for a clearer BTC 4H direction. No direction is being forced.") : tab === "fib" ? "Scanning 1W weekly turning points, 1D S/R structure, 1H Fib Golden Pocket (0.50–0.618 OTE), and 15m rejection wicks. Confirmed signals will appear automatically." : "Scanning 1W/1D Key Level Reversals (PWL/PWH & PDL/PDH), 1H Market Structure (BOS/CHoCH), Parallel Channel, Fib Golden Pocket, and 15m Candlestick Confluence.";
     results.innerHTML = banner + (list.length ? list.map(card).join("") : `<div class="cd-focus-empty"><strong>${esc(empty)}</strong><p>${esc(detail)}</p></div>`) + '<p class="cd-fr-note">Closed-candle SFP swing scanner with BTC 4H trend alignment. Levels are estimates from market data, not guaranteed outcomes. Confirm the live chart, slippage, fees, and position size; risk no more than 1% of account equity per trade. This setup has not been independently backtested.</p>';
   }
   async function load(fresh = false) {
