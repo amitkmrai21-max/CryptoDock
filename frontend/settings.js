@@ -172,6 +172,7 @@
   // Owner Delta India Auto-Trading Sync & Control
   let _deltaLastUserEditTime = 0;
   let _deltaIsSaving = false;
+  let _deltaCurrentTpMode = "fixed";
 
   async function getFreshOwnerToken() {
     if (window.marketDockSupabase) {
@@ -209,9 +210,57 @@
     const maxPosInput = document.getElementById("cdDeltaMaxPos");
     const marginInput = document.getElementById("cdDeltaMargin");
     const takeProfitInput = document.getElementById("cdDeltaTakeProfit");
+    const tpInputBox = document.getElementById("cdDeltaTpInputBox");
+    const tpInputLabel = document.getElementById("cdDeltaTpInputLabel");
+    const tpSubtext = document.getElementById("cdDeltaTpSubtext");
+    const tpModeFixedBtn = document.getElementById("cdDeltaTpModeFixedBtn");
+    const tpModeTrendBtn = document.getElementById("cdDeltaTpModeTrendBtn");
+    const tpModeBadge = document.getElementById("cdDeltaTpModeBadge");
+    const tpModeDesc = document.getElementById("cdDeltaTpModeDesc");
     const statusEl = document.getElementById("cdDeltaConnStatus");
     const saveBtn = document.getElementById("cdDeltaSaveBtn");
     const saveMsg = document.getElementById("cdDeltaSaveMsg");
+
+    function updateTpModeUi(mode) {
+      _deltaCurrentTpMode = (mode === "trend" || mode === "off") ? "trend" : "fixed";
+      const isTrend = _deltaCurrentTpMode === "trend";
+
+      if (tpModeFixedBtn) {
+        tpModeFixedBtn.style.background = isTrend ? "transparent" : "#10b981";
+        tpModeFixedBtn.style.color = isTrend ? "#94a3b8" : "#064e3b";
+      }
+      if (tpModeTrendBtn) {
+        tpModeTrendBtn.style.background = isTrend ? "#38bdf8" : "transparent";
+        tpModeTrendBtn.style.color = isTrend ? "#082f49" : "#94a3b8";
+      }
+      if (tpModeBadge) {
+        tpModeBadge.textContent = isTrend ? "TREND RIDE (NO CAP)" : "$40 TARGET ACTIVE";
+        tpModeBadge.style.background = isTrend ? "rgba(56,189,248,0.2)" : "rgba(16,185,129,0.2)";
+        tpModeBadge.style.color = isTrend ? "#38bdf8" : "#34d399";
+      }
+      if (tpModeDesc) {
+        tpModeDesc.textContent = isTrend
+          ? "🔥 $40 Target band hai: Bullish/Bearish trend me position open rahegi taki aur jyada profit mile."
+          : "🎯 $40 Target active: Target hit hote hi market order par auto-close ho jayega.";
+      }
+      if (tpInputBox) {
+        tpInputBox.style.background = isTrend ? "rgba(255,255,255,0.03)" : "rgba(16,185,129,0.06)";
+        tpInputBox.style.borderColor = isTrend ? "rgba(255,255,255,0.12)" : "rgba(16,185,129,0.25)";
+      }
+      if (tpInputLabel) {
+        tpInputLabel.textContent = isTrend ? "Target (OFF)" : "Auto Profit ($)";
+        tpInputLabel.style.color = isTrend ? "#94a3b8" : "#34d399";
+      }
+      if (takeProfitInput) {
+        takeProfitInput.style.borderColor = isTrend ? "rgba(255,255,255,0.15)" : "rgba(16,185,129,0.4)";
+        takeProfitInput.style.color = isTrend ? "#64748b" : "#34d399";
+        takeProfitInput.disabled = isTrend;
+      }
+      if (tpSubtext) {
+        tpSubtext.textContent = isTrend ? "Target OFF — Riding trend" : ("Auto-close at +$" + (takeProfitInput?.value || "40"));
+        tpSubtext.style.color = isTrend ? "#38bdf8" : "#10b981";
+      }
+    }
 
     function updateSliderUi(checked) {
       if (!slider) return;
@@ -244,6 +293,7 @@
         enabled: !!(enabledToggle && enabledToggle.checked),
         max_open_positions: parseInt(maxPosInput?.value || "3", 10),
         margin_per_trade: parseFloat(marginInput?.value || "150"),
+        take_profit_mode: _deltaCurrentTpMode,
         take_profit_usd: parseFloat(takeProfitInput?.value || "40")
       };
 
@@ -261,9 +311,11 @@
             updateSliderUi(isEnabled);
           }
           if (saveMsg) {
-            saveMsg.textContent = isEnabled ? "Auto-Trading Active 🟢 (Saved)" : "Auto-Trading Stopped ⚪ (Saved)";
+            const isTrend = _deltaCurrentTpMode === "trend";
+            const modeText = isTrend ? "Trend Ride (Target OFF)" : ("$" + (payload.take_profit_usd) + " Target");
+            saveMsg.textContent = isEnabled ? `Auto-Trading Active 🟢 (${modeText})` : `Saved (Auto-Trading OFF) ⚪`;
             saveMsg.style.color = isEnabled ? "#34d399" : "#94a3b8";
-            setTimeout(() => { if (saveMsg && !_deltaIsSaving) saveMsg.textContent = ""; }, 3000);
+            setTimeout(() => { if (saveMsg && !_deltaIsSaving) saveMsg.textContent = ""; }, 3500);
           }
         } else {
           if (saveMsg) {
@@ -312,6 +364,10 @@
             if (takeProfitInput && cfg.take_profit_usd != null) {
               takeProfitInput.value = cfg.take_profit_usd;
             }
+            if (cfg.take_profit_mode != null) {
+              _deltaCurrentTpMode = cfg.take_profit_mode;
+            }
+            updateTpModeUi(_deltaCurrentTpMode);
           }
           if (statusEl) {
             if (data.status === "connected") {
@@ -341,12 +397,34 @@
       });
     }
 
+    // Bind Mode Selection Buttons
+    if (tpModeFixedBtn && !tpModeFixedBtn.dataset.bound) {
+      tpModeFixedBtn.dataset.bound = "true";
+      tpModeFixedBtn.addEventListener("click", function() {
+        _deltaLastUserEditTime = Date.now();
+        updateTpModeUi("fixed");
+        persistDeltaConfig("tp_fixed");
+      });
+    }
+
+    if (tpModeTrendBtn && !tpModeTrendBtn.dataset.bound) {
+      tpModeTrendBtn.dataset.bound = "true";
+      tpModeTrendBtn.addEventListener("click", function() {
+        _deltaLastUserEditTime = Date.now();
+        updateTpModeUi("trend");
+        persistDeltaConfig("tp_trend");
+      });
+    }
+
     // Also track input changes so polling doesn't overwrite while user is typing
     [maxPosInput, marginInput, takeProfitInput].forEach(inp => {
       if (inp && !inp.dataset.bound) {
         inp.dataset.bound = "true";
         inp.addEventListener("input", function() {
           _deltaLastUserEditTime = Date.now();
+          if (inp === takeProfitInput && _deltaCurrentTpMode === "fixed" && tpSubtext) {
+            tpSubtext.textContent = "Auto-close at +$" + (takeProfitInput.value || "40");
+          }
         });
       }
     });

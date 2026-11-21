@@ -5003,6 +5003,7 @@ def _load_delta_config():
         "max_open_positions": 3,
         "margin_per_trade": 150.0,
         "margin_mode": "cross",
+        "take_profit_mode": "fixed",  # "fixed" (auto-close at $40) or "trend" (auto-close OFF, ride strong trend)
         "take_profit_usd": 40.0
     }
     if os.path.exists(DELTA_CONFIG_PATH):
@@ -5012,6 +5013,8 @@ def _load_delta_config():
                 default_cfg.update(data)
         except Exception as e:
             print(f"[Delta Config Read Error]: {e}")
+    if "take_profit_mode" not in default_cfg:
+        default_cfg["take_profit_mode"] = "fixed"
     return default_cfg
 
 def _save_delta_config(cfg):
@@ -5192,13 +5195,18 @@ def _trigger_delta_auto_trade(item):
 _delta_closed_profit_trades = {}  # product_id -> timestamp
 
 def _check_delta_positions_profit():
-    """Checks open positions on Delta India and auto-closes positions when profit reaches target ($40)."""
+    """Checks open positions on Delta India and auto-closes positions when profit reaches target ($40), unless mode is trend/off."""
     api_key = os.getenv("DELTA_INDIA_API_KEY", "").strip()
     api_secret = os.getenv("DELTA_INDIA_API_SECRET", "").strip()
     if not api_key or not api_secret:
         return
 
     cfg = _load_delta_config()
+    tp_mode = str(cfg.get("take_profit_mode", "fixed")).lower().strip()
+    # If mode is trend / off / unlimited, auto-close is OFF: position stays open to ride strong bullish/bearish trends for bigger profits
+    if tp_mode in ("trend", "off", "manual", "unlimited", "none"):
+        return
+
     target_profit = float(cfg.get("take_profit_usd", 40.0) or 40.0)
     if target_profit <= 0:
         return
@@ -5302,8 +5310,19 @@ def update_owner_delta_config(payload: dict, authorization: str = Header(None)):
         cfg["max_open_positions"] = max(1, min(20, int(payload["max_open_positions"])))
     if "margin_per_trade" in payload:
         cfg["margin_per_trade"] = max(5.0, min(50000.0, float(payload["margin_per_trade"])))
+    if "take_profit_mode" in payload:
+        val = str(payload["take_profit_mode"]).lower().strip()
+        cfg["take_profit_mode"] = "trend" if val in ("trend", "off", "manual", "unlimited") else "fixed"
     if "take_profit_usd" in payload:
-        cfg["take_profit_usd"] = max(1.0, min(100000.0, float(payload["take_profit_usd"])))
+        try:
+            val = float(payload["take_profit_usd"])
+            if val <= 0:
+                cfg["take_profit_mode"] = "trend"
+                cfg["take_profit_usd"] = 0.0
+            else:
+                cfg["take_profit_usd"] = max(1.0, min(100000.0, val))
+        except (ValueError, TypeError):
+            pass
     _save_delta_config(cfg)
     return {"success": True, "config": cfg}
 
