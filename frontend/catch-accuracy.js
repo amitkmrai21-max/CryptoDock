@@ -73,18 +73,18 @@
       ? `1W·1D·1H·15m MULTI-TF CONFLUENCE · ${esc(item.pattern || "CONFIRMED")}`
       : `${esc(item.timeframe?.toUpperCase() || "SWING")} SFP · ${rank ? `#${rank.rank} by volume` : "liquid market"}`;
 
-    const step1Title = isFib ? "1W/1D Levels" : isPa ? (item.macro_level ? "🏛️ Macro Key Level" : "1W/1D Trend & ADX") : "BTC 4H";
-    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : isPa ? (item.macro_level ? esc(item.macro_level) : `ADX ${item.adx || 20}+ · Trend Aligned`) : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
-    const step2Title = isFib ? "1H Trend & ADX" : isPa ? "Channel & Structure" : "Liquidity";
-    const step2Desc = isFib ? `ADX ${item.adx || 20}+ · EMA20/50` : isPa ? `${esc(item.channel_info || item.key_tf || "Key Pivot")}` : `${esc(item.key_tf || "")} level swept`;
-    const step3Title = isFib ? "Fib OTE Zone" : isPa ? "📐 Fib Tool & Retrace" : "Reclaim";
-    const step3Desc = isFib ? (item.fib_zone || "0.50 – 0.618 OTE") : isPa ? `${esc(item.fib_indicator || item.fib_zone || "0.618 Golden Pocket")}` : "Closed candle back inside";
-    const step4Title = isFib ? "15m Trigger" : isPa ? "Risk / Reward" : "Risk";
-    const step4Desc = isFib ? (item.trigger_state === "CONFIRMED" ? "Rejection Wick Confirmed" : "In Confluence Zone") : isPa ? `${esc(item.pattern || "Pattern Trigger")}` : `${pct(item.risk_pct)} · 1:${item.rr1 || 1.5} / 1:${item.rr2 || 2.5}`;
+    const step1Title = isFib ? "1W/1D Levels" : isPa ? "Market Structure" : "BTC 4H";
+    const step1Desc = isFib ? `1W ${money(item.w_level)} · 1D ${money(item.d_level)}` : isPa ? esc(item.market_structure || (bull ? "Higher Lows & Highs (HL/HH)" : "Lower Highs & Lows (LH/LL)")) : (bull ? "Bullish · Longs only" : "Bearish · Shorts only");
+    const step2Title = isFib ? "1H Trend & ADX" : isPa ? "S/R Retest" : "Liquidity";
+    const step2Desc = isFib ? `ADX ${item.adx || 20}+ · EMA20/50` : isPa ? `${esc(item.pa_type || "Retest Confirmed")} @ ${money(item.level)}` : `${esc(item.key_tf || "")} level swept`;
+    const step3Title = isFib ? "Fib OTE Zone" : isPa ? "Volume Spike" : "Reclaim";
+    const step3Desc = isFib ? (item.fib_zone || "0.50 – 0.618 OTE") : isPa ? `${esc(item.volume_spike || "> 1.25x Volume SMA")}` : "Closed candle back inside";
+    const step4Title = isFib ? "15m Trigger" : isPa ? "Momentum (RSI/MACD)" : "Risk";
+    const step4Desc = isFib ? (item.trigger_state === "CONFIRMED" ? "Rejection Wick Confirmed" : "In Confluence Zone") : isPa ? `RSI ${item.rsi || item.rsi_15m || (bull ? "> 50" : "< 50")} · MACD ${esc(item.macd_state || "Confirmed")}` : `${pct(item.risk_pct)} · 1:${item.rr1 || 1.8} / 1:${item.rr2 || 2.8}`;
 
     const infoLine = isFib
       ? `<i>1W Pivot</i> <b>${money(item.w_level)}</b> · <i>1D Level</i> <b>${money(item.d_level)}</b> · <i>Fib 0.618</i> <b>${money(item.fib_level)}</b> · ${ago(item.candle_at)}`
-      : `<i>Level</i> <b>${money(item.level)}</b> · <i>Setup</i> <b>${esc(item.pa_type)}</b>${item.macro_level ? ` · <i>Macro</i> <b>${esc(item.macro_level)}</b>` : ""}${item.fib_tool ? ` · <i>Fib Levels</i> <b>${esc(item.fib_tool)}</b>` : ""}${item.channel_info ? ` · <i>Channel</i> <b>${esc(item.channel_info)}</b>` : ""}${item.origin_info ? ` · <i>Impulse</i> <b>${esc(item.origin_info)}</b>` : ""} · <i>ADX</i> <b>${item.adx || 20}</b> · ${ago(item.candle_at)}`;
+      : `<i>Structure</i> <b>${esc(item.structure_note || item.market_structure || "Structure")}</b> · <i>Retest</i> <b>${esc(item.pattern || "Candle Rejection")}</b> · <i>Volume</i> <b>${esc(item.volume_spike || "Volume Spike")}</b> · ${ago(item.candle_at)}`;
 
     return `<article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(item.base)}">
       <div class="cd-fr-head">

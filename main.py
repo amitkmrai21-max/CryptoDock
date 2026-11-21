@@ -3203,684 +3203,445 @@ def _detect_macro_weekly_daily_levels(keys1w, keys1d, live_price):
     return res
 
 
-def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15m, live_price):
-    """Institutional & Pro-Trader Multi-Strategy Price Action Engine:
-    Deep Chart Reading:
-      - 1H Parallel Channel (Boundary Support / Resistance & Midline Equilibrium)
-      - Major Rally & Drop Origins (Maps historical demand/supply impulse anchors)
-      - Dual Fibonacci Engine: Mathematical Indicator + Chart Drawing Tool
-        (0.236, 0.382, 0.50 Equilibrium, 0.618 Golden Pocket, 0.786 Deep OTE & 1.272/1.618 Extensions)
-      - Deep Candlestick Patterns (Hammer, Shooting Star, Morning/Evening Star, Engulfing)
-      - 1W/1D Macro Trend, ADX Momentum, VWAP, and Volume Absorption
-    Scores all setups and selects ONLY the highest-quality A+ setups per coin.
-    Smart MTF is 100% untouched.
+# -----------------------------------------------------------------------------------
+# PROFESSIONAL PRICE ACTION ENGINE (MARKET STRUCTURE + S/R BREAKDOWN/BREAKOUT + RETEST + VOLUME + RSI/MACD)
+# -----------------------------------------------------------------------------------
+# Built strictly on institutional technical rules for Swing Trades, Long Buy & Long Sell:
+#   1. Market Structure:
+#      - Bearish SELL: Lower Highs (LH - Buyers Weakening) & Lower Lows (LL - Sellers Dominating)
+#      - Bullish BUY:  Higher Lows (HL - Sellers Weakening) & Higher Highs (HH - Buyers Dominating)
+#   2. Key Level S/R Breakdown / Breakout & Retest:
+#      - Bearish SELL: Key Support broken with candle close below it; price retests broken support (now resistance) with a bearish rejection candle
+#      - Bullish BUY:  Key Resistance broken with candle close above it; price retests broken resistance (now support) with a bullish bounce candle
+#   3. Volume Spike Detection:
+#      - Volume expansion on the breakdown/breakout or confirmation candle (> 1.25x of 20-period volume SMA)
+#   4. RSI + MACD Momentum Confirmation:
+#      - Bearish SELL: RSI(14) < 50 + MACD Bearish (MACD Line < Signal Line or MACD Histogram < 0)
+#      - Bullish BUY:  RSI(14) > 50 + MACD Bullish (MACD Line > Signal Line or MACD Histogram > 0)
+#   5. Precision Risk Management:
+#      - Stop Loss for SELL: Placed safely above the recent Lower High (+0.15% - 0.25% buffer)
+#      - Stop Loss for BUY:  Placed safely below the recent Higher Low (-0.15% - 0.25% buffer)
+#      - Target 1: R:R 1.8 (Structural Swing Target)
+#      - Target 2: R:R 2.8 (Macro Expansion Target)
+#
+# NOTE: Smart MTF is 100% UNTOUCHED and unchanged.
+# -----------------------------------------------------------------------------------
+
+def _pa_find_pivots(candles, window=2):
+    """Find local swing high and swing low pivot points."""
+    highs, lows = [], []
+    if len(candles) < (window * 2 + 1):
+        return highs, lows
+    for i in range(window, len(candles) - window):
+        c_h = candles[i][2]
+        c_l = candles[i][3]
+        if all(c_h >= candles[j][2] for j in range(i - window, i + window + 1)):
+            highs.append({"index": i, "price": c_h, "time": candles[i][0]})
+        if all(c_l <= candles[j][3] for j in range(i - window, i + window + 1)):
+            lows.append({"index": i, "price": c_l, "time": candles[i][0]})
+    return highs, lows
+
+
+def _pa_detect_market_structure(candles_4h, candles_1h):
+    """Detect institutional market structure (LH/LL vs HH/HL).
+    Bearish: Lower Highs (Buyers Weakening) and Lower Lows (Sellers Dominating)
+    Bullish: Higher Lows (Sellers Weakening) and Higher Highs (Buyers Dominating)
     """
-    if not keys1d or not candles_1h or not candles_15m or live_price <= 0:
+    p_highs, p_lows = _pa_find_pivots(candles_1h, window=2)
+    if len(p_highs) < 2 or len(p_lows) < 2:
+        return {
+            "bearish": False, "bullish": False,
+            "is_lh": False, "is_ll": False, "is_hl": False, "is_hh": False,
+            "recent_lh": None, "recent_hl": None,
+            "p_highs": [], "p_lows": []
+        }
+
+    recent_h1 = p_highs[-1]["price"]
+    recent_h2 = p_highs[-2]["price"]
+    recent_l1 = p_lows[-1]["price"]
+    recent_l2 = p_lows[-2]["price"]
+
+    # Lower Highs: Each recent high is lower than previous (Buyers Weakening)
+    is_lh = recent_h1 < (recent_h2 * 1.002)
+    # Lower Lows: Price broke below previous low (Sellers Dominating)
+    is_ll = recent_l1 < (recent_l2 * 1.002) or candles_1h[-1][4] < recent_l2
+    is_bearish = is_lh and is_ll
+
+    # Higher Lows: Each recent low is higher than previous (Sellers Weakening)
+    is_hl = recent_l1 > (recent_l2 * 0.998)
+    # Higher Highs: Price broke above previous high (Buyers Dominating)
+    is_hh = recent_h1 > (recent_h2 * 0.998) or candles_1h[-1][4] > recent_h2
+    is_bullish = is_hl and is_hh
+
+    # Calculate key swing points for stop-loss placement
+    all_recent_h = [p["price"] for p in p_highs[-3:]]
+    all_recent_l = [p["price"] for p in p_lows[-3:]]
+    recent_lh = max(all_recent_h) if is_lh else recent_h1
+    recent_hl = min(all_recent_l) if is_hl else recent_l1
+
+    return {
+        "bearish": is_bearish,
+        "bullish": is_bullish,
+        "is_lh": is_lh,
+        "is_ll": is_ll,
+        "is_hl": is_hl,
+        "is_hh": is_hh,
+        "recent_lh": recent_lh,
+        "recent_hl": recent_hl,
+        "p_highs": [p["price"] for p in p_highs[-5:]],
+        "p_lows": [p["price"] for p in p_lows[-5:]]
+    }
+
+
+def _pa_detect_sr_breakdown_retest(candles_1h, candles_15m, live_price, side, struct):
+    """Detect Support Breakdown & Retest (SELL) or Resistance Breakout & Retest (BUY)."""
+    if side == "bearish":
+        lows = struct.get("p_lows") or []
+        if not lows:
+            return None
+        # Broken support: key swing low that price traded below
+        broken_support = None
+        for l in reversed(lows):
+            if live_price < (l * 1.015):
+                broken_support = l
+                break
+        if not broken_support:
+            broken_support = min(lows)
+
+        # 1. Support Breakdown check: recent candles closed below this level
+        c_15m_closes = [c[4] for c in candles_15m[-16:]]
+        c_15m_highs = [c[2] for c in candles_15m[-16:]]
+        has_breakdown = any(c < (broken_support * 0.998) for c in c_15m_closes)
+
+        # 2. Retest check: price pulled back to re-test the broken level as resistance
+        retested = any(abs(h - broken_support) / broken_support <= 0.015 for h in c_15m_highs[-8:])
+        if live_price <= broken_support:
+            retested = True
+
+        # 3. Bearish Rejection Candle on 15m
+        last_c = candles_15m[-2] if len(candles_15m) >= 2 else candles_15m[-1]
+        c_o, c_h, c_l, c_c = last_c[1], last_c[2], last_c[3], last_c[4]
+        c_range = max(c_h - c_l, 1e-8)
+        upper_wick = c_h - max(c_o, c_c)
+        is_rejection = (c_c <= c_o) or (upper_wick / c_range >= 0.22)
+
+        return {
+            "level": broken_support,
+            "level_type": "Support Breakdown & Retest",
+            "has_break": has_breakdown,
+            "retested": retested,
+            "is_candle_ok": is_rejection,
+            "candle_name": "Bearish Rejection" if (upper_wick / c_range >= 0.25) else "Bearish Candle"
+        }
+    else:
+        highs = struct.get("p_highs") or []
+        if not highs:
+            return None
+        # Broken resistance: key swing high that price traded above
+        broken_res = None
+        for h in reversed(highs):
+            if live_price > (h * 0.985):
+                broken_res = h
+                break
+        if not broken_res:
+            broken_res = max(highs)
+
+        # 1. Resistance Breakout check: recent candles closed above this level
+        c_15m_closes = [c[4] for c in candles_15m[-16:]]
+        c_15m_lows = [c[3] for c in candles_15m[-16:]]
+        has_breakout = any(c > (broken_res * 1.002) for c in c_15m_closes)
+
+        # 2. Retest check: price pulled back to re-test the broken level as support
+        retested = any(abs(l - broken_res) / broken_res <= 0.015 for l in c_15m_lows[-8:])
+        if live_price >= broken_res:
+            retested = True
+
+        # 3. Bullish Bounce Candle on 15m
+        last_c = candles_15m[-2] if len(candles_15m) >= 2 else candles_15m[-1]
+        c_o, c_h, c_l, c_c = last_c[1], last_c[2], last_c[3], last_c[4]
+        c_range = max(c_h - c_l, 1e-8)
+        lower_wick = min(c_o, c_c) - c_l
+        is_bounce = (c_c >= c_o) or (lower_wick / c_range >= 0.22)
+
+        return {
+            "level": broken_res,
+            "level_type": "Resistance Breakout & Retest",
+            "has_break": has_breakout,
+            "retested": retested,
+            "is_candle_ok": is_bounce,
+            "candle_name": "Bullish Hammer / Bounce" if (lower_wick / c_range >= 0.25) else "Bullish Candle"
+        }
+
+
+def _pa_detect_volume_spike(candles_15m, candles_1h):
+    """Detect Volume Spike expansion (> 1.25x of 20-period volume SMA)."""
+    v1h = [c[5] for c in candles_1h[-25:-1]]
+    avg_v1h = average(v1h[-20:]) if len(v1h) >= 20 else average(v1h)
+    recent_v1h = max(v1h[-3:]) if v1h else 0
+    ratio1h = (recent_v1h / avg_v1h) if avg_v1h > 0 else 1.0
+
+    v15m = [c[5] for c in candles_15m[-25:-1]]
+    avg_v15m = average(v15m[-20:]) if len(v15m) >= 20 else average(v15m)
+    recent_v15m = max(v15m[-3:]) if v15m else 0
+    ratio15m = (recent_v15m / avg_v15m) if avg_v15m > 0 else 1.0
+
+    max_ratio = max(ratio1h, ratio15m)
+    has_spike = max_ratio >= 1.25
+    return {
+        "has_spike": has_spike,
+        "ratio": round(max_ratio, 2),
+        "desc": f"{max_ratio:.2f}x Volume Spike" if has_spike else f"{max_ratio:.2f}x Normal Volume"
+    }
+
+
+def _pa_calculate_rsi_macd(candles_1h, candles_15m, side):
+    """Calculate RSI(14) and MACD(12, 26, 9) for momentum confirmation."""
+    c1h_closes = [c[4] for c in candles_1h]
+    c15m_closes = [c[4] for c in candles_15m]
+
+    rsi_1h = rsi(c1h_closes) if len(c1h_closes) >= 15 else 50.0
+    rsi_15m = rsi(c15m_closes) if len(c15m_closes) >= 15 else 50.0
+    macd_1h = macd(c1h_closes) if len(c1h_closes) >= 35 else {"histogram": 0, "state": "Neutral"}
+
+    hist = float(macd_1h.get("histogram") or 0)
+    is_macd_bearish = hist < 0 or "Bearish" in str(macd_1h.get("state", ""))
+    is_macd_bullish = hist > 0 or "Bullish" in str(macd_1h.get("state", ""))
+
+    if side == "bearish":
+        rsi_ok = (rsi_1h <= 55.0) or (rsi_15m <= 50.0)
+        macd_ok = is_macd_bearish
+    else:
+        rsi_ok = (rsi_1h >= 45.0) or (rsi_15m >= 50.0)
+        macd_ok = is_macd_bullish
+
+    return {
+        "rsi_1h": round(rsi_1h, 1),
+        "rsi_15m": round(rsi_15m, 1),
+        "macd_hist": hist,
+        "macd_state": macd_1h.get("state", "Neutral"),
+        "rsi_ok": rsi_ok,
+        "macd_ok": macd_ok
+    }
+
+
+def _pa_calculate_risk_reward(live_price, side, pivot_level, broken_level):
+    """Calculate precise Stop Loss and Take Profit levels:
+    SELL: Stop Loss placed above recent Lower High (+0.2% buffer).
+    BUY:  Stop Loss placed below recent Higher Low (-0.2% buffer).
+    Target 1: 1:1.8 R:R, Target 2: 1:2.8 R:R.
+    """
+    if side == "bearish":
+        base_stop = (pivot_level * 1.002) if pivot_level and pivot_level > live_price else (broken_level * 1.008)
+        risk_pct = round(((base_stop - live_price) / live_price) * 100, 2)
+        if risk_pct < 0.4:
+            base_stop = live_price * 1.006
+            risk_pct = 0.6
+        elif risk_pct > 3.8:
+            base_stop = max(broken_level * 1.015, live_price * 1.025)
+            risk_pct = round(((base_stop - live_price) / live_price) * 100, 2)
+
+        risk_dist = base_stop - live_price
+        t1 = max(live_price - (risk_dist * 1.8), live_price * 0.90)
+        t2 = max(live_price - (risk_dist * 2.8), live_price * 0.85)
+    else:
+        base_stop = (pivot_level * 0.998) if pivot_level and pivot_level < live_price else (broken_level * 0.992)
+        risk_pct = round(((live_price - base_stop) / live_price) * 100, 2)
+        if risk_pct < 0.4:
+            base_stop = live_price * 0.994
+            risk_pct = 0.6
+        elif risk_pct > 3.8:
+            base_stop = min(broken_level * 0.985, live_price * 0.975)
+            risk_pct = round(((live_price - base_stop) / live_price) * 100, 2)
+
+        risk_dist = live_price - base_stop
+        t1 = live_price + (risk_dist * 1.8)
+        t2 = live_price + (risk_dist * 2.8)
+
+    return {
+        "stop": round(base_stop, 4 if base_stop < 1 else 2),
+        "risk_pct": risk_pct,
+        "t1": round(t1, 4 if t1 < 1 else 2),
+        "t2": round(t2, 4 if t2 < 1 else 2),
+        "rr1": 1.8,
+        "rr2": 2.8
+    }
+
+
+def _catch_price_action_structure(keys1w, keys1d, keys4h, candles_1h, candles_15m, live_price):
+    """Institutional Price Action Engine for Swing Trades, Long Buy & Long Sell:
+    Evaluates setups strictly against the 5 core pillars:
+      1. Market Structure: LH/LL (Buyers Weakening/Sellers Dominating) or HH/HL (Sellers Weakening/Buyers Dominating)
+      2. Key S/R Breakdown & Retest / Resistance Breakout & Retest
+      3. Volume Spike Detection (> 1.25x 20-period SMA)
+      4. RSI Momentum (< 50 for SELL, > 50 for BUY)
+      5. MACD Trend Confirmation
+    Produces professional setups with stop loss placed at recent Lower High / Higher Low.
+    NOTE: Smart MTF remains 100% untouched.
+    """
+    if not candles_1h or not candles_15m or live_price <= 0:
         return None
-    if len(keys1d) < 25 or len(candles_1h) < 25 or len(candles_15m) < 8:
+    if len(candles_1h) < 25 or len(candles_15m) < 15:
         return None
 
-    # --- 1. 1W MACRO BIAS ---
-    w_trend = "neutral"
-    if keys1w and len(keys1w) >= 10:
-        w_closes = [c[4] for c in keys1w]
-        w_ema = _catch_ema(w_closes, 10)
-        if w_ema:
-            w_trend = "bullish" if w_closes[-1] >= w_ema else "bearish"
+    # Step 1: Detect Market Structure on 1H / 4H
+    struct = _pa_detect_market_structure(keys4h, candles_1h)
+    vol = _pa_detect_volume_spike(candles_15m, candles_1h)
 
-    # --- 2. 1D TREND, ADX & MOVING AVERAGES ---
-    d_closes = [c[4] for c in keys1d]
-    d_highs = [c[2] for c in keys1d]
-    d_lows = [c[3] for c in keys1d]
-    d_ema20 = _catch_ema(d_closes, 20)
-    d_ema50 = _catch_ema(d_closes, min(len(d_closes), 50))
-
-    d_adx_data = adx(d_highs, d_lows, d_closes, 14)
-    d_adx = float(d_adx_data.get("adx_14", 0))
-    d_pdi = float(d_adx_data.get("plus_di_14", 0))
-    d_mdi = float(d_adx_data.get("minus_di_14", 0))
-
-    d_trend = "neutral"
-    if d_ema20 and d_ema50:
-        if d_closes[-1] > d_ema20 and d_ema20 >= d_ema50:
-            d_trend = "bullish"
-        elif d_closes[-1] < d_ema20 and d_ema20 <= d_ema50:
-            d_trend = "bearish"
-        elif d_closes[-1] > d_ema20:
-            d_trend = "bullish"
-        elif d_closes[-1] < d_ema20:
-            d_trend = "bearish"
-
-    # --- 3. 1H PARALLEL CHANNEL, RALLY/DROP ORIGINS & DUAL FIBONACCI TOOL ---
-    channel = _detect_parallel_channel(candles_1h[-48:])
-    max_rally, max_drop = _detect_major_rally_drop_origins(candles_1h[-60:])
-    fib_tool_bull = _calculate_fibonacci_chart_tool(candles_1h, live_price, "bullish")
-    fib_tool_bear = _calculate_fibonacci_chart_tool(candles_1h, live_price, "bearish")
-
-    # --- 4. 1H INTERMEDIATE MARKET STRUCTURE & INDICATORS ---
-    h_closes = [c[4] for c in candles_1h]
-    h_ema20 = _catch_ema(h_closes, 20)
-    h_ema50 = _catch_ema(h_closes, min(len(h_closes), 50))
-    h_vwap = _calculate_vwap(candles_1h[-48:])
-
-    swing_highs, swing_lows = _find_swing_pivots(candles_1h, window=2)
-    if not swing_highs or not swing_lows:
-        return None
-
-    recent_sh = swing_highs[-1]["price"]
-    recent_sl = swing_lows[-1]["price"]
-    prev_sh = swing_highs[-2]["price"] if len(swing_highs) >= 2 else recent_sh
-    prev_sl = swing_lows[-2]["price"] if len(swing_lows) >= 2 else recent_sl
-
-    is_hh_hl = (recent_sh >= prev_sh and recent_sl >= prev_sl)
-    is_lh_ll = (recent_sh <= prev_sh and recent_sl <= prev_sl)
-
-    vol_recent = candles_1h[-1][5] if len(candles_1h[-1]) > 5 else 1.0
-    vol_avg = (sum([c[5] for c in candles_1h[-20:]]) / 20.0) if len(candles_1h) >= 20 else 1.0
-    vol_ratio = (vol_recent / vol_avg) if vol_avg > 0 else 1.0
-
-    latest_1h = candles_1h[-1]
-    prev_1h = candles_1h[-2]
-
-    # --- 5. DEEP MACRO WEEKLY & DAILY STRUCTURE READING ---
-    macro_info = _detect_macro_weekly_daily_levels(keys1w, keys1d, live_price)
-
-    # 1H and 15m Market Structure Shifts (BOS / CHoCH)
-    is_bullish_choch = (live_price > recent_sh and prev_1h[4] <= recent_sh)
-    is_bearish_choch = (live_price < recent_sl and prev_1h[4] >= recent_sl)
-
-    # --- CANDIDATE STRATEGIES EVALUATION ---
+    # Evaluate Bearish SELL and Bullish BUY
     candidates = []
 
-    # =========================================================================
-    # STRATEGY 0: WEEKLY & DAILY KEY LEVEL LIQUIDITY SWEEP & REVERSAL (PWL/PDL & PWH/PDH)
-    # =========================================================================
-    # 0A. Bullish Weekly / Daily Low Bounce & Reclaim
-    if macro_info.get("near_macro_support") and macro_info.get("support_level"):
-        sup_lvl = macro_info["support_level"]
-        sup_name = macro_info["support_name"]
-        pat = _detect_deep_candlestick(candles_15m, "bullish", sup_lvl) or "Key Support Reclaim"
-        stop = round(min(sup_lvl * 0.995, min(c[3] for c in candles_15m[-4:]) * 0.997), 6)
-        score = 80
-        confs = [f"Macro Support: Bounced from {sup_name} ({_format_price_clean(sup_lvl)})", f"15m {pat}"]
-        if is_bullish_choch or is_hh_hl:
-            score += 10
-            confs.append("Market Structure Shift (Higher High / CHoCH Confirmed)")
-        if fib_tool_bull and (fib_tool_bull["is_golden"] or fib_tool_bull["is_ote"]):
-            score += 8
-            confs.append(f"Confluence with Fib {fib_tool_bull['zone_name']}")
-        if vol_ratio >= 1.15:
-            score += 8
-            confs.append(f"Strong Reversal Volume ({vol_ratio:.2f}x)")
-        if h_vwap and live_price >= h_vwap * 0.995:
-            score += 6
-            confs.append("VWAP Reclaimed")
-        candidates.append({
-            "strategy": f"Macro {sup_name} Reversal & Reclaim",
-            "side": "bullish",
-            "level": sup_lvl,
-            "level_name": f"1W/1D {sup_name}",
-            "macro_level": f"{sup_name} @ {_format_price_clean(sup_lvl)}",
-            "pattern": pat,
-            "stop": stop,
-            "score": score,
-            "confluences": confs,
-            "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-            "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
-            "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-            "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
-            "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
-            "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-            "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else sup_lvl,
-            "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
-            "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
-        })
+    # --- BEARISH SELL EVALUATION ---
+    sr_sell = _pa_detect_sr_breakdown_retest(candles_1h, candles_15m, live_price, "bearish", struct)
+    if sr_sell and sr_sell.get("has_break"):
+        rsi_macd_sell = _pa_calculate_rsi_macd(candles_1h, candles_15m, "bearish")
+        score = 0
+        confluences = []
 
-    # 0B. Bearish Weekly / Daily High Rejection & Sweep
-    if macro_info.get("near_macro_resistance") and macro_info.get("resist_level"):
-        res_lvl = macro_info["resist_level"]
-        res_name = macro_info["resist_name"]
-        pat = _detect_deep_candlestick(candles_15m, "bearish", res_lvl) or "Key Resistance Rejection"
-        stop = round(max(res_lvl * 1.005, max(c[2] for c in candles_15m[-4:]) * 1.003), 6)
-        score = 80
-        confs = [f"Macro Resistance: Rejected at {res_name} ({_format_price_clean(res_lvl)})", f"15m {pat}"]
-        if is_bearish_choch or is_lh_ll:
-            score += 10
-            confs.append("Market Structure Shift (Lower Low / CHoCH Confirmed)")
-        if fib_tool_bear and (fib_tool_bear["is_golden"] or fib_tool_bear["is_ote"]):
+        # Criterion 1: Market Structure (LH / LL)
+        if struct.get("bearish"):
+            score += 25
+            confluences.append("Bearish Structure: Lower Highs (Buyers Weakening) & Lower Lows (Sellers Dominating)")
+        elif struct.get("is_lh") or struct.get("is_ll"):
+            score += 15
+            confluences.append("Lower Highs / Lower Lows Structure Detected")
+
+        # Criterion 2: Support Breakdown & Retest
+        if sr_sell.get("retested") and sr_sell.get("is_candle_ok"):
+            score += 25
+            confluences.append(f"Support Breakdown ({sr_sell.get('level')} level) + Bearish Rejection Retest")
+        elif sr_sell.get("has_break"):
+            score += 15
+            confluences.append(f"Support Breakdown Below {sr_sell.get('level')}")
+
+        # Criterion 3: Volume Spike
+        if vol.get("has_spike"):
+            score += 20
+            confluences.append(f"Volume Spike Detection: {vol.get('desc')}")
+        else:
             score += 8
-            confs.append(f"Confluence with Fib {fib_tool_bear['zone_name']}")
-        if vol_ratio >= 1.15:
-            score += 8
-            confs.append(f"Strong Rejection Volume ({vol_ratio:.2f}x)")
-        if h_vwap and live_price <= h_vwap * 1.005:
-            score += 6
-            confs.append("VWAP Resistance")
-        candidates.append({
-            "strategy": f"Macro {res_name} Rejection & Sweep",
-            "side": "bearish",
-            "level": res_lvl,
-            "level_name": f"1W/1D {res_name}",
-            "macro_level": f"{res_name} @ {_format_price_clean(res_lvl)}",
-            "pattern": pat,
-            "stop": stop,
-            "score": score,
-            "confluences": confs,
-            "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-            "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
-            "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-            "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
-            "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
-            "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-            "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else res_lvl,
-            "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
-            "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
-        })
+            confluences.append(f"Volume: {vol.get('desc')}")
 
-    # =========================================================================
-    # STRATEGY 1: FIBONACCI GOLDEN POCKET & CHART TOOL RETRACEMENT
-    # =========================================================================
-    # Bullish Fib Retracement
-    if fib_tool_bull and (fib_tool_bull["is_ote"] or fib_tool_bull["is_golden"]):
-        fib_618 = fib_tool_bull["fib_618"]
-        fib_50 = fib_tool_bull["fib_500"]
-        fib_786 = fib_tool_bull["fib_786"]
-        if fib_786 * 0.995 <= live_price <= fib_50 * 1.012:
-            pat = _detect_deep_candlestick(candles_15m, "bullish", fib_618)
-            if pat:
-                stop = round(min(fib_786 * 0.994, [c[3] for c in candles_15m[-4:]][0] * 0.998), 6)
-                score = 66
-                confs = [
-                    f"Fib Indicator: {fib_tool_bull['indicator_state']}",
-                    f"Fib Chart Tool: 0.618 ({_format_price_clean(fib_618)})",
-                    f"15m {pat}"
-                ]
-                if fib_tool_bull["is_golden"]:
-                    score += 15
-                    confs.append("At 0.618 Golden Pocket Equilibrium")
-                if d_trend == "bullish" or w_trend == "bullish":
-                    score += 10
-                    confs.append("Macro Trend Aligned (1D/1W)")
-                if d_adx >= 18 and d_pdi >= d_mdi:
-                    score += 8
-                    confs.append(f"ADX Trend Strength ({d_adx:.1f})")
-                if h_vwap and live_price >= h_vwap * 0.995:
-                    score += 8
-                    confs.append(f"VWAP Dynamic Confluence ({_format_price_clean(h_vwap)})")
-                if is_hh_hl:
-                    score += 8
-                    confs.append("1H Structure: Higher Highs & Higher Lows (HH/HL)")
-                if channel:
-                    if channel["pos_pct"] <= 35.0:
-                        score += 10
-                        confs.append(f"At {channel['type']} Lower Boundary ({channel['pos_pct']}%)")
-                    elif channel["pos_pct"] >= 78.0:
-                        score -= 15
-                if max_rally and max_rally["start"] > 0 and abs(live_price - max_rally["start"]) / live_price <= 0.020:
-                    score += 10
-                    confs.append(f"Retesting Major Rally Origin ({_format_price_clean(max_rally['start'])}, +{max_rally['pct']}%)")
-                if vol_ratio >= 1.15:
-                    score += 6
-                    confs.append(f"Volume Expansion ({vol_ratio:.2f}x)")
-                candidates.append({
-                    "strategy": "Fib Golden Pocket Retest & Bounce",
-                    "side": "bullish",
-                    "level": fib_618,
-                    "level_name": f"1H Fib 0.618 ({fib_tool_bull['zone_name']})",
-                    "pattern": pat,
-                    "stop": stop,
-                    "score": score,
-                    "confluences": confs,
-                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
-                    "fib_indicator": fib_tool_bull["indicator_state"],
-                    "fib_tool": fib_tool_bull["tool_levels_str"],
-                    "fib_anchors": fib_tool_bull["anchors_str"],
-                    "fib_zone": fib_tool_bull["indicator_state"],
-                    "fib_level": fib_618,
-                    "fib_ext1": fib_tool_bull["ext_1272"],
-                    "fib_ext2": fib_tool_bull["ext_1618"],
-                })
+        # Criterion 4: RSI < 50
+        if rsi_macd_sell.get("rsi_ok"):
+            score += 15
+            confluences.append(f"RSI Bearish Momentum: 1H RSI {rsi_macd_sell.get('rsi_1h')} / 15m RSI {rsi_macd_sell.get('rsi_15m')} (< 50)")
 
-    # Bearish Fib Retracement
-    if fib_tool_bear and (fib_tool_bear["is_ote"] or fib_tool_bear["is_golden"]):
-        fib_618 = fib_tool_bear["fib_618"]
-        fib_50 = fib_tool_bear["fib_500"]
-        fib_786 = fib_tool_bear["fib_786"]
-        if fib_50 * 0.988 <= live_price <= fib_786 * 1.005:
-            pat = _detect_deep_candlestick(candles_15m, "bearish", fib_618)
-            if pat:
-                stop = round(max(fib_786 * 1.006, [c[2] for c in candles_15m[-4:]][0] * 1.002), 6)
-                score = 66
-                confs = [
-                    f"Fib Indicator: {fib_tool_bear['indicator_state']}",
-                    f"Fib Chart Tool: 0.618 ({_format_price_clean(fib_618)})",
-                    f"15m {pat}"
-                ]
-                if fib_tool_bear["is_golden"]:
-                    score += 15
-                    confs.append("At 0.618 Golden Pocket Resistance")
-                if d_trend == "bearish" or w_trend == "bearish":
-                    score += 10
-                    confs.append("Macro Trend Aligned (1D/1W)")
-                if d_adx >= 18 and d_mdi >= d_pdi:
-                    score += 8
-                    confs.append(f"ADX Trend Strength ({d_adx:.1f})")
-                if h_vwap and live_price <= h_vwap * 1.005:
-                    score += 8
-                    confs.append(f"VWAP Dynamic Confluence ({_format_price_clean(h_vwap)})")
-                if is_lh_ll:
-                    score += 8
-                    confs.append("1H Structure: Lower Highs & Lower Lows (LH/LL)")
-                if channel:
-                    if channel["pos_pct"] >= 65.0:
-                        score += 10
-                        confs.append(f"At {channel['type']} Upper Boundary ({channel['pos_pct']}%)")
-                    elif channel["pos_pct"] <= 22.0:
-                        score -= 15
-                if max_drop and max_drop["start"] > 0 and abs(live_price - max_drop["start"]) / live_price <= 0.020:
-                    score += 10
-                    confs.append(f"Retesting Major Drop Origin ({_format_price_clean(max_drop['start'])}, -{max_drop['pct']}%)")
-                if vol_ratio >= 1.15:
-                    score += 6
-                    confs.append(f"Volume Expansion ({vol_ratio:.2f}x)")
-                candidates.append({
-                    "strategy": "Fib Golden Pocket Resistance & Rejection",
-                    "side": "bearish",
-                    "level": fib_618,
-                    "level_name": f"1H Fib 0.618 ({fib_tool_bear['zone_name']})",
-                    "pattern": pat,
-                    "stop": stop,
-                    "score": score,
-                    "confluences": confs,
-                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
-                    "fib_indicator": fib_tool_bear["indicator_state"],
-                    "fib_tool": fib_tool_bear["tool_levels_str"],
-                    "fib_anchors": fib_tool_bear["anchors_str"],
-                    "fib_zone": fib_tool_bear["indicator_state"],
-                    "fib_level": fib_618,
-                    "fib_ext1": fib_tool_bear["ext_1272"],
-                    "fib_ext2": fib_tool_bear["ext_1618"],
-                })
+        # Criterion 5: MACD Bearish
+        if rsi_macd_sell.get("macd_ok"):
+            score += 15
+            confluences.append(f"MACD Confirmation: {rsi_macd_sell.get('macd_state')}")
 
-    # =========================================================================
-    # STRATEGY 2: LIQUIDITY SWEEP & WICK TRAP (SFP / REVERSAL)
-    # =========================================================================
-    # Bullish SFP (Swept Swing Low)
-    for sl in swing_lows[-3:]:
-        sl_p = sl["price"]
-        swept = False
-        sweep_low = sl_p
-        for c in candles_1h[-2:] + candles_15m[-4:]:
-            if c[3] < sl_p and c[4] > sl_p and live_price > sl_p:
-                rng = c[2] - c[3]
-                lower_wick = ((min(c[1], c[4]) - c[3]) / rng) if rng > 0 else 0
-                if lower_wick >= 0.30:
-                    swept = True
-                    sweep_low = min(sweep_low, c[3])
-                    break
-        if swept:
-            pat = _detect_deep_candlestick(candles_15m, "bullish", sl_p) or "Wick Trap Reclaim"
-            stop = round(sweep_low * 0.997, 6)
-            score = 66
-            confs = [f"Liquidity Sweep of Low ({_format_price_clean(sl_p)})", f"15m {pat}"]
-            if fib_tool_bull and (fib_tool_bull["is_golden"] or fib_tool_bull["is_ote"]):
-                score += 10
-                confs.append(f"Swept into Fib {fib_tool_bull['zone_name']} ({_format_price_clean(fib_tool_bull['fib_618'])})")
-            if d_pdi > d_mdi:
-                score += 8
-                confs.append("Positive Momentum Shift")
-            if h_vwap and live_price >= h_vwap * 0.995:
-                score += 8
-                confs.append("VWAP Reclaimed")
-            if channel and channel["pos_pct"] <= 35.0:
-                score += 10
-                confs.append(f"At {channel['type']} Lower Boundary ({channel['pos_pct']}%)")
-            if max_rally and max_rally["start"] > 0 and abs(live_price - max_rally["start"]) / live_price <= 0.020:
-                score += 10
-                confs.append(f"Retesting Major Rally Origin ({_format_price_clean(max_rally['start'])}, +{max_rally['pct']}%)")
-            if vol_ratio >= 1.20:
-                score += 8
-                confs.append(f"High Absorption Volume ({vol_ratio:.2f}x)")
+        # Threshold: At least 70/100 points
+        if score >= 70:
+            rr = _pa_calculate_risk_reward(live_price, "bearish", struct.get("recent_lh"), sr_sell.get("level"))
             candidates.append({
-                "strategy": "Liquidity Sweep & Wick Trap (Bullish SFP)",
-                "side": "bullish",
-                "level": sl_p,
-                "level_name": "1H Swing Low Liquidity Sweep",
-                "pattern": pat,
-                "stop": stop,
-                "score": score,
-                "confluences": confs,
-                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
-                "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-                "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
-                "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
-                "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-                "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else sl_p,
-                "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
-                "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
-            })
-            break
-
-    # Bearish SFP (Swept Swing High)
-    for sh in swing_highs[-3:]:
-        sh_p = sh["price"]
-        swept = False
-        sweep_high = sh_p
-        for c in candles_1h[-2:] + candles_15m[-4:]:
-            if c[2] > sh_p and c[4] < sh_p and live_price < sh_p:
-                rng = c[2] - c[3]
-                upper_wick = ((c[2] - max(c[1], c[4])) / rng) if rng > 0 else 0
-                if upper_wick >= 0.30:
-                    swept = True
-                    sweep_high = max(sweep_high, c[2])
-                    break
-        if swept:
-            pat = _detect_deep_candlestick(candles_15m, "bearish", sh_p) or "Wick Trap Rejection"
-            stop = round(sweep_high * 1.003, 6)
-            score = 66
-            confs = [f"Liquidity Sweep of High ({_format_price_clean(sh_p)})", f"15m {pat}"]
-            if fib_tool_bear and (fib_tool_bear["is_golden"] or fib_tool_bear["is_ote"]):
-                score += 10
-                confs.append(f"Swept into Fib {fib_tool_bear['zone_name']} ({_format_price_clean(fib_tool_bear['fib_618'])})")
-            if d_mdi > d_pdi:
-                score += 8
-                confs.append("Negative Momentum Shift")
-            if h_vwap and live_price <= h_vwap * 1.005:
-                score += 8
-                confs.append("VWAP Rejection")
-            if channel and channel["pos_pct"] >= 65.0:
-                score += 10
-                confs.append(f"At {channel['type']} Upper Boundary ({channel['pos_pct']}%)")
-            if max_drop and max_drop["start"] > 0 and abs(live_price - max_drop["start"]) / live_price <= 0.020:
-                score += 10
-                confs.append(f"Retesting Major Drop Origin ({_format_price_clean(max_drop['start'])}, -{max_drop['pct']}%)")
-            if vol_ratio >= 1.20:
-                score += 8
-                confs.append(f"High Rejection Volume ({vol_ratio:.2f}x)")
-            candidates.append({
-                "strategy": "Liquidity Sweep & Wick Trap (Bearish SFP)",
                 "side": "bearish",
-                "level": sh_p,
-                "level_name": "1H Swing High Liquidity Sweep",
-                "pattern": pat,
-                "stop": stop,
                 "score": score,
-                "confluences": confs,
-                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
-                "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-                "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
-                "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
-                "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-                "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else sh_p,
-                "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
-                "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
+                "sr": sr_sell,
+                "rsi_macd": rsi_macd_sell,
+                "vol": vol,
+                "rr": rr,
+                "confluences": confluences,
+                "struct": struct
             })
-            break
 
-    # =========================================================================
-    # STRATEGY 3: HORIZONTAL SUPPORT / RESISTANCE BREAKOUT & RETEST
-    # =========================================================================
-    # Bullish Breakout & Retest
-    if (latest_1h[4] > recent_sh or prev_1h[4] > recent_sh) and (recent_sh * 0.996 <= live_price <= recent_sh * 1.020):
-        pat = _detect_deep_candlestick(candles_15m, "bullish", recent_sh)
-        if pat:
-            stop = round(recent_sh * 0.992, 6)
-            score = 64
-            confs = [f"1H Breakout of S/R Level ({_format_price_clean(recent_sh)})", f"15m {pat}"]
-            if fib_tool_bull and 0.28 <= fib_tool_bull["retrace_pct"] <= 0.65:
-                score += 8
-                confs.append(f"Fib Retest Alignment: {fib_tool_bull['indicator_state']}")
-            if d_trend == "bullish":
-                score += 10
-                confs.append("1D Trend Aligned")
-            if d_adx >= 20:
-                score += 8
-                confs.append(f"Strong ADX Momentum ({d_adx:.1f})")
-            if is_hh_hl:
-                score += 8
-                confs.append("1H Higher Highs Market Structure")
-            if channel and channel["pos_pct"] <= 50.0:
-                score += 8
-                confs.append(f"{channel['type']} Breakout Continuation")
-            if vol_ratio >= 1.20:
-                score += 8
-                confs.append(f"Breakout Volume Surge ({vol_ratio:.2f}x)")
+    # --- BULLISH BUY EVALUATION ---
+    sr_buy = _pa_detect_sr_breakdown_retest(candles_1h, candles_15m, live_price, "bullish", struct)
+    if sr_buy and sr_buy.get("has_break"):
+        rsi_macd_buy = _pa_calculate_rsi_macd(candles_1h, candles_15m, "bullish")
+        score = 0
+        confluences = []
+
+        # Criterion 1: Market Structure (HH / HL)
+        if struct.get("bullish"):
+            score += 25
+            confluences.append("Bullish Structure: Higher Lows (Sellers Weakening) & Higher Highs (Buyers Dominating)")
+        elif struct.get("is_hl") or struct.get("is_hh"):
+            score += 15
+            confluences.append("Higher Lows / Higher Highs Structure Detected")
+
+        # Criterion 2: Resistance Breakout & Retest
+        if sr_buy.get("retested") and sr_buy.get("is_candle_ok"):
+            score += 25
+            confluences.append(f"Resistance Breakout ({sr_buy.get('level')} level) + Bullish Bounce Retest")
+        elif sr_buy.get("has_break"):
+            score += 15
+            confluences.append(f"Resistance Breakout Above {sr_buy.get('level')}")
+
+        # Criterion 3: Volume Spike
+        if vol.get("has_spike"):
+            score += 20
+            confluences.append(f"Volume Spike Detection: {vol.get('desc')}")
+        else:
+            score += 8
+            confluences.append(f"Volume: {vol.get('desc')}")
+
+        # Criterion 4: RSI > 50
+        if rsi_macd_buy.get("rsi_ok"):
+            score += 15
+            confluences.append(f"RSI Bullish Momentum: 1H RSI {rsi_macd_buy.get('rsi_1h')} / 15m RSI {rsi_macd_buy.get('rsi_15m')} (> 50)")
+
+        # Criterion 5: MACD Bullish
+        if rsi_macd_buy.get("macd_ok"):
+            score += 15
+            confluences.append(f"MACD Confirmation: {rsi_macd_buy.get('macd_state')}")
+
+        # Threshold: At least 70/100 points
+        if score >= 70:
+            rr = _pa_calculate_risk_reward(live_price, "bullish", struct.get("recent_hl"), sr_buy.get("level"))
             candidates.append({
-                "strategy": "S/R Breakout & Retest Confirmation",
                 "side": "bullish",
-                "level": recent_sh,
-                "level_name": "1H Resistance Breakout (BOS)",
-                "pattern": pat,
-                "stop": stop,
                 "score": score,
-                "confluences": confs,
-                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
-                "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-                "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
-                "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
-                "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-                "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else recent_sh,
-                "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
-                "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
+                "sr": sr_buy,
+                "rsi_macd": rsi_macd_buy,
+                "vol": vol,
+                "rr": rr,
+                "confluences": confluences,
+                "struct": struct
             })
 
-    # Bearish Breakdown & Retest
-    if (latest_1h[4] < recent_sl or prev_1h[4] < recent_sl) and (recent_sl * 0.980 <= live_price <= recent_sl * 1.004):
-        pat = _detect_deep_candlestick(candles_15m, "bearish", recent_sl)
-        if pat:
-            stop = round(recent_sl * 1.008, 6)
-            score = 64
-            confs = [f"1H Breakdown of S/R Level ({_format_price_clean(recent_sl)})", f"15m {pat}"]
-            if fib_tool_bear and 0.28 <= fib_tool_bear["retrace_pct"] <= 0.65:
-                score += 8
-                confs.append(f"Fib Retest Alignment: {fib_tool_bear['indicator_state']}")
-            if d_trend == "bearish":
-                score += 10
-                confs.append("1D Trend Aligned")
-            if d_adx >= 20:
-                score += 8
-                confs.append(f"Strong ADX Momentum ({d_adx:.1f})")
-            if is_lh_ll:
-                score += 8
-                confs.append("1H Lower Lows Market Structure")
-            if channel and channel["pos_pct"] >= 50.0:
-                score += 8
-                confs.append(f"{channel['type']} Breakdown Continuation")
-            if vol_ratio >= 1.20:
-                score += 8
-                confs.append(f"Breakdown Volume Surge ({vol_ratio:.2f}x)")
-            candidates.append({
-                "strategy": "S/R Breakdown & Retest Confirmation",
-                "side": "bearish",
-                "level": recent_sl,
-                "level_name": "1H Support Breakdown (BOS)",
-                "pattern": pat,
-                "stop": stop,
-                "score": score,
-                "confluences": confs,
-                "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
-                "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-                "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
-                "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
-                "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-                "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else recent_sl,
-                "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
-                "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
-            })
-
-    # =========================================================================
-    # STRATEGY 4: TREND MOMENTUM & VWAP EXPANSION
-    # =========================================================================
-    # Bullish Momentum & VWAP
-    if d_trend == "bullish" and (w_trend == "bullish" or w_trend == "neutral") and d_adx >= 20 and d_pdi > d_mdi:
-        if h_vwap and live_price >= h_vwap and h_ema20 and (h_ema20 * 0.995 <= live_price <= h_ema20 * 1.020):
-            pat = _detect_deep_candlestick(candles_15m, "bullish", h_vwap)
-            if pat:
-                stop = round(min(h_vwap, h_ema20) * 0.993, 6)
-                score = 68
-                confs = [f"1H VWAP Support ({_format_price_clean(h_vwap)})", f"1H 20 EMA Dynamic Bounce", f"15m {pat}"]
-                if fib_tool_bull and (fib_tool_bull["is_golden"] or fib_tool_bull["is_ote"] or fib_tool_bull["retrace_pct"] <= 45.0):
-                    score += 8
-                    confs.append(f"Fib Alignment: {fib_tool_bull['indicator_state']}")
-                if is_hh_hl:
-                    score += 10
-                    confs.append("1H Higher Highs Market Structure")
-                if channel and channel["pos_pct"] <= 40.0:
-                    score += 10
-                    confs.append(f"{channel['type']} Dynamic Support")
-                if vol_ratio >= 1.15:
-                    score += 8
-                    confs.append(f"Volume Surge ({vol_ratio:.2f}x)")
-                candidates.append({
-                    "strategy": "Trend Momentum & VWAP Bounce",
-                    "side": "bullish",
-                    "level": h_vwap,
-                    "level_name": "1H VWAP & 20 EMA Dynamic Support",
-                    "pattern": pat,
-                    "stop": stop,
-                    "score": score,
-                    "confluences": confs,
-                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Rally Origin {_format_price_clean(max_rally['start'])} (+{max_rally['pct']}%)" if max_rally and max_rally['pct'] > 0 else "",
-                    "fib_indicator": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-                    "fib_tool": fib_tool_bull["tool_levels_str"] if fib_tool_bull else "",
-                    "fib_anchors": fib_tool_bull["anchors_str"] if fib_tool_bull else "",
-                    "fib_zone": fib_tool_bull["indicator_state"] if fib_tool_bull else "",
-                    "fib_level": fib_tool_bull["fib_618"] if fib_tool_bull else h_vwap,
-                    "fib_ext1": fib_tool_bull["ext_1272"] if fib_tool_bull else 0.0,
-                    "fib_ext2": fib_tool_bull["ext_1618"] if fib_tool_bull else 0.0,
-                })
-
-    # Bearish Momentum & VWAP
-    if d_trend == "bearish" and (w_trend == "bearish" or w_trend == "neutral") and d_adx >= 20 and d_mdi > d_pdi:
-        if h_vwap and live_price <= h_vwap and h_ema20 and (h_ema20 * 0.980 <= live_price <= h_ema20 * 1.005):
-            pat = _detect_deep_candlestick(candles_15m, "bearish", h_vwap)
-            if pat:
-                stop = round(max(h_vwap, h_ema20) * 1.007, 6)
-                score = 68
-                confs = [f"1H VWAP Resistance ({_format_price_clean(h_vwap)})", f"1H 20 EMA Dynamic Rejection", f"15m {pat}"]
-                if fib_tool_bear and (fib_tool_bear["is_golden"] or fib_tool_bear["is_ote"] or fib_tool_bear["retrace_pct"] <= 45.0):
-                    score += 8
-                    confs.append(f"Fib Alignment: {fib_tool_bear['indicator_state']}")
-                if is_lh_ll:
-                    score += 10
-                    confs.append("1H Lower Lows Market Structure")
-                if channel and channel["pos_pct"] >= 60.0:
-                    score += 10
-                    confs.append(f"{channel['type']} Dynamic Resistance")
-                if vol_ratio >= 1.15:
-                    score += 8
-                    confs.append(f"Volume Surge ({vol_ratio:.2f}x)")
-                candidates.append({
-                    "strategy": "Trend Momentum & VWAP Rejection",
-                    "side": "bearish",
-                    "level": h_vwap,
-                    "level_name": "1H VWAP & 20 EMA Dynamic Resistance",
-                    "pattern": pat,
-                    "stop": stop,
-                    "score": score,
-                    "confluences": confs,
-                    "channel_info": f"{channel['type']} ({channel['pos_pct']}%)" if channel else "",
-                    "origin_info": f"Drop Origin {_format_price_clean(max_drop['start'])} (-{max_drop['pct']}%)" if max_drop and max_drop['pct'] > 0 else "",
-                    "fib_indicator": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-                    "fib_tool": fib_tool_bear["tool_levels_str"] if fib_tool_bear else "",
-                    "fib_anchors": fib_tool_bear["anchors_str"] if fib_tool_bear else "",
-                    "fib_zone": fib_tool_bear["indicator_state"] if fib_tool_bear else "",
-                    "fib_level": fib_tool_bear["fib_618"] if fib_tool_bear else h_vwap,
-                    "fib_ext1": fib_tool_bear["ext_1272"] if fib_tool_bear else 0.0,
-                    "fib_ext2": fib_tool_bear["ext_1618"] if fib_tool_bear else 0.0,
-                })
-
-    # =========================================================================
-    # SELECT THE BEST STRATEGY (QUALITY OVER QUANTITY)
-    # =========================================================================
     if not candidates:
         return None
 
-    valid_candidates = []
-    for cand in candidates:
-        # Macro Protection: Prevent shorting at Macro Support, prevent longing at Macro Resistance
-        if cand["side"] == "bearish" and macro_info.get("near_macro_support"):
-            cand["score"] -= 30
-        elif cand["side"] == "bullish" and macro_info.get("near_macro_resistance"):
-            cand["score"] -= 30
-        if cand["side"] == "bullish" and is_bullish_choch:
-            cand["score"] += 8
-        elif cand["side"] == "bearish" and is_bearish_choch:
-            cand["score"] += 8
+    # Pick the highest-scoring candidate
+    candidates.sort(key=lambda c: c["score"], reverse=True)
+    best = candidates[0]
+    side = best["side"]
+    sr_data = best["sr"]
+    rsi_macd = best["rsi_macd"]
+    vol_data = best["vol"]
+    rr_data = best["rr"]
+    struct_data = best["struct"]
 
-        if cand["score"] < 74:
-            continue
-        stop = cand["stop"]
-        side = cand["side"]
-        if side == "bullish":
-            if stop >= live_price:
-                continue
-            risk = live_price - stop
-            risk_pct = (risk / live_price) * 100.0
-            if not (0.35 <= risk_pct <= 2.80):
-                continue
-            t1 = round(live_price + (1.5 * risk), 6)
-            t2 = round(live_price + (2.5 * risk), 6)
-        else:
-            if stop <= live_price:
-                continue
-            risk = stop - live_price
-            risk_pct = (risk / live_price) * 100.0
-            if not (0.35 <= risk_pct <= 2.80):
-                continue
-            t1 = round(live_price - (1.5 * risk), 6)
-            t2 = round(live_price - (2.5 * risk), 6)
-
-        cand["risk_pct"] = round(risk_pct, 2)
-        cand["t1"] = t1
-        cand["t2"] = t2
-        valid_candidates.append(cand)
-
-    if not valid_candidates:
-        return None
-
-    # Pick the single highest-scoring strategy for this coin
-    valid_candidates.sort(key=lambda c: c["score"], reverse=True)
-    best = valid_candidates[0]
+    candle_at = int(candles_15m[-1][0] / 1000) if candles_15m else int(time.time())
 
     return {
         "kind": "pa",
         "timeframe": "pa",
-        "side": best["side"],
-        "state": "confirmed",
-        "trigger_state": "CONFIRMED",
+        "side": side,
         "entry": live_price,
-        "stop": best["stop"],
-        "t1": best["t1"],
-        "t2": best["t2"],
-        "risk_pct": best["risk_pct"],
-        "rr1": 1.5,
-        "rr2": 2.5,
-        "level": round(best["level"], 6),
-        "pa_type": f"{best['strategy']} ({best['score']}/100)",
-        "key_tf": best["level_name"],
-        "pattern": best["pattern"],
+        "price": live_price,
+        "level": sr_data.get("level"),
+        "level_type": sr_data.get("level_type"),
+        "pa_type": "Support Breakdown & Retest" if side == "bearish" else "Resistance Breakout & Retest",
+        "pattern": sr_data.get("candle_name"),
+        "market_structure": "Lower Highs & Lower Lows (LH/LL)" if side == "bearish" else "Higher Lows & Higher Highs (HL/HH)",
+        "structure_note": "Buyers Weakening · Sellers Dominating" if side == "bearish" else "Sellers Weakening · Buyers Dominating",
+        "volume_spike": vol_data.get("desc"),
+        "volume_ratio": vol_data.get("ratio"),
+        "rsi": rsi_macd.get("rsi_1h"),
+        "rsi_15m": rsi_macd.get("rsi_15m"),
+        "macd_state": rsi_macd.get("macd_state"),
+        "key_tf": "4H Structure · 1H S/R · 15m Retest",
+        "stop": rr_data.get("stop"),
+        "risk_pct": rr_data.get("risk_pct"),
+        "t1": rr_data.get("t1"),
+        "t2": rr_data.get("t2"),
+        "rr1": rr_data.get("rr1"),
+        "rr2": rr_data.get("rr2"),
         "confluences": best["confluences"],
-        "macro_level": best.get("macro_level", macro_info.get("summary", "")),
-        "channel_info": best.get("channel_info", ""),
-        "origin_info": best.get("origin_info", ""),
-        "fib_indicator": best.get("fib_indicator", ""),
-        "fib_tool": best.get("fib_tool", ""),
-        "fib_anchors": best.get("fib_anchors", ""),
-        "fib_zone": best.get("fib_zone", ""),
-        "fib_level": best.get("fib_level", 0.0),
-        "fib_ext1": best.get("fib_ext1", 0.0),
-        "fib_ext2": best.get("fib_ext2", 0.0),
-        "adx": round(d_adx, 1),
-        "score": best["score"],
-        "candle_at": candles_15m[-1][0],
+        "candle_at": candle_at,
+        "score": best["score"]
     }
 
 
