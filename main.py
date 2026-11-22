@@ -3711,6 +3711,69 @@ def get_owner_catch_accuracy(authorization: str = Header(None), refresh: str = "
         raise HTTPException(status_code=503, detail="Catch Accuracy scan is temporarily unavailable. Please try again shortly.") from error
 
 
+# ------------------ DEDICATED SMART MTF (ORIGINAL PURE SETUP) ------------------
+smart_mtf_cache = {}
+SMART_MTF_TTL_S = 60
+
+
+def _smart_mtf_scan(ttl=SMART_MTF_TTL_S):
+    now = time.time()
+    bias = _catch_btc_bias(now, ttl)
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins") or []
+    ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
+              if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SWING_MIN_VOLUME_USDT][:CATCH_TOP_N]
+    if bias["side"] == "neutral":
+        return {"at": int(now), "scanned": 0, "btc": bias, "full": [], "almost": [], "message": "BTC 4H trend is mixed. No directional setups are being promoted."}
+
+    def one(coin):
+        base = coin["base"]
+        price = float(coin.get("price") or 0)
+        if price <= 0:
+            return []
+        found = []
+        try:
+            triggers_1h = _catch_closed(_catch_klines(base, "1h", 100, ttl), 3600, now)
+            triggers_15m = _catch_closed(_catch_klines(base, "15m", 120, ttl), 900, now)
+            if triggers_1h and len(triggers_1h) >= 40:
+                keys1d = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
+                keys1w = _catch_closed(_catch_klines(base, "1w", 35, ttl), 7 * 86400, now)
+                # Pure 1W->1D->1H->15m Smart MTF Confluence (original Nov 8 setup)
+                mtf_item = _catch_smart_mtf_confluence(keys1w, keys1d, triggers_1h, triggers_15m, bias["side"], price)
+                if mtf_item:
+                    found.append({"base": base, "price": price, "change_percent": coin.get("change_percent"),
+                                  "volume_usdt": coin.get("volume_usdt"), "spark": [], **mtf_item})
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
+            print(f"Smart MTF skipped {base}: {error}")
+        return found
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        rows = [item for group in pool.map(one, ranked) for item in group]
+
+    rows.sort(key=lambda r: (0 if r.get("trigger_state") == "CONFIRMED" else 1, -float(r.get("volume_usdt") or 0)))
+    unique, seen = [], set()
+    for row in rows:
+        key = row["base"]
+        if key not in seen:
+            seen.add(key)
+            unique.append(row)
+    return {"at": int(now), "scanned": len(ranked), "btc": bias,
+            "full": unique[:60], "almost": [],
+            "message": "Pure 1W->1D->1H->15m Smart MTF Confluence. Closed candles; confirm live levels and risk before trading."}
+
+
+@app.get("/api/owner/smart-mtf")
+def get_owner_smart_mtf(authorization: str = Header(None), refresh: str = ""):
+    _focus_radar_owner(authorization)
+    try:
+        if refresh == "1":
+            return cached_call(smart_mtf_cache, "all", FOCUS_REFRESH_MIN_GAP_S, lambda: _smart_mtf_scan(FOCUS_REFRESH_MIN_GAP_S), max_entries=1)
+        return cached_call(smart_mtf_cache, "all", SMART_MTF_TTL_S, _smart_mtf_scan, max_entries=1)
+    except (requests.exceptions.RequestException, ValueError, BinanceBusy, Exception) as error:
+        print(f"Smart MTF endpoint error: {error}")
+        raise HTTPException(status_code=503, detail="Smart MTF scan is temporarily unavailable. Please try again shortly.") from error
+
+
 # ------------------ TELEGRAM ALERTS (OWNER ONLY) ------------------
 # Sends instant alerts to the owner on Telegram for new Smart MTF and Swing setups.
 # Scans in the background every 15 minutes, independent of app visitors.
