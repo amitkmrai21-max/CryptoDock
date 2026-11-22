@@ -4129,8 +4129,8 @@ def _send_telegram_loss_alert(text: str) -> bool:
 
 def _send_telegram_smart_mtf_alert(text: str) -> bool:
     _load_env()
-    token = (os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or TELEGRAM_SMART_MTF_BOT_TOKEN or TELEGRAM_BOT_TOKEN).strip()
-    chat_id = (os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or TELEGRAM_SMART_MTF_CHAT_ID or TELEGRAM_CHAT_ID).strip()
+    token = (os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or TELEGRAM_SMART_MTF_BOT_TOKEN).strip()
+    chat_id = (os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or TELEGRAM_SMART_MTF_CHAT_ID or os.getenv("TELEGRAM_CHAT_ID", "").strip() or TELEGRAM_CHAT_ID).strip()
     if not token or not chat_id:
         return False
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -4355,10 +4355,13 @@ def _run_telegram_catch_scan():
                 _telegram_seen_alerts[k] = now
             _telegram_scanner_initialized = True
             print(f"[Telegram Scanner] Initialized with {len(_telegram_seen_alerts)} seeded setups.")
-            _send_telegram_alert(
-                "🚀 <b>CryptoDock Smart MTF Active</b>\n\n"
-                "Smart MTF alerts will arrive here exclusively."
-            )
+            smtf_token = (os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or TELEGRAM_SMART_MTF_BOT_TOKEN).strip()
+            if smtf_token:
+                _send_telegram_smart_mtf_alert(
+                    "🎯 <b>CryptoDock Dedicated Smart MTF Alerts Active</b>\n\n"
+                    "Dedicated Multi-Timeframe Smart MTF Scanner (1W · 1D · 1H · 15m) is running.\n"
+                    "All confirmed Smart MTF setups will arrive here exclusively."
+                )
             pa_token = (os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip() or TELEGRAM_PA_BOT_TOKEN).strip()
             pa_chat = (os.getenv("TELEGRAM_PA_CHAT_ID", "").strip() or TELEGRAM_PA_CHAT_ID).strip()
             if pa_token and pa_chat:
@@ -4462,9 +4465,16 @@ def telegram_smart_mtf_test(request: Request, authorization: str = Header(None))
         "⚡ <b>Trigger:</b> CONFIRMED | <b>Fib Zone:</b> 0.50 – 0.618 OTE\n\n"
         "⚠️ <i>Pure Smart MTF Confluence on closed candles. Manage risk carefully.</i>"
     )
+    _load_env()
+    smtf_token = (os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or TELEGRAM_SMART_MTF_BOT_TOKEN).strip()
+    if not smtf_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Dedicated Smart MTF Bot Token is not set! Please add TELEGRAM_SMART_MTF_BOT_TOKEN in server .env"
+        )
     ok = _send_telegram_smart_mtf_alert(sample_text)
     if not ok:
-        raise HTTPException(status_code=500, detail="Failed to send test message via Smart MTF Telegram API.")
+        raise HTTPException(status_code=500, detail="Failed to send test message. Check TELEGRAM_SMART_MTF_BOT_TOKEN and CHAT_ID.")
     return {"ok": True, "message": "Test alert sent successfully to Smart MTF Telegram bot."}
 
 
