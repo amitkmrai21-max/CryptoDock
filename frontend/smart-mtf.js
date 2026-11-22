@@ -197,6 +197,12 @@
     if (active() && !scanning && (!data || Date.now() - loadedAt > STALE_MS)) load();
   }
 
+  // Auto-refresh every minute while Smart MTF is open and the page is visible.
+  const AUTO_REFRESH_MS = 60000;
+  setInterval(() => {
+    if (active() && !document.hidden && !scanning && Date.now() - loadedAt >= AUTO_REFRESH_MS) load(true);
+  }, 5000);
+
   let wasActive = active();
   new MutationObserver(() => {
     const now = active();
