@@ -211,6 +211,31 @@
     load();
   };
 
+  const tgBtn = document.getElementById("cdSmartMtfTgTest");
+  tgBtn?.addEventListener("click", async () => {
+    try {
+      tgBtn.disabled = true;
+      tgBtn.textContent = "Sending...";
+      const bearer = await getToken();
+      const res = await fetch("/api/owner/telegram-smart-mtf/test", {
+        headers: { Authorization: `Bearer ${bearer}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        tgBtn.textContent = "✓ Sent!";
+        setTimeout(() => { tgBtn.textContent = "📲 Test TG"; tgBtn.disabled = false; }, 3000);
+      } else {
+        alert("Telegram Error: " + (json.detail || "Failed to send alert"));
+        tgBtn.textContent = "📲 Test TG";
+        tgBtn.disabled = false;
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
+      tgBtn.textContent = "📲 Test TG";
+      tgBtn.disabled = false;
+    }
+  });
+
   refreshBtn?.addEventListener("click", () => load(true));
 
   results.addEventListener("click", (event) => {

@@ -3783,6 +3783,8 @@ TELEGRAM_LOSS_BOT_TOKEN = os.getenv("TELEGRAM_LOSS_BOT_TOKEN", "").strip()
 TELEGRAM_LOSS_CHAT_ID = os.getenv("TELEGRAM_LOSS_CHAT_ID", "").strip()
 TELEGRAM_PA_BOT_TOKEN = os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip()
 TELEGRAM_PA_CHAT_ID = os.getenv("TELEGRAM_PA_CHAT_ID", "").strip()
+TELEGRAM_SMART_MTF_BOT_TOKEN = os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip()
+TELEGRAM_SMART_MTF_CHAT_ID = os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip()
 TELEGRAM_SCAN_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
 
 TELEGRAM_DAILY_COUNTS_FILE = os.getenv("TELEGRAM_DAILY_COUNTS_FILE") or os.path.join(
@@ -4125,6 +4127,30 @@ def _send_telegram_loss_alert(text: str) -> bool:
         return False
 
 
+def _send_telegram_smart_mtf_alert(text: str) -> bool:
+    _load_env()
+    token = (os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or TELEGRAM_SMART_MTF_BOT_TOKEN or TELEGRAM_BOT_TOKEN).strip()
+    chat_id = (os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or TELEGRAM_SMART_MTF_CHAT_ID or TELEGRAM_CHAT_ID).strip()
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        r = requests.post(url, json=payload, timeout=12)
+        if r.status_code != 200:
+            print(f"[Telegram Smart MTF Alert] Error {r.status_code}: {r.text[:200]}")
+            return False
+        return True
+    except Exception as e:
+        print(f"[Telegram Smart MTF Alert] Failed to send: {e}")
+        return False
+
+
 def _send_telegram_pa_alert(text: str) -> bool:
     _load_env()
     token = (os.getenv("TELEGRAM_PA_BOT_TOKEN", "").strip() or TELEGRAM_PA_BOT_TOKEN).strip()
@@ -4185,18 +4211,23 @@ def _format_telegram_alert(item: dict) -> str:
     repeat_badge = f"        <b>{repeat_count} R</b>" if repeat_count >= 2 else ""
 
     if kind == "fib" or tf == "fib":
+        header_title = f"🎯 <b>CryptoDock Smart MTF Alert</b>{repeat_badge}"
         cat_title = "🎯 Smart MTF Confluence"
         timeframe_label = "1W / 1D / 1H / 15m"
     elif kind == "pa" or tf == "pa":
+        header_title = f"⚡ <b>CryptoDock Price Action Alert</b>{repeat_badge}"
         cat_title = "⚡ Price Action: Institutional Multi-TF"
         timeframe_label = item.get("key_tf") or "1W / 1D / 1H / 15m Confluence"
     elif tf == "1h":
+        header_title = f"⚡ <b>CryptoDock 1H Swing Alert</b>{repeat_badge}"
         cat_title = "⚡ 1H Swing Setup"
         timeframe_label = f"1H Trigger ({item.get('key_tf', '4H')} Key)"
     elif tf == "15m":
+        header_title = f"⚡ <b>CryptoDock 15m Swing Alert</b>{repeat_badge}"
         cat_title = "⚡ 15m Swing Setup"
         timeframe_label = f"15m Trigger ({item.get('key_tf', '4H')} Key)"
     else:
+        header_title = f"🎯 <b>CryptoDock New Alert</b>{repeat_badge}"
         cat_title = f"⚡ {str(tf).upper()} Swing Setup"
         timeframe_label = str(tf).upper()
 
@@ -4218,7 +4249,7 @@ def _format_telegram_alert(item: dict) -> str:
             return str(v)
 
     lines = [
-        f"🎯 <b>CryptoDock New Alert</b>{repeat_badge}",
+        header_title,
         "",
         f"📌 <b>Category:</b> {cat_title}",
         f"🪙 <b>Coin:</b> <code>{_tg_esc(symbol)}</code>",
@@ -4367,7 +4398,10 @@ def _run_telegram_catch_scan():
             item["repeat_count"] = repeat_count
 
             msg = _format_telegram_alert(item)
-            sent = _send_telegram_alert(msg)
+            if item.get("kind") == "fib":
+                sent = _send_telegram_smart_mtf_alert(msg)
+            else:
+                sent = _send_telegram_alert(msg)
             if sent:
                 _telegram_seen_alerts[k] = now
                 _record_daily_alert_sent(base, repeat_count)
@@ -4408,6 +4442,30 @@ def telegram_test(authorization: str = Header(None)):
     if not ok:
         raise HTTPException(status_code=500, detail="Failed to send test message via Telegram API. Check bot token and chat ID.")
     return {"ok": True, "message": "Test alert sent successfully to Telegram."}
+
+
+@app.get("/api/owner/telegram-smart-mtf/test")
+def telegram_smart_mtf_test(request: Request, authorization: str = Header(None)):
+    is_localhost = request.client and request.client.host in ("127.0.0.1", "localhost", "::1")
+    if not is_localhost:
+        _focus_radar_owner(authorization)
+    sample_text = (
+        "🎯 <b>CryptoDock Smart MTF Alert Test</b>\n\n"
+        "✅ Dedicated <b>Smart MTF</b> Telegram alert connection is active!\n\n"
+        "🪙 <b>Coin:</b> <code>BTCUSDT</code>\n"
+        "📈 <b>Direction:</b> 🟢 <b>BULLISH</b>\n"
+        "⏱ <b>Timeframe:</b> 1W / 1D / 1H / 15m\n\n"
+        "💰 <b>Entry (Live):</b> <code>$91,250.00</code>\n"
+        "🛑 <b>Stop Loss:</b> <code>$89,800.00</code> (1.59%)\n"
+        "🎯 <b>Target 1:</b> <code>$93,425.00</code> (R:R 1.5)\n"
+        "🎯 <b>Target 2:</b> <code>$94,875.00</code> (R:R 2.5)\n\n"
+        "⚡ <b>Trigger:</b> CONFIRMED | <b>Fib Zone:</b> 0.50 – 0.618 OTE\n\n"
+        "⚠️ <i>Pure Smart MTF Confluence on closed candles. Manage risk carefully.</i>"
+    )
+    ok = _send_telegram_smart_mtf_alert(sample_text)
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to send test message via Smart MTF Telegram API.")
+    return {"ok": True, "message": "Test alert sent successfully to Smart MTF Telegram bot."}
 
 
 @app.get("/api/owner/telegram-pa/test")
