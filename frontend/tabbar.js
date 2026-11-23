@@ -59,40 +59,6 @@
         <span>Settings</span>
       </button>`);
     grid.innerHTML = tiles.join("");
-    const supabase = window.marketDockSupabase;
-    if (!supabase?.auth) return;
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data?.session?.access_token;
-      if (!token || sheet.hidden) return;
-      const response = await fetch("/api/owner/focus-radar/access", {
-        headers: { Authorization: `Bearer ${token}` }, cache: "no-store"
-      });
-      if (!response.ok || sheet.hidden) return;
-      // Just before Settings, which always stays the last tile.
-      const tile = `<button type="button" class="cd-more-tile cd-more-focus" data-more-focus="1">
-        <span class="cd-more-icon">🎯</span><span>Focus Radar</span></button>`;
-      const smartMtfTile = `<button type="button" class="cd-more-tile cd-more-smart-mtf" data-more-smart-mtf="1">
-        <span class="cd-more-icon">🎯</span><span>Smart MTF</span></button>`;
-      const catchTile = `<button type="button" class="cd-more-tile cd-more-catch" data-more-catch="1">
-        <span class="cd-more-icon">🏹</span><span>Catch Accuracy</span></button>`;
-      const settingsTile = grid.querySelector("[data-more-settings]");
-      if (settingsTile) {
-        settingsTile.insertAdjacentHTML("beforebegin", tile);
-        settingsTile.insertAdjacentHTML("beforebegin", smartMtfTile);
-        settingsTile.insertAdjacentHTML("beforebegin", catchTile);
-      } else {
-        grid.insertAdjacentHTML("beforeend", tile);
-        grid.insertAdjacentHTML("beforeend", smartMtfTile);
-        grid.insertAdjacentHTML("beforeend", catchTile);
-      }
-      document.querySelector('.sidebar .app-tab[data-tab="smartmtf"]')?.removeAttribute("hidden");
-      document.querySelector('.sidebar .app-tab[data-tab="smartmtf"]')?.removeAttribute("aria-hidden");
-      document.querySelector('.sidebar .app-tab[data-tab="focusradar"]')?.removeAttribute("hidden");
-      document.querySelector('.sidebar .app-tab[data-tab="focusradar"]')?.removeAttribute("aria-hidden");
-      document.querySelector('.sidebar .app-tab[data-tab="catchaccuracy"]')?.removeAttribute("hidden");
-      document.querySelector('.sidebar .app-tab[data-tab="catchaccuracy"]')?.removeAttribute("aria-hidden");
-    } catch (_) { /* Feature stays hidden unless the server verifies the owner session. */ }
   }
 
   const openMore = () => { sheet.hidden = false; buildMore(); };
@@ -113,10 +79,7 @@
     const tile = event.target.closest(".cd-more-tile");
     if (!tile) return;
     closeMore();
-    if (tile.dataset.moreFocus) { window.cdOpenFocusRadar?.(); }
-    else if (tile.dataset.moreSmartMtf) { window.cdOpenSmartMtf?.(); }
-    else if (tile.dataset.moreCatch) { window.cdOpenCatchAccuracy?.(); }
-    else if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
+    if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
     else if (tile.dataset.moreSettings) document.getElementById("topSettingsMenuButton")?.click();
     else if (tile.dataset.extLink) { /* opened by the link handler below */ }
     else go(tile.dataset.more);
