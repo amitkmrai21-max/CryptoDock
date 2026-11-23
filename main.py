@@ -2267,8 +2267,8 @@ def _get_delta_leverage(base: str) -> int:
 
 
 # ================= TELEGRAM UTILS (FOR ORDER & TAKE-PROFIT ALERTS) =================
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "9246646399:AAGK-SUjXs46ESa3hhkCV4BAUvKWUFy6hAE").strip()
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8391540111").strip()
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
 def _send_telegram_alert(text: str) -> bool:
     _load_env()
@@ -2711,6 +2711,368 @@ def _rrg_warmer():
                 except Exception as error:
                     print(f"Tools warm-up skipped: {error}")
         time.sleep(10)
+
+
+
+# ------------------ SMART MTF (ORIGINAL RULES, BTC HARD LOCK REMOVED) ------------------
+catch_klines_cache = {}
+smart_mtf_cache = {}
+SMART_MTF_TTL_S = 60
+SMART_MTF_REFRESH_GAP_S = 15
+SMART_MTF_MIN_VOLUME_USDT = 5_000_000
+SMART_MTF_TOP_N = 60
+SMART_MTF_TELEGRAM_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
+_smart_mtf_seen_alerts = {}
+_smart_mtf_first_scan = True
+_smart_mtf_alert_lock = threading.Lock()
+
+
+def _catch_klines(base, interval, limit, ttl):
+    """Closed-market candle source, normalized oldest first."""
+    def fetch():
+        raw = binance_get("/api/v3/klines", {"symbol": base + "USDT", "interval": interval, "limit": limit}, weight=2, timeout=10)
+        return [[int(c[0]) // 1000, float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5])] for c in raw]
+    return cached_call(catch_klines_cache, (base, interval, limit), ttl, fetch, max_entries=500)
+
+
+def _catch_ema(values, period):
+    if len(values) < period:
+        return None
+    alpha = 2.0 / (period + 1.0)
+    value = sum(values[:period]) / period
+    for item in values[period:]:
+        value = item * alpha + value * (1 - alpha)
+    return value
+
+
+def _catch_closed(candles, seconds, now):
+    return [c for c in candles if c[0] + seconds <= now]
+
+
+def _catch_btc_bias(now, ttl):
+    candles = _catch_closed(_catch_klines("BTC", "4h", 100, ttl), 4 * 3600, now)
+    if len(candles) < 55:
+        return {"side": "neutral", "reason": "Not enough closed BTC 4H candles", "price": None, "ema50": None}
+    closes = [c[4] for c in candles]
+    ema = _catch_ema(closes, 50)
+    prior_ema = _catch_ema(closes[:-1], 50)
+    price = closes[-1]
+    if not ema or not prior_ema or ema <= 0:
+        side, reason = "neutral", "BTC 4H trend data is incomplete"
+    elif price > ema and ema > prior_ema:
+        side, reason = "bullish", "BTC 4H close above a rising EMA 50"
+    elif price < ema and ema < prior_ema:
+        side, reason = "bearish", "BTC 4H close below a falling EMA 50"
+    else:
+        side, reason = "neutral", "BTC 4H trend is mixed; coin signals use their own trend"
+    return {"side": side, "reason": reason, "price": price, "ema50": ema, "candle_at": candles[-1][0]}
+
+
+def _catch_pivots(candles, window=1):
+    high_pivots, low_pivots = [], []
+    for i in range(window, len(candles) - window):
+        c = candles[i]
+        if all(c[2] >= candles[j][2] for j in range(i - window, i + window + 1) if j != i):
+            high_pivots.append(c[2])
+        if all(c[3] <= candles[j][3] for j in range(i - window, i + window + 1) if j != i):
+            low_pivots.append(c[3])
+    return high_pivots, low_pivots
+
+
+def _catch_smart_mtf_confluence(candles_1w, candles_1d, candles_1h, candles_15m, btc_side, live_price):
+    """Multi-Timeframe Smart Confluence: 1W turning points + 1D S/R structure + 1H Fib Golden Pocket & ADX + 15m Rejection Trigger."""
+    if len(candles_1h) < 40 or len(candles_15m) < 10 or live_price <= 0:
+        return None
+    h_highs = [c[2] for c in candles_1h]
+    h_lows = [c[3] for c in candles_1h]
+    h_closes = [c[4] for c in candles_1h]
+    adx_res = adx(h_highs, h_lows, h_closes, 14)
+    adx_val = adx_res.get("adx_14") or 0
+    if adx_val < 15:
+        return None
+    h_ema20 = _catch_ema(h_closes, 20)
+    h_ema50 = _catch_ema(h_closes, 50)
+    if not h_ema20 or not h_ema50:
+        return None
+
+    # Option 2: use this coin's own 1H EMA direction; BTC is context only, never a hard veto.
+    side = None
+    if h_ema20 > h_ema50:
+        side = "bullish"
+    elif h_ema20 < h_ema50:
+        side = "bearish"
+    if not side:
+        return None
+
+    lookback = min(60, len(candles_1h))
+    window = candles_1h[-lookback:]
+    swing_low = min(c[3] for c in window)
+    swing_high = max(c[2] for c in window)
+    diff = swing_high - swing_low
+    if diff <= 0 or (diff / swing_low) < 0.015:
+        return None
+
+    w_highs, w_lows = _catch_pivots(candles_1w, 1) if len(candles_1w) >= 6 else ([], [])
+    d_highs, d_lows = _catch_pivots(candles_1d, 1) if len(candles_1d) >= 10 else ([], [])
+    last_1h = candles_1h[-1]
+
+    if side == "bullish":
+        retrace = (swing_high - live_price) / diff
+        if not (0.35 <= retrace <= 0.78):
+            low_retrace = (swing_high - last_1h[3]) / diff
+            if not (0.35 <= low_retrace <= 0.78 and live_price > last_1h[3]):
+                return None
+        fib_50 = swing_high - 0.500 * diff
+        fib_618 = swing_high - 0.618 * diff
+        fib_786 = swing_high - 0.786 * diff
+
+        w_support = [l for l in w_lows if l <= live_price * 1.05]
+        nearest_w = max(w_support) if w_support else swing_low
+        d_support = [l for l in d_lows if l <= live_price * 1.03]
+        nearest_d = max(d_support) if d_support else fib_618
+
+        recent_15m = candles_15m[-4:]
+        has_wick = False
+        rejection_wick_px = fib_786
+        for c in recent_15m:
+            c_range = c[2] - c[3]
+            lower_wick = min(c[1], c[4]) - c[3]
+            if c_range > 0 and (lower_wick / c_range) >= 0.20:
+                has_wick = True
+                rejection_wick_px = c[3]
+                break
+            if c[4] > c[1]:
+                has_wick = True
+                rejection_wick_px = min(c[1], c[3])
+                break
+
+        trigger_state = "CONFIRMED" if has_wick else "IN ZONE"
+        stop = min(rejection_wick_px, fib_786) * 0.995
+        risk = live_price - stop
+        if risk <= 0:
+            return None
+        risk_pct = risk / live_price
+        if risk_pct > 0.025:
+            return None
+        t1 = swing_high
+        t2 = swing_high + 0.618 * diff
+        rr1 = round((t1 - live_price) / risk, 1)
+        rr2 = round((t2 - live_price) / risk, 1)
+        if rr1 < 1.1:
+            return None
+        return {
+            "kind": "fib", "state": "ready" if has_wick else "watch", "side": "bullish", "timeframe": "fib", "key_tf": "MTF",
+            "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
+            "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
+            "adx": adx_val, "fib_zone": f"{int(retrace*100)}% Retrace (accepted 0.35–0.78; 0.50/0.618 reference)", "fib_level": fib_618,
+            "w_level": nearest_w, "d_level": nearest_d, "trigger_state": trigger_state, "has_wick": has_wick,
+            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_1h[0],
+            "checks": {"w_turn": True, "d_trend": True, "fib_zone": True, "trigger_15m": has_wick}
+        }
+    else:  # bearish
+        retrace = (live_price - swing_low) / diff
+        if not (0.35 <= retrace <= 0.78):
+            high_retrace = (last_1h[2] - swing_low) / diff
+            if not (0.35 <= high_retrace <= 0.78 and live_price < last_1h[2]):
+                return None
+        fib_50 = swing_low + 0.500 * diff
+        fib_618 = swing_low + 0.618 * diff
+        fib_786 = swing_low + 0.786 * diff
+
+        w_resist = [h for h in w_highs if h >= live_price * 0.95]
+        nearest_w = min(w_resist) if w_resist else swing_high
+        d_resist = [h for h in d_highs if h >= live_price * 0.97]
+        nearest_d = min(d_resist) if d_resist else fib_618
+
+        recent_15m = candles_15m[-4:]
+        has_wick = False
+        rejection_wick_px = fib_786
+        for c in recent_15m:
+            c_range = c[2] - c[3]
+            upper_wick = c[2] - max(c[1], c[4])
+            if c_range > 0 and (upper_wick / c_range) >= 0.20:
+                has_wick = True
+                rejection_wick_px = c[2]
+                break
+            if c[4] < c[1]:
+                has_wick = True
+                rejection_wick_px = max(c[1], c[2])
+                break
+
+        trigger_state = "CONFIRMED" if has_wick else "IN ZONE"
+        stop = max(rejection_wick_px, fib_786) * 1.005
+        risk = stop - live_price
+        if risk <= 0:
+            return None
+        risk_pct = risk / live_price
+        if risk_pct > 0.025:
+            return None
+        t1 = swing_low
+        t2 = swing_low - 0.618 * diff
+        rr1 = round((live_price - t1) / risk, 1)
+        rr2 = round((live_price - t2) / risk, 1)
+        if rr1 < 1.1:
+            return None
+        return {
+            "kind": "fib", "state": "ready" if has_wick else "watch", "side": "bearish", "timeframe": "fib", "key_tf": "MTF",
+            "entry": live_price, "stop": stop, "t1": t1, "t2": t2,
+            "risk_pct": round(risk_pct * 100, 2), "rr1": rr1, "rr2": rr2,
+            "adx": adx_val, "fib_zone": f"{int(retrace*100)}% Retrace (accepted 0.35–0.78; 0.50/0.618 reference)", "fib_level": fib_618,
+            "w_level": nearest_w, "d_level": nearest_d, "trigger_state": trigger_state, "has_wick": has_wick,
+            "swing_low": swing_low, "swing_high": swing_high, "candle_at": last_1h[0],
+            "checks": {"w_turn": True, "d_trend": True, "fib_zone": True, "trigger_15m": has_wick}
+        }
+
+
+
+
+
+def _smart_mtf_scan(ttl=SMART_MTF_TTL_S):
+    now = time.time()
+    bias = _catch_btc_bias(now, ttl)
+    payload = cached_call(markets_cache, "all", MARKETS_CACHE_SECONDS, _build_markets_payload)
+    coins = json.loads(payload["raw"]).get("coins") or []
+    ranked = [c for c in sorted(coins, key=lambda c: c.get("volume_usdt") or 0, reverse=True)
+              if not _is_stable_like(c.get("base", "")) and float(c.get("volume_usdt") or 0) >= SMART_MTF_MIN_VOLUME_USDT][:SMART_MTF_TOP_N]
+
+    def one(coin):
+        base = coin.get("base", "")
+        price = float(coin.get("price") or 0)
+        if not base or price <= 0:
+            return []
+        try:
+            h1 = _catch_closed(_catch_klines(base, "1h", 100, ttl), 3600, now)
+            m15 = _catch_closed(_catch_klines(base, "15m", 120, ttl), 900, now)
+            if len(h1) < 40 or len(m15) < 10:
+                return []
+            d1 = _catch_closed(_catch_klines(base, "1d", 60, ttl), 86400, now)
+            w1 = _catch_closed(_catch_klines(base, "1w", 35, ttl), 7 * 86400, now)
+            setup = _catch_smart_mtf_confluence(w1, d1, h1, m15, bias["side"], price)
+            if not setup:
+                return []
+            return [{"base": base, "price": price, "change_percent": coin.get("change_percent"),
+                     "volume_usdt": coin.get("volume_usdt"), "spark": [], "btc_bias": bias["side"], **setup}]
+        except (requests.exceptions.RequestException, ValueError, KeyError, IndexError, TypeError, ZeroDivisionError, BinanceBusy) as error:
+            print(f"Smart MTF skipped {base}: {error}")
+            return []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        rows = [item for group in pool.map(one, ranked) for item in group]
+    rows.sort(key=lambda r: (0 if r.get("trigger_state") == "CONFIRMED" else 1, -float(r.get("volume_usdt") or 0)))
+    unique, seen = [], set()
+    for row in rows:
+        if row["base"] not in seen:
+            seen.add(row["base"])
+            unique.append(row)
+    return {"at": int(now), "scanned": len(ranked), "btc": bias, "full": unique[:60], "almost": [],
+            "message": "Original Smart MTF rules; BTC is context only and does not block coin direction."}
+
+
+def _format_smart_mtf_telegram(item):
+    side = "LONG / BUY" if item.get("side") == "bullish" else "SHORT / SELL"
+    icon = "🟢" if item.get("side") == "bullish" else "🔴"
+    return (
+        f"🎯 <b>CryptoDock Smart MTF Alert</b>\n\n"
+        f"{icon} <b>{item.get('base')}/USDT</b> · <b>{side}</b>\n\n"
+        f"📍 <b>Entry:</b> <code>${item.get('entry', 0):,.6f}</code>\n"
+        f"🛑 <b>Stop:</b> <code>${item.get('stop', 0):,.6f}</code> ({item.get('risk_pct', 0)}%)\n"
+        f"🎯 <b>Target 1:</b> <code>${item.get('t1', 0):,.6f}</code> (1:{item.get('rr1', 0)} R:R)\n"
+        f"🎯 <b>Target 2:</b> <code>${item.get('t2', 0):,.6f}</code> (1:{item.get('rr2', 0)} R:R)\n\n"
+        f"⚡ <b>15m Trigger:</b> {item.get('trigger_state', 'CONFIRMED')}\n"
+        f"📐 <b>Fib:</b> {item.get('fib_zone', '0.50–0.618 OTE')}\n"
+        f"🏛️ <b>1W pivot:</b> <code>${item.get('w_level', 0):,.6f}</code> · <b>1D:</b> <code>${item.get('d_level', 0):,.6f}</code>\n"
+        f"🌐 <b>BTC 4H context:</b> {str(item.get('btc_bias', 'neutral')).upper()}\n\n"
+        f"⚠️ <i>Rule-based market scan, not a promise of profit. Verify levels and risk.</i>"
+    )
+
+
+def _send_smart_mtf_telegram(text):
+    _load_env()
+    token = os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        return False
+    try:
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+            timeout=12,
+        )
+        if response.status_code != 200:
+            print(f"[Smart MTF Telegram] HTTP {response.status_code}: {response.text[:200]}")
+            return False
+        body = response.json()
+        return bool(body.get("ok"))
+    except Exception as error:
+        print(f"[Smart MTF Telegram] Send failed: {error}")
+        return False
+
+
+def _smart_mtf_telegram_scanner_loop():
+    global _smart_mtf_first_scan
+    time.sleep(20)
+    while True:
+        try:
+            _load_env()
+            if os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() and os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip():
+                data = _smart_mtf_scan(ttl=SMART_MTF_REFRESH_GAP_S)
+                now = time.time()
+                with _smart_mtf_alert_lock:
+                    current = {}
+                    for item in data.get("full") or []:
+                        if item.get("trigger_state") != "CONFIRMED":
+                            continue
+                        key = f"{item.get('base')}:{item.get('side')}:{item.get('candle_at')}"
+                        current[key] = now
+                    if _smart_mtf_first_scan:
+                        _smart_mtf_seen_alerts.update(current)
+                        _smart_mtf_first_scan = False
+                    else:
+                        for item in data.get("full") or []:
+                            if item.get("trigger_state") != "CONFIRMED":
+                                continue
+                            key = f"{item.get('base')}:{item.get('side')}:{item.get('candle_at')}"
+                            if key in _smart_mtf_seen_alerts:
+                                continue
+                            if _send_smart_mtf_telegram(_format_smart_mtf_telegram(item)):
+                                _smart_mtf_seen_alerts[key] = now
+        except Exception as error:
+            print(f"[Smart MTF scanner] {error}")
+        time.sleep(SMART_MTF_TELEGRAM_INTERVAL_S)
+
+
+@app.get("/api/owner/smart-mtf/access")
+def owner_smart_mtf_access(authorization: str = Header(None)):
+    if _session_email(authorization) != "amitkmrai21@gmail.com":
+        raise HTTPException(status_code=403, detail="Owner only feature.")
+    return {"ok": True}
+
+
+@app.get("/api/owner/smart-mtf")
+def get_owner_smart_mtf(authorization: str = Header(None), refresh: str = ""):
+    if _session_email(authorization) != "amitkmrai21@gmail.com":
+        raise HTTPException(status_code=403, detail="Owner only feature.")
+    try:
+        ttl = SMART_MTF_REFRESH_GAP_S if refresh == "1" else SMART_MTF_TTL_S
+        return cached_call(smart_mtf_cache, "all", ttl, lambda: _smart_mtf_scan(ttl), max_entries=1)
+    except Exception as error:
+        print(f"Smart MTF endpoint error: {error}")
+        raise HTTPException(status_code=503, detail="Smart MTF scan is temporarily unavailable. Try again shortly.") from error
+
+
+@app.get("/api/owner/telegram-smart-mtf/test")
+def telegram_smart_mtf_test(authorization: str = Header(None)):
+    if _session_email(authorization) != "amitkmrai21@gmail.com":
+        raise HTTPException(status_code=403, detail="Owner only feature.")
+    sample = "🎯 <b>CryptoDock Smart MTF Alert (TEST)</b>\n\nDedicated Smart MTF Telegram routing is connected."
+    if not _send_smart_mtf_telegram(sample):
+        raise HTTPException(status_code=400, detail="Dedicated Telegram setup is incomplete. Configure TELEGRAM_SMART_MTF_BOT_TOKEN and TELEGRAM_SMART_MTF_CHAT_ID on the server.")
+    return {"ok": True}
+
+
+@app.on_event("startup")
+def _start_smart_mtf_telegram():
+    threading.Thread(target=_smart_mtf_telegram_scanner_loop, name="smart-mtf-telegram", daemon=True).start()
 
 
 @app.on_event("startup")
