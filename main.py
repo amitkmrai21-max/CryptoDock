@@ -2721,7 +2721,7 @@ SMART_MTF_TTL_S = 60
 SMART_MTF_REFRESH_GAP_S = 15
 SMART_MTF_MIN_VOLUME_USDT = 5_000_000
 SMART_MTF_TOP_N = 60
-SMART_MTF_TELEGRAM_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "900"))
+SMART_MTF_TELEGRAM_INTERVAL_S = int(os.getenv("TELEGRAM_SCAN_INTERVAL_S", "60"))
 _smart_mtf_seen_alerts = {}
 _smart_mtf_first_scan = True
 _smart_mtf_alert_lock = threading.Lock()
@@ -3036,6 +3036,7 @@ def _smart_mtf_telegram_scanner_loop():
                                 continue
                             if _send_smart_mtf_telegram(_format_smart_mtf_telegram(item)):
                                 _smart_mtf_seen_alerts[key] = now
+                                print(f"[Smart MTF Telegram] Alert sent for {item.get('base')}/USDT ({item.get('side')})")
         except Exception as error:
             print(f"[Smart MTF scanner] {error}")
         time.sleep(SMART_MTF_TELEGRAM_INTERVAL_S)
