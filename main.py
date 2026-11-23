@@ -2956,7 +2956,7 @@ def _smart_mtf_scan(ttl=SMART_MTF_TTL_S):
             print(f"Smart MTF skipped {base}: {error}")
             return []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
         rows = [item for group in pool.map(one, ranked) for item in group]
     rows.sort(key=lambda r: (0 if r.get("trigger_state") == "CONFIRMED" else 1, -float(r.get("volume_usdt") or 0)))
     unique, seen = [], set()
@@ -3010,12 +3010,16 @@ def _send_smart_mtf_telegram(text):
 
 def _smart_mtf_telegram_scanner_loop():
     global _smart_mtf_first_scan
-    time.sleep(20)
+    time.sleep(3)
     while True:
         try:
+            # 1. ALWAYS run scan and keep smart_mtf_cache["all"] hot in background memory
+            data = _smart_mtf_scan(ttl=SMART_MTF_REFRESH_GAP_S)
+            smart_mtf_cache["all"] = {"data": data, "at": time.time()}
+
+            # 2. Dispatch Telegram alerts if dedicated bot token & chat id are configured
             _load_env()
             if os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() and os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip():
-                data = _smart_mtf_scan(ttl=SMART_MTF_REFRESH_GAP_S)
                 now = time.time()
                 with _smart_mtf_alert_lock:
                     current = {}
@@ -3054,10 +3058,24 @@ def get_owner_smart_mtf(authorization: str = Header(None), refresh: str = ""):
     if _session_email(authorization) != "amitkmrai21@gmail.com":
         raise HTTPException(status_code=403, detail="Owner only feature.")
     try:
+        now = time.time()
+        entry = smart_mtf_cache.get("all")
+        # Return instantly if cache exists and no force refresh requested
+        if refresh != "1" and entry:
+            return entry["data"]
+        # If refresh requested but cache is very fresh (<10s), return immediately
+        if refresh == "1" and entry and (now - entry.get("at", 0) < 10):
+            return entry["data"]
+        # Otherwise run fresh scan, update cache, and return
         ttl = SMART_MTF_REFRESH_GAP_S if refresh == "1" else SMART_MTF_TTL_S
-        return cached_call(smart_mtf_cache, "all", ttl, lambda: _smart_mtf_scan(ttl), max_entries=1)
+        data = _smart_mtf_scan(ttl=ttl)
+        smart_mtf_cache["all"] = {"data": data, "at": time.time()}
+        return data
     except Exception as error:
         print(f"Smart MTF endpoint error: {error}")
+        entry = smart_mtf_cache.get("all")
+        if entry:
+            return entry["data"]
         raise HTTPException(status_code=503, detail="Smart MTF scan is temporarily unavailable. Try again shortly.") from error
 
 

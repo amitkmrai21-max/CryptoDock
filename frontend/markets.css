@@ -3280,3 +3280,101 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
   line-height: 1.4;
   margin: 0;
 }
+
+/* Smart MTF loading state & skeleton cards */
+#cdSmartMtf .cd-smartmtf-state-card {
+  text-align: center;
+  padding: 28px 16px;
+  border-radius: 14px;
+  background: var(--surface-soft, #171325);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+#cdSmartMtf .cd-smartmtf-state-card.cd-smartmtf-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.06);
+}
+#cdSmartMtf .cd-smartmtf-icon {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+#cdSmartMtf .cd-smartmtf-state-card strong {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  margin-top: 8px;
+  margin-bottom: 5px;
+  color: var(--text, #fff);
+}
+#cdSmartMtf .cd-smartmtf-state-card p {
+  font-size: 11.5px;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.45;
+  margin: 0;
+}
+#cdSmartMtf .cd-smartmtf-spinner {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 6px auto;
+  border: 3px solid rgba(148, 163, 184, 0.2);
+  border-top-color: var(--primary, #38bdf8);
+  border-radius: 50%;
+  animation: cdSmartMtfSpin 0.8s linear infinite;
+}
+@keyframes cdSmartMtfSpin {
+  to { transform: rotate(360deg); }
+}
+#cdSmartMtf .cd-fr-card.is-skeleton {
+  min-height: 110px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-soft, #171325);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  animation: cdNewsPulse 1.4s ease-in-out infinite;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+#cdSmartMtf .cd-skel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#cdSmartMtf .cd-skel-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+#cdSmartMtf .cd-skel-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+#cdSmartMtf .cd-skel-w60 {
+  display: block;
+  width: 50%;
+  height: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+#cdSmartMtf .cd-skel-w40 {
+  display: block;
+  width: 30%;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+}
+#cdSmartMtf .cd-skel-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+#cdSmartMtf .cd-skel-grid span {
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}

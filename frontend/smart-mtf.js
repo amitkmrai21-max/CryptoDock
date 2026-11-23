@@ -36,7 +36,7 @@
   async function fetchScan(fresh) {
     const bearer = await getToken();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 45000);
+    const timer = setTimeout(() => controller.abort(), 60000);
     try {
       const response = await fetch("/api/owner/smart-mtf" + (fresh ? "?refresh=1" : ""), {
         headers: { Authorization: `Bearer ${bearer}` },
@@ -136,8 +136,32 @@
     if (error || !data) {
       meta.textContent = error ? "Scan unavailable" : "Checking BTC context and Smart MTF setups…";
       results.innerHTML = error
-        ? `<p class="cd-focus-error">${esc(error)}</p>`
-        : '<p class="cd-focus-loading">Scanning liquid Binance markets on closed 1W, 1D, 1H and 15m candles…</p>';
+        ? `<div class="cd-smartmtf-state-card cd-smartmtf-error">
+             <div class="cd-smartmtf-icon">⚠️</div>
+             <strong>${esc(error)}</strong>
+             <p>Owner session or server access issue. Tap below to retry.</p>
+             <button type="button" class="cd-fr-ticket is-buy" id="cdSmartMtfRetry" style="margin-top:12px;">↻ Try Scan Again</button>
+           </div>`
+        : `<div class="cd-smartmtf-state-card cd-smartmtf-loading">
+             <div class="cd-smartmtf-spinner"></div>
+             <strong>Scanning Binance Markets</strong>
+             <p>Analyzing 1W &amp; 1D pivots, 1H EMA20/50 &amp; Fib pullback, and 15m triggers…</p>
+           </div>
+           <div class="cd-fr-card is-skeleton">
+             <div class="cd-skel-head">
+               <span class="cd-skel-circle"></span>
+               <div class="cd-skel-lines"><span class="cd-skel-w60"></span><span class="cd-skel-w40"></span></div>
+             </div>
+             <div class="cd-skel-grid"><span></span><span></span><span></span><span></span></div>
+           </div>
+           <div class="cd-fr-card is-skeleton">
+             <div class="cd-skel-head">
+               <span class="cd-skel-circle"></span>
+               <div class="cd-skel-lines"><span class="cd-skel-w60"></span><span class="cd-skel-w40"></span></div>
+             </div>
+             <div class="cd-skel-grid"><span></span><span></span><span></span><span></span></div>
+           </div>`;
+      document.getElementById("cdSmartMtfRetry")?.addEventListener("click", () => load(true));
       return;
     }
 
@@ -166,14 +190,25 @@
     scanning = true;
     overlay.classList.add("is-loading");
     if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.classList.add("is-spinning"); }
-    data = null;
-    error = "";
-    render();
+    // Only clear data and show skeleton if there is no previous data at all
+    if (!data) {
+      error = "";
+      render();
+    } else {
+      meta.textContent = "Scanning 60 markets for fresh confluence…";
+    }
     try {
-      data = await fetchScan(fresh);
+      const res = await fetchScan(fresh);
+      data = res;
+      error = "";
       loadedAt = Date.now();
     } catch (e) {
-      error = e.status === 401 || e.status === 403 ? "Owner session required." : (e.message || "Could not load Smart MTF.");
+      const msg = e.status === 401 || e.status === 403 ? "Owner session required." : (e.message || "Could not load Smart MTF.");
+      if (!data) {
+        error = msg;
+      } else {
+        meta.textContent = `Sync note: ${msg} · Retrying shortly`;
+      }
     }
     scanning = false;
     overlay.classList.remove("is-loading");
