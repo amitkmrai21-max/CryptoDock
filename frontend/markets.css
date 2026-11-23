@@ -3378,3 +3378,68 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
 }
+
+
+/* Smart MTF Circular Refresh Button & Spinning Animation */
+.cd-fr-iconbtn,
+#cdSmartMtfRefresh {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 50% !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  cursor: pointer !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  transition: all 0.2s ease !important;
+}
+
+.cd-fr-iconbtn:hover,
+#cdSmartMtfRefresh:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+}
+
+.cd-fr-iconbtn:active,
+#cdSmartMtfRefresh:active {
+  transform: scale(0.92) !important;
+}
+
+.cd-fr-iconbtn.is-spinning,
+#cdSmartMtfRefresh.is-spinning {
+  pointer-events: none !important;
+  opacity: 0.95 !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.3) !important;
+}
+
+.cd-fr-iconbtn svg,
+#cdSmartMtfRefresh svg,
+.cd-fr-spin {
+  display: block !important;
+  transform-origin: center center !important;
+  transform-box: fill-box !important;
+}
+
+.cd-fr-iconbtn.is-spinning svg,
+.cd-fr-iconbtn.is-spinning .cd-fr-spin,
+#cdSmartMtfRefresh.is-spinning svg,
+#cdSmartMtfRefresh.is-spinning .cd-fr-spin {
+  animation: cdSmartMtfSpin 0.75s linear infinite !important;
+  transform-origin: center center !important;
+  transform-box: fill-box !important;
+  color: #38bdf8 !important;
+}

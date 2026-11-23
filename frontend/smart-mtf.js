@@ -189,16 +189,22 @@
     if (scanning) return;
     scanning = true;
     overlay.classList.add("is-loading");
-    if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.classList.add("is-spinning"); }
+    if (refreshBtn) {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add("is-spinning");
+    }
     // Only clear data and show skeleton if there is no previous data at all
     if (!data) {
       error = "";
       render();
     } else {
-      meta.textContent = "Scanning 60 markets for fresh confluence…";
+      meta.innerHTML = '<span style="color:#38bdf8; font-weight:600;">⚡ Scanning 60 markets for fresh confluence…</span>';
     }
     try {
-      const res = await fetchScan(fresh);
+      const [res] = await Promise.all([
+        fetchScan(fresh),
+        fresh ? sleep(700) : Promise.resolve(),
+      ]);
       data = res;
       error = "";
       loadedAt = Date.now();
@@ -209,11 +215,15 @@
       } else {
         meta.textContent = `Sync note: ${msg} · Retrying shortly`;
       }
+    } finally {
+      scanning = false;
+      overlay.classList.remove("is-loading");
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove("is-spinning");
+      }
+      render();
     }
-    scanning = false;
-    overlay.classList.remove("is-loading");
-    if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove("is-spinning"); }
-    render();
   }
 
   document.getElementById("cdSmartMtfTabs")?.addEventListener("click", (event) => {
