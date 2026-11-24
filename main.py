@@ -1,4 +1,6 @@
 import asyncio
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import gzip
 import json
 import math
@@ -4688,12 +4690,25 @@ def _format_smart_mtf_alert(item: dict, btc_context: dict) -> str:
     )
 
 
-def _smart_mtf_run_scan():
+def _smart_mtf_run_scan(wait_if_running: bool = False):
     global _smart_mtf_scanning, _smart_mtf_cache, _smart_mtf_alerted
     with _smart_mtf_lock:
         if _smart_mtf_scanning:
-            return
-        _smart_mtf_scanning = True
+            if not wait_if_running:
+                return
+            already_running = True
+        else:
+            _smart_mtf_scanning = True
+            already_running = False
+
+    if already_running:
+        t_end = time.time() + 15.0
+        while time.time() < t_end:
+            time.sleep(0.2)
+            with _smart_mtf_lock:
+                if not _smart_mtf_scanning:
+                    return
+        return
 
     try:
         btc = _smtf_btc_context()
@@ -4761,7 +4776,7 @@ def get_smart_mtf_results(refresh: int = 0, authorization: str = Header(None)):
     cached = _smart_mtf_cache.get("data")
     ts = _smart_mtf_cache.get("timestamp", 0)
     if refresh or not cached or (now - ts > 65):
-        _smart_mtf_run_scan()
+        _smart_mtf_run_scan(wait_if_running=True)
     return _smart_mtf_cache.get("data") or {"ok": True, "scanned": 0, "btc": {}, "full": []}
 
 
