@@ -4651,6 +4651,7 @@ def _send_smart_mtf_telegram(text: str) -> bool:
     token = os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
     if not token or not chat_id:
+        print("[Smart MTF TG] Missing token or chat_id in environment")
         return False
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -4661,8 +4662,13 @@ def _send_smart_mtf_telegram(text: str) -> bool:
     }
     try:
         r = requests.post(url, json=payload, timeout=12)
-        return r.status_code == 200
-    except Exception:
+        if r.status_code == 200:
+            print(f"[Smart MTF TG] Sent alert to {chat_id}")
+            return True
+        print(f"[Smart MTF TG Error] HTTP {r.status_code}: {r.text}")
+        return False
+    except Exception as e:
+        print(f"[Smart MTF TG Exception] {e}")
         return False
 
 
@@ -4742,6 +4748,10 @@ def _smart_mtf_run_scan(wait_if_running: bool = False):
                     sent = _send_smart_mtf_telegram(alert_msg)
                     if sent:
                         _smart_mtf_alerted[sym] = now
+                    else:
+                        # 5m cooldown on failure/rate limit to avoid hammering Telegram
+                        _smart_mtf_alerted[sym] = now - 14400 + 300
+                    time.sleep(1.2)
     except Exception as e:
         print(f"[Smart MTF] Scan execution error: {e}")
     finally:
