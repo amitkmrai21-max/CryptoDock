@@ -4768,6 +4768,17 @@ def _smart_mtf_run_scan(wait_if_running: bool = False):
 
 
 def _smart_mtf_scanner_loop():
+    time.sleep(3)
+    try:
+        _send_smart_mtf_telegram(
+            "🟢 <b>CryptoDock Smart MTF Scanner Live</b>\n\n"
+            "✅ Bot connected & scanner active!\n"
+            "⚡ Scanning 50 liquid Binance pairs every 60s.\n"
+            "📡 1W/1D Pivots + 1H OTE & ADX + 15m Rejection Trigger.\n"
+            "🎯 Live alerts will arrive here as new setups confirm."
+        )
+    except Exception as e:
+        print(f"[Smart MTF] Startup alert error: {e}")
     time.sleep(5)  # allow app startup to settle
     while True:
         try:
