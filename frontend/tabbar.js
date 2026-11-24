@@ -5,6 +5,35 @@
   const bar = document.getElementById("cdTabBar");
   const sheet = document.getElementById("cdMoreSheet");
   const grid = document.getElementById("cdMoreGrid");
+
+  async function unlockSmartMtfForOwner() {
+    const supabase = window.marketDockSupabase;
+    if (!supabase?.auth) return false;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) {
+        const tab = document.querySelector('.sidebar .app-tab[data-tab="smartmtf"]');
+        tab?.setAttribute("hidden", ""); tab?.setAttribute("aria-hidden", "true");
+        return false;
+      }
+      const response = await fetch("/api/owner/smart-mtf/access", {
+        headers: { Authorization: `Bearer ${token}` }, cache: "no-store"
+      });
+      if (!response.ok) {
+        const tab = document.querySelector('.sidebar .app-tab[data-tab="smartmtf"]');
+        tab?.setAttribute("hidden", ""); tab?.setAttribute("aria-hidden", "true");
+        return false;
+      }
+      document.querySelector('.sidebar .app-tab[data-tab="smartmtf"]')?.removeAttribute("hidden");
+      document.querySelector('.sidebar .app-tab[data-tab="smartmtf"]')?.removeAttribute("aria-hidden");
+      return true;
+    } catch (_) { return false; }
+  }
+
+  // Desktop uses the sidebar; mobile uses More. The backend verifies the owner either way.
+  unlockSmartMtfForOwner();
+  window.marketDockSupabase?.auth?.onAuthStateChange?.(() => { setTimeout(unlockSmartMtfForOwner, 0); });
   if (!bar || !sheet || !grid) return;
 
   const MAIN_PAGES = ["dashboard", "watchlist", "positions", "scanner"];
@@ -35,9 +64,9 @@
   }
 
   // Every other sidebar page (and Settings) as a tile in the More sheet.
-  function buildMore() {
+  async function buildMore() {
     const tiles = [...document.querySelectorAll(".sidebar .app-tab[data-tab]")]
-      .filter((b) => !b.hidden && !MAIN_PAGES.includes(b.dataset.tab))
+      .filter((b) => !b.hidden && !MAIN_PAGES.includes(b.dataset.tab) && b.dataset.tab !== "smartmtf")
       .map((b) => `<button type="button" class="cd-more-tile" data-more="${b.dataset.tab}">
           <span class="cd-more-icon">${b.querySelector(".nav-icon")?.innerHTML || ""}</span>
           <span>${label(b)}</span>
@@ -59,6 +88,14 @@
         <span>Settings</span>
       </button>`);
     grid.innerHTML = tiles.join("");
+
+    if (!(await unlockSmartMtfForOwner()) || sheet.hidden) return;
+    if (grid.querySelector("[data-more-smart-mtf]")) return;
+    const smartMtfTile = `<button type="button" class="cd-more-tile cd-more-smart-mtf" data-more-smart-mtf="1">
+      <span class="cd-more-icon">🎯</span><span>Smart MTF</span></button>`;
+    const settingsTile = grid.querySelector("[data-more-settings]");
+    if (settingsTile) settingsTile.insertAdjacentHTML("beforebegin", smartMtfTile);
+    else grid.insertAdjacentHTML("beforeend", smartMtfTile);
   }
 
   const openMore = () => { sheet.hidden = false; buildMore(); };
@@ -79,7 +116,8 @@
     const tile = event.target.closest(".cd-more-tile");
     if (!tile) return;
     closeMore();
-    if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
+    if (tile.dataset.moreSmartMtf) { window.cdOpenSmartMtf?.(); }
+    else if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
     else if (tile.dataset.moreSettings) document.getElementById("topSettingsMenuButton")?.click();
     else if (tile.dataset.extLink) window.open(tile.dataset.extLink, "_blank", "noopener");
     else if (tile.dataset.more) go(tile.dataset.more);

@@ -4362,3 +4362,430 @@ def verify_play_purchase(req: PlayPurchaseVerifyRequest, authorization: str = He
             print(f"Play acknowledge error: {error}")
 
     return {"verified": True, "plan": plan_name, "valid_until_ts": valid_until, "provider": "google_play"}
+
+# ==================== SMART MTF CONFLUENCE BACKEND ====================
+# Rules strictly implemented from user specification:
+# 1. 1W: 35-52 weeks high-volume institutional swing highs/lows -> nearest w_level
+# 2. 1D: Key structural S/R + Daily EMA20/50 alignment to ensure alignment with major trend -> d_level
+# 3. 1H: Active swing (48-60 candles) exact 0.50 - 0.618 Golden Pocket + ADX > 15 filter
+# 4. 15m: Closed candles Rejection Wick (>= 20%) or reversal close -> TRIGGER CONFIRMED, else IN_ZONE
+# 5. Risk & Targets: Stop behind 15m rejection & 0.786 Fib capped at 0.5% - 2.2%; T1 (1:1.3-1.8) & T2 (1:2.4-3.2+)
+# 6. Scanning: 60-second background cycle + auto-alert loop for confirmed setups
+
+SMART_MTF_SYMBOLS = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT",
+    "AVAXUSDT", "LINKUSDT", "SUIUSDT", "NEARUSDT", "APTUSDT", "DOTUSDT", "LTCUSDT",
+    "BCHUSDT", "UNIUSDT", "TIAUSDT", "INJUSDT", "FETUSDT", "RENDERUSDT", "PEPEUSDT",
+    "SHIBUSDT", "ARBUSDT", "OPUSDT", "AAVEUSDT", "CRVUSDT", "MKRUSDT", "STXUSDT",
+    "TAOUSDT", "FILUSDT", "ATOMUSDT", "SEIUSDT", "WIFUSDT", "FLOKIUSDT", "BONKUSDT",
+    "GALAUSDT", "SANDUSDT", "MANAUSDT", "ALGOUSDT", "HBARUSDT", "VETUSDT", "ICPUSDT",
+    "TONUSDT", "XLMUSDT", "TRXUSDT", "KASUSDT", "FTMUSDT", "ENAUSDT", "PENDLEUSDT", "ONDOUSDT"
+]
+
+_smart_mtf_lock = threading.Lock()
+_smart_mtf_cache = {"data": None, "timestamp": 0.0}
+_smart_mtf_alerted = {}  # symbol -> float timestamp
+_smart_mtf_scanning = False
+
+
+def _smtf_ema(values, period):
+    if len(values) < period:
+        return []
+    k = 2.0 / (period + 1.0)
+    out = [sum(values[:period]) / period]
+    for v in values[period:]:
+        out.append(v * k + out[-1] * (1.0 - k))
+    return out
+
+
+def _smtf_adx_14(highs, lows, closes, period=14):
+    n = len(closes)
+    if n < period * 2:
+        return 20.0
+    tr, plus_dm, minus_dm = [], [], []
+    for i in range(1, n):
+        h, l, pc = highs[i], lows[i], closes[i-1]
+        tr.append(max(h - l, abs(h - pc), abs(l - pc)))
+        up = h - highs[i-1]
+        down = lows[i-1] - l
+        plus_dm.append(up if up > down and up > 0 else 0.0)
+        minus_dm.append(down if down > up and down > 0 else 0.0)
+    if len(tr) < period:
+        return 20.0
+    str_val = sum(tr[:period])
+    spdm = sum(plus_dm[:period])
+    smdm = sum(minus_dm[:period])
+    dx_list = []
+    for i in range(period, len(tr)):
+        str_val = str_val - (str_val / period) + tr[i]
+        spdm = spdm - (spdm / period) + plus_dm[i]
+        smdm = smdm - (smdm / period) + minus_dm[i]
+        pdi = (100.0 * spdm / str_val) if str_val > 0 else 0.0
+        mdi = (100.0 * smdm / str_val) if str_val > 0 else 0.0
+        tot = pdi + mdi
+        dx_list.append((100.0 * abs(pdi - mdi) / tot) if tot > 0 else 0.0)
+    if not dx_list:
+        return 20.0
+    adx_series = _smtf_ema(dx_list, period)
+    return round(adx_series[-1], 1) if adx_series else round(sum(dx_list)/len(dx_list), 1)
+
+
+def _smtf_btc_context():
+    try:
+        k4 = get_klines("BTCUSDT", "4h", 60)
+        if not k4 or len(k4) < 50:
+            return {"side": "neutral", "price": 0, "ema50": 0, "reason": "BTC context loading"}
+        closes = [float(x[4]) for x in k4]
+        ema50 = _smtf_ema(closes, 50)
+        curr_px = closes[-1]
+        e50 = ema50[-1] if ema50 else curr_px
+        rising = len(ema50) >= 3 and ema50[-1] > ema50[-3]
+        falling = len(ema50) >= 3 and ema50[-1] < ema50[-3]
+        if curr_px > e50 and rising:
+            side = "bullish"
+            reason = "BTC above rising 4H EMA50; market structure supportive."
+        elif curr_px < e50 and falling:
+            side = "bearish"
+            reason = "BTC below falling 4H EMA50; macro headwind."
+        else:
+            side = "neutral"
+            reason = "BTC oscillating near 4H EMA50; selective setups."
+        return {"side": side, "price": curr_px, "ema50": round(e50, 1), "reason": reason}
+    except Exception:
+        return {"side": "neutral", "price": 0, "ema50": 0, "reason": "BTC context unavailable"}
+
+
+def _smtf_analyze_symbol(symbol):
+    try:
+        base = symbol.replace("USDT", "")
+        # 1. 1W Institutional Turning Points (35-52 weeks)
+        kw = get_klines(symbol, "1w", 52)
+        if not kw or len(kw) < 35:
+            return None
+
+        # 2. 1D Structure (50-60 days)
+        kd = get_klines(symbol, "1d", 60)
+        if not kd or len(kd) < 50:
+            return None
+
+        # 3. 1H Active Swing (48-60 candles)
+        kh = get_klines(symbol, "1h", 60)
+        if not kh or len(kh) < 48:
+            return None
+
+        # 4. 15m Closed Candles (30 candles)
+        km = get_klines(symbol, "15m", 30)
+        if not km or len(km) < 15:
+            return None
+
+        curr_px = float(km[-1][4])
+
+        # --- Rule 2: 1D EMA20/50 Alignment & S/R Structure ---
+        d_closes = [float(x[4]) for x in kd]
+        d_ema20 = _smtf_ema(d_closes, 20)
+        d_ema50 = _smtf_ema(d_closes, 50)
+        if not d_ema20 or not d_ema50:
+            return None
+        last_d_close = d_closes[-1]
+        last_d_e20 = d_ema20[-1]
+        last_d_e50 = d_ema50[-1]
+
+        is_bull = last_d_e20 >= last_d_e50 and last_d_close >= last_d_e50 * 0.985
+        is_bear = last_d_e20 <= last_d_e50 and last_d_close <= last_d_e50 * 1.015
+
+        if not is_bull and not is_bear:
+            return None
+        side = "bullish" if is_bull else "bearish"
+
+        # Nearest Daily S/R
+        d_highs = [float(x[2]) for x in kd[-30:]]
+        d_lows = [float(x[3]) for x in kd[-30:]]
+        d_level = min(d_highs + d_lows, key=lambda x: abs(x - curr_px))
+
+        # --- Rule 1: 1W High-Volume Institutional Pivots (35-52 weeks) ---
+        w_highs = [float(x[2]) for x in kw]
+        w_lows = [float(x[3]) for x in kw]
+        w_vols = [float(x[5]) for x in kw]
+        avg_w_vol = sum(w_vols) / len(w_vols) if w_vols else 1.0
+        w_pivots = []
+        for i in range(1, len(kw) - 1):
+            if w_vols[i] >= 0.7 * avg_w_vol:
+                if w_highs[i] >= w_highs[i-1] and w_highs[i] >= w_highs[i+1]:
+                    w_pivots.append(w_highs[i])
+                if w_lows[i] <= w_lows[i-1] and w_lows[i] <= w_lows[i+1]:
+                    w_pivots.append(w_lows[i])
+        if not w_pivots:
+            w_pivots = [min(w_lows), max(w_highs)]
+        w_level = min(w_pivots, key=lambda x: abs(x - curr_px))
+
+        # --- Rule 3: 1H Fibonacci OTE (0.50 - 0.618) & ADX > 15 ---
+        h_highs = [float(x[2]) for x in kh]
+        h_lows = [float(x[3]) for x in kh]
+        h_closes = [float(x[4]) for x in kh]
+        adx_val = _smtf_adx_14(h_highs, h_lows, h_closes, 14)
+        if adx_val <= 15.0:
+            return None
+
+        swing_high = max(h_highs[-48:])
+        swing_low = min(h_lows[-48:])
+        swing_rng = swing_high - swing_low
+        if swing_rng <= 0:
+            return None
+
+        if side == "bullish":
+            fib_500 = swing_high - 0.500 * swing_rng
+            fib_618 = swing_high - 0.618 * swing_rng
+            fib_786 = swing_high - 0.786 * swing_rng
+            zone_top = max(fib_500, fib_618)
+            zone_bot = min(fib_500, fib_618)
+            in_zone = (curr_px >= fib_786 * 0.995 and curr_px <= zone_top * 1.02)
+        else:
+            fib_500 = swing_low + 0.500 * swing_rng
+            fib_618 = swing_low + 0.618 * swing_rng
+            fib_786 = swing_low + 0.786 * swing_rng
+            zone_top = max(fib_500, fib_618)
+            zone_bot = min(fib_500, fib_618)
+            in_zone = (curr_px <= fib_786 * 1.005 and curr_px >= zone_bot * 0.98)
+
+        if not in_zone:
+            return None
+
+        # --- Rule 4: 15m Smart Trigger & Invalidation on Closed Candle ---
+        last_15m = km[-2]  # last fully closed 15m candle
+        m_open = float(last_15m[1])
+        m_high = float(last_15m[2])
+        m_low = float(last_15m[3])
+        m_close = float(last_15m[4])
+        m_rng = m_high - m_low
+
+        confirmed = False
+        if m_rng > 0:
+            if side == "bullish":
+                lower_wick = min(m_open, m_close) - m_low
+                wick_ratio = lower_wick / m_rng
+                confirmed = (wick_ratio >= 0.20) or (m_close > m_open and m_close >= (m_high + m_low) * 0.5)
+            else:
+                upper_wick = m_high - max(m_open, m_close)
+                wick_ratio = upper_wick / m_rng
+                confirmed = (wick_ratio >= 0.20) or (m_close < m_open and m_close <= (m_high + m_low) * 0.5)
+
+        trigger_state = "CONFIRMED" if confirmed else "IN_ZONE"
+
+        # --- Rule 5: Strict Risk & High R:R Targets (0.5% - 2.2% Cap) ---
+        entry = curr_px
+        recent_15m_lows = [float(x[3]) for x in km[-4:]]
+        recent_15m_highs = [float(x[2]) for x in km[-4:]]
+
+        if side == "bullish":
+            raw_stop = min(min(recent_15m_lows), fib_786) * 0.998
+            risk_pct = (entry - raw_stop) / entry * 100.0
+            if risk_pct < 0.5:
+                stop = entry * 0.995
+                risk_pct = 0.5
+            elif risk_pct > 2.2:
+                stop = entry * 0.978
+                risk_pct = 2.2
+            else:
+                stop = raw_stop
+            t1 = max(swing_high, entry + (entry - stop) * 1.5)
+            t2 = entry + (entry - stop) * 2.8
+            rr1 = round((t1 - entry) / (entry - stop), 1) if (entry - stop) > 0 else 1.5
+            rr2 = round((t2 - entry) / (entry - stop), 1) if (entry - stop) > 0 else 2.8
+        else:
+            raw_stop = max(max(recent_15m_highs), fib_786) * 1.002
+            risk_pct = (raw_stop - entry) / entry * 100.0
+            if risk_pct < 0.5:
+                stop = entry * 1.005
+                risk_pct = 0.5
+            elif risk_pct > 2.2:
+                stop = entry * 1.022
+                risk_pct = 2.2
+            else:
+                stop = raw_stop
+            t1 = min(swing_low, entry - (stop - entry) * 1.5)
+            t2 = entry - (stop - entry) * 2.8
+            rr1 = round((entry - t1) / (stop - entry), 1) if (stop - entry) > 0 else 1.5
+            rr2 = round((entry - t2) / (stop - entry), 1) if (stop - entry) > 0 else 2.8
+
+        def _fmt(val):
+            if val is None or not math.isfinite(val):
+                return 0.0
+            if val >= 1000:
+                return round(val, 2)
+            if val >= 10:
+                return round(val, 3)
+            if val >= 1:
+                return round(val, 4)
+            if val >= 0.01:
+                return round(val, 5)
+            return round(val, 8)
+
+        return {
+            "symbol": symbol,
+            "base": base,
+            "side": side,
+            "trigger_state": trigger_state,
+            "price": entry,
+            "entry": _fmt(entry),
+            "stop": _fmt(stop),
+            "risk_pct": round(risk_pct, 2),
+            "t1": _fmt(t1),
+            "rr1": rr1,
+            "t2": _fmt(t2),
+            "rr2": rr2,
+            "w_level": _fmt(w_level),
+            "d_level": _fmt(d_level),
+            "fib_level": _fmt(fib_618),
+            "adx": adx_val,
+            "fib_zone": f"0.50 ({_fmt(fib_500)}) – 0.618 ({_fmt(fib_618)})",
+            "candle_at": int(km[-1][0] / 1000),
+        }
+    except Exception:
+        return None
+
+
+def _send_smart_mtf_telegram(text: str) -> bool:
+    _load_env()
+    token = os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        r = requests.post(url, json=payload, timeout=12)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+def _format_smart_mtf_alert(item: dict, btc_context: dict) -> str:
+    side = item["side"].upper()
+    base = item["base"]
+    dir_emoji = "🟢 <b>BUY / LONG</b>" if side == "BULLISH" else "🔴 <b>SELL / SHORT</b>"
+    btc_side = btc_context.get("side", "neutral").upper()
+    btc_price = btc_context.get("price", 0)
+
+    return (
+        f"🎯 <b>SMART MTF CONFLUENCE ALERT</b>\n\n"
+        f"🪙 <b>#{base}/USDT</b> · {dir_emoji}\n"
+        f"⚡ Status: <b>TRIGGER CONFIRMED</b>\n\n"
+        f"💵 <b>Entry:</b> ${item['entry']}\n"
+        f"🛑 <b>Stop-Loss:</b> ${item['stop']} (Risk: {item['risk_pct']}%) [Past 0.786]\n"
+        f"🎯 <b>Target 1:</b> ${item['t1']} (1:{item['rr1']} R:R)\n"
+        f"🚀 <b>Target 2:</b> ${item['t2']} (1:{item['rr2']} R:R)\n\n"
+        f"📐 <b>1W Institutional Pivot:</b> ${item['w_level']}\n"
+        f"🧱 <b>1D Level:</b> ${item['d_level']} (Daily EMA20/50 Aligned)\n"
+        f"📊 <b>1H OTE Fib:</b> {item['fib_zone']} | <b>ADX:</b> {item['adx']}\n"
+        f"⚡ <b>15m Trigger:</b> Closed Rejection Wick ≥ 20% / Reversal Candle\n"
+        f"🧭 <b>BTC 4H Context:</b> {btc_side} (${btc_price})\n\n"
+        f"<i>Strict 1W·1D·1H·15m Multi-Timeframe Confluence</i>"
+    )
+
+
+def _smart_mtf_run_scan():
+    global _smart_mtf_scanning, _smart_mtf_cache, _smart_mtf_alerted
+    with _smart_mtf_lock:
+        if _smart_mtf_scanning:
+            return
+        _smart_mtf_scanning = True
+
+    try:
+        btc = _smtf_btc_context()
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            raw_results = list(pool.map(_smtf_analyze_symbol, SMART_MTF_SYMBOLS))
+
+        valid = [r for r in raw_results if r]
+        # Sort: Confirmed triggers first, then highest ADX
+        valid.sort(key=lambda x: (1 if x["trigger_state"] == "CONFIRMED" else 0, x.get("adx", 0)), reverse=True)
+
+        payload = {
+            "ok": True,
+            "scanned": len(SMART_MTF_SYMBOLS),
+            "btc": btc,
+            "full": valid,
+            "updated_at": int(time.time()),
+        }
+
+        with _smart_mtf_lock:
+            _smart_mtf_cache = {"data": payload, "timestamp": time.time()}
+
+        # Alert newly confirmed setups
+        now = time.time()
+        for item in valid:
+            if item.get("trigger_state") == "CONFIRMED":
+                sym = item["symbol"]
+                last_time = _smart_mtf_alerted.get(sym, 0)
+                # Alert at most once per 4 hours (14400s) for the same coin
+                if now - last_time > 14400:
+                    alert_msg = _format_smart_mtf_alert(item, btc)
+                    sent = _send_smart_mtf_telegram(alert_msg)
+                    if sent:
+                        _smart_mtf_alerted[sym] = now
+    except Exception as e:
+        print(f"[Smart MTF] Scan execution error: {e}")
+    finally:
+        with _smart_mtf_lock:
+            _smart_mtf_scanning = False
+
+
+def _smart_mtf_scanner_loop():
+    time.sleep(5)  # allow app startup to settle
+    while True:
+        try:
+            _smart_mtf_run_scan()
+        except Exception as e:
+            print(f"[Smart MTF] Loop error: {e}")
+        time.sleep(60)
+
+
+@app.get("/api/owner/smart-mtf/access")
+def smart_mtf_access(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    return {"ok": True, "owner": True}
+
+
+@app.get("/api/owner/smart-mtf")
+def get_smart_mtf_results(refresh: int = 0, authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    now = time.time()
+    cached = _smart_mtf_cache.get("data")
+    ts = _smart_mtf_cache.get("timestamp", 0)
+    if refresh or not cached or (now - ts > 65):
+        _smart_mtf_run_scan()
+    return _smart_mtf_cache.get("data") or {"ok": True, "scanned": 0, "btc": {}, "full": []}
+
+
+@app.get("/api/owner/telegram-smart-mtf/test")
+def test_smart_mtf_telegram(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    _load_env()
+    token = os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        raise HTTPException(status_code=400, detail="Telegram bot credentials are not configured in .env (TELEGRAM_SMART_MTF_BOT_TOKEN / TELEGRAM_SMART_MTF_CHAT_ID)")
+    msg = (
+        "🎯 <b>Smart MTF Alert Test</b>\n\n"
+        "✅ Connected successfully!\n"
+        "⚡ Scanning 50 liquid Binance pairs every 60s.\n"
+        "📡 1W/1D Pivots + 1H OTE & ADX + 15m Rejection Trigger."
+    )
+    ok = _send_smart_mtf_telegram(msg)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Failed to send Telegram message. Check bot token and ensure /start has been initiated in the bot chat.")
+    return {"ok": True, "sent": True}
+
+
+# Start background 60s scanner thread
+threading.Thread(target=_smart_mtf_scanner_loop, name="smart-mtf-scanner", daemon=True).start()
