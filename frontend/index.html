@@ -26,7 +26,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261135-swipe-1">
-  <link rel="stylesheet" href="/frontend/markets.css?v=20261123-smtf2-v3">
+  <link rel="stylesheet" href="/frontend/markets.css?v=20261124-clean">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261117-tab-1">
   <link rel="stylesheet" href="/frontend/community.css?v=20261114-cm-1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -185,11 +185,6 @@
         <button class="nav-button" id="cdNavFlows" type="button" data-ext-link="https://farside.co.uk/?p=997" data-ext-label="ETF Flows">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 20V11M12 20V4M19 20v-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
           ETF Flows &#8599;
-        </button>
-
-        <button class="nav-button app-tab" type="button" data-tab="smartmtf" hidden aria-hidden="true">
-          <span class="nav-icon">🎯</span>
-          Smart MTF
         </button>
 
         <!-- The old BTC-only Virtual Trading page is replaced by Positions/Orders. -->
@@ -1293,31 +1288,6 @@
   </section>
 </section>
 
-
-    <section class="tab-panel" data-panel="smartmtf" id="cdSmartMtf">
-      <div class="cd-dash cd-fr-page">
-        <div class="cd-fr-top cd-smartmtf-header" style="justify-content: space-between; width: 100%; gap: 8px;">
-          <div class="cd-smartmtf-title" style="flex: 1; min-width: 0;">
-            <strong>Smart MTF 2.0</strong>
-            <small style="display: block; margin-top: 2px; font-size: 9.5px; letter-spacing: .12em; color: var(--text-muted, var(--muted));">1W · 1D · 1H · 15m CONFLUENCE</small>
-          </div>
-          <div class="cd-smartmtf-actions" style="display: flex; gap: 8px; align-items: center; flex: 0 0 auto; margin-left: auto;">
-            <button id="cdSmartMtfTgTest" class="cd-pill" type="button" style="font-size: 11px; padding: 5px 10px; margin: 0; cursor: pointer; white-space: nowrap;">📲 Test TG</button>
-            <button id="cdSmartMtfRefresh" class="cd-fr-iconbtn" type="button" aria-label="Refresh" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; min-width:34px; min-height:34px; border-radius:50%; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.06); color:var(--text-muted, #94a3b8); cursor:pointer; padding:0; outline:none; -webkit-tap-highlight-color:transparent;"><svg class="cd-fr-spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
-          </div>
-        </div>
-        <div class="cd-fr-bar">
-          <div class="cd-pills" id="cdSmartMtfTabs">
-            <button type="button" class="cd-pill is-active" data-smart-filter="all">🎯 All Setups</button>
-            <button type="button" class="cd-pill" data-smart-filter="confirmed">⚡ Confirmed Trigger</button>
-            <button type="button" class="cd-pill" data-smart-filter="inzone">⏳ In OTE Zone</button>
-          </div>
-        </div>
-        <p id="cdSmartMtfMeta" class="cd-fr-meta">Checking market bias and setups…</p>
-        <div id="cdSmartMtfResults" class="cd-focus-results" aria-live="polite"></div>
-      </div>
-    </section>
-
     <section class="disclaimer-card">
      <p id="disclaimerText">
         Educational only. Not financial advice.
@@ -2255,7 +2225,6 @@
       });
     }
   </script>
-  <script src="/frontend/smart-mtf.js?v=20261123-smtf2-v3"></script>
   <script src="/frontend/settings.js?v=20261121-delta-tpmode-v1"></script>
 </body>
 </html>
