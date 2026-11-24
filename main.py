@@ -4653,7 +4653,13 @@ def _smtf_analyze_symbol(symbol):
         return None
 
 
+_smart_mtf_tg_blocked_until = 0
+
 def _send_smart_mtf_telegram(text: str) -> bool:
+    global _smart_mtf_tg_blocked_until
+    now = time.time()
+    if now < _smart_mtf_tg_blocked_until:
+        return False
     _load_env()
     token = os.getenv("TELEGRAM_SMART_MTF_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     chat_id = os.getenv("TELEGRAM_SMART_MTF_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
@@ -4673,6 +4679,15 @@ def _send_smart_mtf_telegram(text: str) -> bool:
         if r.status_code == 200:
             print(f"[Smart MTF TG] Sent alert to {chat_id}")
             return True
+        if r.status_code == 429:
+            try:
+                data = r.json()
+                retry_after = int(data.get("parameters", {}).get("retry_after", 45))
+            except Exception:
+                retry_after = 45
+            _smart_mtf_tg_blocked_until = time.time() + retry_after + 5
+            print(f"[Smart MTF TG RateLimit] 429 hit. Pausing Telegram sends for {retry_after + 5}s")
+            return False
         print(f"[Smart MTF TG Error] HTTP {r.status_code}: {r.text}")
         return False
     except Exception as e:
@@ -4746,20 +4761,25 @@ def _smart_mtf_run_scan(wait_if_running: bool = False):
 
         # Alert newly confirmed setups
         now = time.time()
-        for item in valid:
-            if item.get("trigger_state") == "CONFIRMED":
-                sym = item["symbol"]
-                last_time = _smart_mtf_alerted.get(sym, 0)
-                # Alert at most once per 4 hours (14400s) for the same coin
-                if now - last_time > 14400:
-                    alert_msg = _format_smart_mtf_alert(item, btc)
-                    sent = _send_smart_mtf_telegram(alert_msg)
-                    if sent:
-                        _smart_mtf_alerted[sym] = now
-                    else:
-                        # 5m cooldown on failure/rate limit to avoid hammering Telegram
-                        _smart_mtf_alerted[sym] = now - 14400 + 300
-                    time.sleep(1.2)
+        # On first scan, seed existing confirmed coins to prevent 15-message flood
+        if not _smart_mtf_alerted:
+            for item in valid:
+                if item.get("trigger_state") == "CONFIRMED":
+                    _smart_mtf_alerted[item["symbol"]] = now
+        else:
+            for item in valid:
+                if item.get("trigger_state") == "CONFIRMED":
+                    sym = item["symbol"]
+                    last_time = _smart_mtf_alerted.get(sym, 0)
+                    if now - last_time > 14400:
+                        alert_msg = _format_smart_mtf_alert(item, btc)
+                        sent = _send_smart_mtf_telegram(alert_msg)
+                        if sent:
+                            _smart_mtf_alerted[sym] = now
+                            time.sleep(2.0)
+                        else:
+                            # Break on error/429 to avoid hammering Telegram
+                            break
     except Exception as e:
         print(f"[Smart MTF] Scan execution error: {e}")
     finally:
