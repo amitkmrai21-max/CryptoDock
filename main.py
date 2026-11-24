@@ -1402,6 +1402,12 @@ import hashlib
 import html as html_lib
 import threading
 import urllib.parse
+import socket
+try:
+    import urllib3.util.connection as urllib_conn
+    urllib_conn.allowed_gai_family = lambda: socket.AF_INET
+except Exception:
+    pass
 import xml.etree.ElementTree as element_tree
 from email.utils import parsedate_to_datetime
 
@@ -2286,7 +2292,8 @@ def _send_telegram_alert(text: str) -> bool:
         "disable_web_page_preview": True,
     }
     try:
-        r = requests.post(url, json=payload, timeout=12)
+        headers = {"User-Agent": "CryptoDock/1.0"}
+        r = requests.post(url, json=payload, headers=headers, timeout=(5, 15))
         return r.status_code == 200
     except Exception:
         return False
@@ -4660,8 +4667,9 @@ def _send_smart_mtf_telegram(text: str) -> bool:
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
     }
+    headers = {"User-Agent": "CryptoDock-Scanner/1.0"}
     try:
-        r = requests.post(url, json=payload, timeout=12)
+        r = requests.post(url, json=payload, headers=headers, timeout=(6, 15))
         if r.status_code == 200:
             print(f"[Smart MTF TG] Sent alert to {chat_id}")
             return True
