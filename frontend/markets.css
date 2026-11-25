@@ -3741,3 +3741,21 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
   font-size: 11px;
   color: var(--text-muted, #94a3b8);
 }
+
+/* Accuracy Header Controls Layout */
+#cdAccuracy .cd-accuracy-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 6px;
+}
+#cdAccuracy .cd-accuracy-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+#cdAccuracy #cdAccuracyRefresh {
+  margin-left: auto !important;
+}
