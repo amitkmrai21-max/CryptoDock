@@ -4853,3 +4853,240 @@ def test_smart_mtf_telegram(authorization: str = Header(None)):
 
 # Start background 60s scanner thread
 threading.Thread(target=_smart_mtf_scanner_loop, name="smart-mtf-scanner", daemon=True).start()
+
+
+# ==============================================================================
+# ACCURACY PATTERN CONFLUENCE ENGINE & SCANNER (OWNER ONLY)
+# ==============================================================================
+import accuracy_engine
+
+ACCURACY_SYMBOLS = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "ADAUSDT",
+    "AVAXUSDT", "LINKUSDT", "SUIUSDT", "NEARUSDT", "APTUSDT", "DOTUSDT", "LTCUSDT",
+    "BCHUSDT", "UNIUSDT", "TIAUSDT", "INJUSDT", "FETUSDT", "RENDERUSDT", "PEPEUSDT",
+    "SHIBUSDT", "ARBUSDT", "OPUSDT", "AAVEUSDT", "CRVUSDT", "MKRUSDT", "STXUSDT",
+    "TAOUSDT", "FILUSDT", "ATOMUSDT", "SEIUSDT", "WIFUSDT", "FLOKIUSDT", "BONKUSDT",
+    "GALAUSDT", "SANDUSDT", "MANAUSDT", "ALGOUSDT", "HBARUSDT", "VETUSDT", "ICPUSDT",
+    "TONUSDT", "XLMUSDT", "TRXUSDT", "KASUSDT", "FTMUSDT", "ENAUSDT", "PENDLEUSDT", "ONDOUSDT"
+]
+
+_accuracy_lock = threading.Lock()
+_accuracy_cache = {
+    "15m": {"data": None, "timestamp": 0.0},
+    "1h": {"data": None, "timestamp": 0.0}
+}
+_accuracy_alerted = {}  # (symbol, interval) -> float timestamp
+_accuracy_scanning = False
+_accuracy_tg_blocked_until = 0
+
+
+def _send_accuracy_telegram(text: str) -> bool:
+    global _accuracy_tg_blocked_until
+    now = time.time()
+    if now < _accuracy_tg_blocked_until:
+        return False
+    _load_env()
+    token = os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "CryptoDockAccuracy/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            retry_after = 30
+            try:
+                b = json.loads(e.read().decode())
+                retry_after = b.get("parameters", {}).get("retry_after", 30)
+            except Exception:
+                pass
+            _accuracy_tg_blocked_until = time.time() + retry_after + 5
+        return False
+    except Exception:
+        return False
+
+
+def _format_accuracy_alert(item: dict) -> str:
+    sym = item["symbol"].replace("USDT", "/USDT")
+    side = item["side"]
+    side_emoji = "🟢 BUY (LONG)" if side == "LONG" else "🔴 SELL (SHORT)"
+    pattern = item["pattern"]
+    cat = item.get("category", "Pattern Setup")
+    entry = item["entry"]
+    sl = item["stop_loss"]
+    t1 = item["target_1"]
+    t2 = item["target_2"]
+    risk = item["risk_pct"]
+    rr1 = item.get("rr_1", "1:1.6")
+    rr2 = item.get("rr_2", "1:2.8")
+    vol = item.get("volume_surge", 1.0)
+    summary = item.get("summary", "")
+    tf = item.get("interval", "15m")
+    
+    return (
+        f"📐 <b>CryptoDock Accuracy Alert · {sym} ({tf})</b>\n\n"
+        f"⚡ <b>{side_emoji}</b> — {pattern}\n"
+        f"🏷 <i>Category: {cat}</i>\n"
+        f"✅ <b>Closed Candle Breakout Confirmed</b>\n\n"
+        f"💵 <b>Entry:</b> ${entry:,.4f}\n"
+        f"🛑 <b>Stop Loss:</b> ${sl:,.4f} (Risk: {risk}%)\n"
+        f"🎯 <b>Target 1:</b> ${t1:,.4f} ({rr1} R:R)\n"
+        f"🚀 <b>Target 2:</b> ${t2:,.4f} ({rr2} R:R)\n"
+        f"📊 <b>Volume Surge:</b> {vol}x\n\n"
+        f"📝 <i>{summary}</i>\n\n"
+        f"⚠️ <i>Manual execution only. Educational pattern recognition.</i>"
+    )
+
+
+def _accuracy_run_scan(interval="15m", wait_if_running=False):
+    global _accuracy_scanning, _accuracy_cache, _accuracy_alerted
+    if interval not in ("15m", "1h"):
+        interval = "15m"
+
+    with _accuracy_lock:
+        if _accuracy_scanning:
+            if not wait_if_running:
+                return
+        else:
+            _accuracy_scanning = True
+
+    if not _accuracy_scanning and wait_if_running:
+        t_end = time.time() + 15
+        while time.time() < t_end:
+            time.sleep(0.2)
+            with _accuracy_lock:
+                if not _accuracy_scanning:
+                    return
+        return
+
+    try:
+        def fetcher(sym, tf, limit=100):
+            return get_klines(sym, tf, limit)
+
+        def worker(sym):
+            return accuracy_engine.analyze_symbol_accuracy(sym, fetcher, interval=interval)
+
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            raw_results = list(pool.map(worker, ACCURACY_SYMBOLS))
+
+        valid = [r for r in raw_results if r]
+        # Sort: Confirmed first, then highest volume surge
+        valid.sort(key=lambda x: (1 if x.get("status") == "CONFIRMED" else 0, x.get("volume_surge", 0)), reverse=True)
+
+        payload = {
+            "ok": True,
+            "scanned": len(ACCURACY_SYMBOLS),
+            "interval": interval,
+            "setups": valid,
+            "updated_at": int(time.time()),
+        }
+
+        with _accuracy_lock:
+            _accuracy_cache[interval] = {"data": payload, "timestamp": time.time()}
+
+        now = time.time()
+        # Initial seeding on first scan to avoid alert storms
+        alert_key_base = f"init_{interval}"
+        if alert_key_base not in _accuracy_alerted:
+            _accuracy_alerted[alert_key_base] = now
+            for item in valid:
+                if item.get("status") == "CONFIRMED":
+                    _accuracy_alerted[(item["symbol"], interval)] = now
+        else:
+            for item in valid:
+                if item.get("status") == "CONFIRMED":
+                    sym = item["symbol"]
+                    key = (sym, interval)
+                    last_time = _accuracy_alerted.get(key, 0)
+                    if now - last_time > 4 * 3600:
+                        msg = _format_accuracy_alert(item)
+                        if _send_accuracy_telegram(msg):
+                            _accuracy_alerted[key] = now
+                            time.sleep(1.2)
+    except Exception as e:
+        print(f"[Accuracy] Scan error: {e}")
+    finally:
+        with _accuracy_lock:
+            _accuracy_scanning = False
+
+
+def _accuracy_scanner_loop():
+    time.sleep(6)  # allow app startup to settle
+    while True:
+        try:
+            _accuracy_run_scan(interval="15m")
+        except Exception as e:
+            print(f"[Accuracy] Loop error: {e}")
+        time.sleep(60)
+
+
+@app.get("/api/owner/accuracy/access")
+def accuracy_access(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    return {"ok": True, "owner": True}
+
+
+@app.get("/api/owner/accuracy")
+def get_accuracy_results(refresh: int = 0, interval: str = "15m", authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    if interval not in ("15m", "1h"):
+        interval = "15m"
+
+    now = time.time()
+    tf_cache = _accuracy_cache.get(interval, {})
+    cached = tf_cache.get("data")
+    ts = tf_cache.get("timestamp", 0)
+
+    if refresh or not cached or (now - ts > 65):
+        _accuracy_run_scan(interval=interval, wait_if_running=True)
+
+    return _accuracy_cache.get(interval, {}).get("data") or {
+        "ok": True,
+        "scanned": 0,
+        "interval": interval,
+        "setups": []
+    }
+
+
+@app.get("/api/owner/telegram-accuracy/test")
+def test_accuracy_telegram(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    _load_env()
+    token = os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if not token or not chat_id:
+        raise HTTPException(status_code=400, detail="Telegram bot credentials are not configured in .env (TELEGRAM_ACCURACY_BOT_TOKEN / TELEGRAM_ACCURACY_CHAT_ID)")
+    msg = (
+        "📐 <b>CryptoDock Accuracy Scanner Live</b>\n\n"
+        "✅ Connected successfully!\n"
+        "⚡ Scanning 50 liquid Binance pairs every 60s.\n"
+        "📡 Chart Patterns: Liquidity Sweep/MSS, H&S, Double/Triple Tops & Bottoms, Triangles, Wedges, Flags, Box Range.\n"
+        "🎯 Signals trigger strictly on closed candle breakouts."
+    )
+    ok = _send_accuracy_telegram(msg)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Failed to send Telegram message. Check bot credentials and ensure /start has been initiated in chat.")
+    return {"ok": True, "sent": True}
+
+
+# Start background 60s accuracy scanner thread
+threading.Thread(target=_accuracy_scanner_loop, name="accuracy-scanner", daemon=True).start()
