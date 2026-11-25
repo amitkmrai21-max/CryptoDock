@@ -1,5 +1,5 @@
-// Accuracy Pattern Recognition & Confluence Scanner:
-// Fresh implementation strictly adhering to image-based chart patterns & closed candle breakout confirmation.
+// Accuracy Pattern Recognition & Confluence Scanner
+// Strictly adheres to image-based chart patterns & closed candle breakout confirmation.
 (function accuracyModule() {
   const overlay = document.getElementById("cdAccuracy");
   const results = document.getElementById("cdAccuracyResults");
@@ -20,8 +20,14 @@
     return Number.isFinite(n) ? `${signed && n > 0 ? "+" : ""}${n.toFixed(2)}%` : "--";
   };
   const ago = (ts) => {
-    const m = Math.max(0, Math.round((Date.now() / 1000 - Number(ts)) / 60));
-    return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
+    if (!ts) return "";
+    const sec = Number(ts) > 1e11 ? Number(ts) / 1000 : Number(ts);
+    const now = Date.now() / 1000;
+    const diff = Math.max(0, Math.floor(now - sec));
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
   };
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -60,105 +66,94 @@
         throw e;
       }
       return body;
+    } catch (e) {
+      if (e.name === "AbortError") throw new Error("Scan timed out. Please tap refresh to retry.");
+      throw e;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  async function runScan(fresh = false) {
-    if (scanning) return;
-    scanning = true;
-    error = "";
-    refreshBtn?.classList.add("is-scanning");
-    render();
-    try {
-      data = await fetchScan(fresh);
-      loadedAt = Date.now();
-    } catch (e) {
-      error = e.status === 401 || e.status === 403
-        ? "Owner access required (amitkmrai21@gmail.com)."
-        : (e.message || "Failed to load Accuracy scanner.");
-    } finally {
-      scanning = false;
-      refreshBtn?.classList.remove("is-scanning");
-      render();
-    }
-  }
-
-  function filterSetups(list) {
-    if (!Array.isArray(list)) return [];
-    return list.filter((s) => {
-      if (filterTab === "all") return true;
-      if (filterTab === "confirmed") return s.status === "CONFIRMED";
-      if (filterTab === "sweep") return s.category === "Smart Money Structure";
-      if (filterTab === "reversal") return s.category === "Reversal Pattern";
-      if (filterTab === "continuation") return s.category === "Continuation Pattern";
-      if (filterTab === "box") return s.category === "Consolidation Breakout";
-      return true;
-    });
+  function filterSetups(all) {
+    if (!Array.isArray(all)) return [];
+    if (filterTab === "all") return all;
+    if (filterTab === "confirmed") return all.filter((s) => s.status === "CONFIRMED");
+    if (filterTab === "sweep") return all.filter((s) => s.pattern && s.pattern.includes("Sweep"));
+    if (filterTab === "reversal") return all.filter((s) => s.category === "Reversal Pattern");
+    if (filterTab === "continuation") return all.filter((s) => s.category === "Continuation Pattern");
+    if (filterTab === "box") return all.filter((s) => s.category === "Consolidation Breakout");
+    return all;
   }
 
   function renderCard(s) {
-    const isLong = s.side === "LONG";
-    const sideClass = isLong ? "cd-badge-bull" : "cd-badge-bear";
-    const sideEmoji = isLong ? "🟢 LONG" : "🔴 SHORT";
-    const statusClass = s.status === "CONFIRMED" ? "cd-badge-confirmed" : "cd-badge-inzone";
-    const statusText = s.status === "CONFIRMED" ? "⚡ Breakout Confirmed (Closed Candle)" : "⏳ Testing Level";
-    const symbolClean = esc(s.symbol.replace("USDT", ""));
+    const bull = s.side === "LONG";
+    const dir = bull ? "LONG" : "SHORT";
+    const base = s.symbol.replace("USDT", "");
+    const avatar = window.cdFormat?.avatar ? window.cdFormat.avatar(base) : "📐";
+    const isConfirmed = s.status === "CONFIRMED";
+    const timeText = ago(s.candle_close_time || s.scanned_at);
     const vol = s.volume_surge || 1.0;
-    const volBadge = vol >= 1.3 ? `<span class="cd-badge-vol">🔥 ${vol}x Vol</span>` : `<span class="cd-badge-subtle">${vol}x Vol</span>`;
 
     return `
-      <article class="cd-fr-card cd-accuracy-card" data-symbol="${esc(s.symbol)}">
-        <header class="cd-fr-card-head">
-          <div class="cd-fr-coin">
-            <span class="cd-fr-coin-symbol">${symbolClean}</span>
-            <span class="cd-fr-coin-pair">/USDT</span>
-            <span class="cd-badge-timeframe">${esc(s.interval || currentTimeframe)}</span>
+      <article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(base)}">
+        <div class="cd-fr-head">
+          <span class="cd-fr-avatar">${avatar}</span>
+          <div class="cd-fr-id">
+            <strong>${esc(base)}<span>/USDT</span></strong>
+            <small>${esc(s.category || "Pattern Setup")} · ${esc(s.interval || currentTimeframe)}</small>
           </div>
-          <div class="cd-accuracy-badges">
-            <span class="cd-fr-badge ${sideClass}">${sideEmoji}</span>
-            <span class="cd-fr-badge cd-badge-pattern">${esc(s.pattern)}</span>
-            ${volBadge}
-          </div>
-        </header>
-
-        <div class="cd-accuracy-status-strip">
-          <span class="cd-fr-badge ${statusClass}">${statusText}</span>
-          <span class="cd-fr-time">${ago(s.candle_close_time ? s.candle_close_time / 1000 : s.scanned_at)}</span>
-        </div>
-
-        <div class="cd-fr-grid cd-accuracy-grid">
-          <div class="cd-fr-kv">
-            <span class="cd-fr-k">Breakout Level</span>
-            <span class="cd-fr-v">${money(s.breakout_level)}</span>
-          </div>
-          <div class="cd-fr-kv">
-            <span class="cd-fr-k">Closed Entry</span>
-            <span class="cd-fr-v cd-fr-bold">${money(s.entry)}</span>
-          </div>
-          <div class="cd-fr-kv">
-            <span class="cd-fr-k">Stop Loss</span>
-            <span class="cd-fr-v cd-fr-loss">${money(s.stop_loss)} <small>(${s.risk_pct}%)</small></span>
-          </div>
-          <div class="cd-fr-kv">
-            <span class="cd-fr-k">Target 1 (${esc(s.rr_1 || "1:1.6")})</span>
-            <span class="cd-fr-v cd-fr-win">${money(s.target_1)}</span>
-          </div>
-          <div class="cd-fr-kv">
-            <span class="cd-fr-k">Target 2 (${esc(s.rr_2 || "1:2.8")})</span>
-            <span class="cd-fr-v cd-fr-win">${money(s.target_2)}</span>
+          <div class="cd-fr-px">
+            <b>${money(s.current_price || s.entry)}</b>
+            <small class="${bull ? "cd-up" : "cd-down"}">${bull ? "▲ BULLISH" : "▼ BEARISH"}</small>
           </div>
         </div>
 
-        <div class="cd-accuracy-summary">
-          <p><strong>Rationale:</strong> ${esc(s.summary || "")}</p>
+        <div class="cd-fr-tags">
+          <span class="cd-fr-pill">${bull ? "🟢" : "🔴"} ${dir} · ${esc(s.pattern)}</span>
+          <span class="cd-fr-tag cd-tag-purple">⚡ Closed Candle Breakout</span>
+          <span class="cd-fr-tag cd-tag-amber">🔥 ${vol}x Vol</span>
+          <span class="cd-fr-tag" style="margin-left:auto;">🕒 ${esc(timeText)}</span>
         </div>
 
-        <footer class="cd-fr-card-foot" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px;">
-          <small style="font-size: 10.5px; color: var(--text-muted, #94a3b8);">⚠️ Manual only · Educational pattern</small>
-          <a class="cd-pill" href="https://www.tradingview.com/chart/?symbol=BINANCE%3A${esc(s.symbol)}" target="_blank" rel="noopener" style="font-size: 11px; padding: 4px 10px; text-decoration: none;">📈 Open Chart &#8599;</a>
-        </footer>
+        <div class="cd-fr-levels">
+          <div>
+            <span>Breakout</span>
+            <b>${money(s.breakout_level)}</b>
+            <em style="color:#94a3b8">Pattern Level</em>
+          </div>
+          <div>
+            <span>Closed Entry</span>
+            <b style="color:#fff">${money(s.entry)}</b>
+            <em class="${bull ? "cd-up" : "cd-down"}">Triggered</em>
+          </div>
+          <div>
+            <span>Stop · ${s.risk_pct}%</span>
+            <b class="cd-down">${money(s.stop_loss)}</b>
+            <em class="cd-down">Invalidation</em>
+          </div>
+          <div>
+            <span>T1 · ${esc(s.rr_1 || "1:1.6")}</span>
+            <b class="cd-up">${money(s.target_1)}</b>
+            <em class="cd-up">T2: ${money(s.target_2)}</em>
+          </div>
+        </div>
+
+        <div class="cd-fr-summary">
+          <p><strong>Rationale:</strong> ${esc(s.summary || "")} · <em>Target 2 (${esc(s.rr_2 || "1:2.8")}): ${money(s.target_2)}</em></p>
+        </div>
+
+        <div class="cd-fr-actions">
+          <button type="button" class="cd-fr-ticket ${bull ? "is-buy" : "is-sell"}"
+            data-accuracy-ticket="${esc(base)}"
+            data-accuracy-side="${bull ? "BUY" : "SELL"}"
+            data-accuracy-stop="${esc(s.stop_loss)}"
+            data-accuracy-target="${esc(s.target_1)}">
+            ⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}
+          </button>
+          <button type="button" class="cd-fr-analysis" data-accuracy-coin="${esc(base)}">
+            📊 Analysis
+          </button>
+        </div>
       </article>
     `;
   }
@@ -167,10 +162,10 @@
     if (scanning && !data) {
       meta.textContent = `Scanning 50 liquid Binance pairs on closed ${currentTimeframe} candles…`;
       results.innerHTML = `
-        <div class="cd-smartmtf-state-card">
-          <div class="cd-smartmtf-spinner"></div>
+        <div class="cd-focus-empty">
+          <div class="cd-smartmtf-spinner" style="margin: 0 auto 12px auto;"></div>
           <strong>Scanning Chart Patterns (${currentTimeframe})</strong>
-          <p>Detecting closed candle breakouts, liquidity sweeps, triangles, and reversal patterns…</p>
+          <p>Analyzing institutional sweeps, Head & Shoulders, Wedges, Triangles & Box breakouts…</p>
         </div>
       `;
       return;
@@ -179,12 +174,13 @@
     if (error) {
       meta.textContent = "Scan unavailable";
       results.innerHTML = `
-        <div class="cd-smartmtf-state-card cd-smartmtf-error">
-          <div class="cd-smartmtf-icon">⚠️</div>
-          <strong>Accuracy Scanner Notice</strong>
+        <div class="cd-focus-empty" style="border-color: rgba(239, 68, 68, 0.4);">
+          <strong style="color: #ef4444;">Accuracy Scanner Notice</strong>
           <p>${esc(error)}</p>
+          <button type="button" class="cd-fr-ticket is-buy" id="cdAccuracyRetry" style="margin-top:12px; display:inline-block; padding: 6px 14px;">↻ Retry Scan</button>
         </div>
       `;
+      document.getElementById("cdAccuracyRetry")?.addEventListener("click", () => load(true));
       return;
     }
 
@@ -198,99 +194,158 @@
     if (!filtered.length) {
       const msg = filterTab === "confirmed"
         ? `No confirmed closed-candle breakouts right now on ${currentTimeframe}.`
-        : `No pattern setups found matching this filter on ${currentTimeframe}.`;
+        : `No active pattern setups detected right now on ${currentTimeframe}.`;
       results.innerHTML = `
-        <div class="cd-smartmtf-state-card">
-          <div class="cd-smartmtf-icon">📐</div>
-          <strong>No Active Patterns</strong>
-          <p>${esc(msg)} The scanner looks strictly for closed candle breakouts beyond pattern boundaries.</p>
+        <div class="cd-focus-empty">
+          <strong>${esc(msg)}</strong>
+          <p>Scanning 50 liquid pairs continuously every 60s for closed-candle breakout confirmation.</p>
         </div>
       `;
       return;
     }
 
-    results.innerHTML = filtered.map(renderCard).join("");
+    results.innerHTML = filtered.map(renderCard).join("") + `
+      <p class="cd-fr-note">Accuracy Pattern Scanner · Signals trigger strictly on closed-candle breakout confirmation. Manual execution only.</p>
+    `;
   }
 
-  // Refresh Button click
-  refreshBtn?.addEventListener("click", () => {
-    runScan(true);
-  });
+  async function load(fresh = false) {
+    if (scanning) return;
+    scanning = true;
+    overlay.classList.add("is-loading");
+    if (refreshBtn) {
+      refreshBtn.disabled = true;
+      refreshBtn.classList.add("is-spinning");
+    }
 
-  // Filter Tabs
+    if (!data) {
+      render();
+    } else {
+      meta.innerHTML = '<span style="color:#38bdf8; font-weight:600;">⚡ Scanning 50 pairs for closed-candle breakouts…</span>';
+    }
+
+    try {
+      const [res] = await Promise.all([
+        fetchScan(fresh),
+        fresh ? sleep(600) : Promise.resolve(),
+      ]);
+      data = res;
+      error = "";
+      loadedAt = Date.now();
+    } catch (e) {
+      const msg = e.status === 401 || e.status === 403
+        ? "Owner session required (amitkmrai21@gmail.com)."
+        : (e.message || "Could not load Accuracy setups.");
+      if (!data) error = msg;
+    } finally {
+      scanning = false;
+      overlay.classList.remove("is-loading");
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove("is-spinning");
+      }
+      render();
+    }
+  }
+
+  // Filter tabs
   document.getElementById("cdAccuracyTabs")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-accuracy-filter]");
+    const btn = e.target.closest("button[data-accuracy-filter]");
     if (!btn) return;
-    document.querySelectorAll("#cdAccuracyTabs [data-accuracy-filter]").forEach((b) => b.classList.remove("is-active"));
-    btn.classList.add("is-active");
-    filterTab = btn.dataset.accuracyFilter;
+    const f = btn.dataset.accuracyFilter;
+    if (f === filterTab) return;
+    filterTab = f;
+    document.querySelectorAll("#cdAccuracyTabs button[data-accuracy-filter]").forEach((b) => {
+      b.classList.toggle("is-active", b.dataset.accuracyFilter === filterTab);
+    });
     render();
   });
 
-  // Timeframe selector
-  document.getElementById("cdAccuracyTfTabs")?.addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-accuracy-tf]");
-    if (!btn) return;
-    document.querySelectorAll("#cdAccuracyTfTabs [data-accuracy-tf]").forEach((b) => b.classList.remove("is-active"));
-    btn.classList.add("is-active");
-    currentTimeframe = btn.dataset.accuracyTf;
-    runScan(true);
-  });
-
-  // Telegram Test button
-  tgBtn?.addEventListener("click", async () => {
-    if (tgBtn.disabled) return;
-    tgBtn.disabled = true;
-    const originalText = tgBtn.textContent;
-    tgBtn.textContent = "⏳ Sending…";
-    try {
-      const token = await getToken();
-      const res = await fetch("/api/owner/telegram-accuracy/test", {
-        headers: { Authorization: `Bearer ${token}` },
+  // Timeframe selector (15m / 1h)
+  document.querySelectorAll("#cdAccuracy [data-accuracy-tf]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tf = btn.dataset.accuracyTf;
+      if (tf === currentTimeframe) return;
+      currentTimeframe = tf;
+      document.querySelectorAll("#cdAccuracy [data-accuracy-tf]").forEach((b) => {
+        b.classList.toggle("is-active", b.dataset.accuracyTf === currentTimeframe);
       });
-      const body = await res.json().catch(() => ({}));
+      data = null;
+      load(true);
+    });
+  });
+
+  refreshBtn?.addEventListener("click", () => load(true));
+
+  tgBtn?.addEventListener("click", async () => {
+    try {
+      tgBtn.disabled = true;
+      tgBtn.textContent = "Sending...";
+      const bearer = await getToken();
+      const res = await fetch("/api/owner/telegram-accuracy/test", {
+        headers: { Authorization: `Bearer ${bearer}` },
+      });
+      const json = await res.json().catch(() => ({}));
       if (res.ok) {
-        tgBtn.textContent = "✅ Sent!";
+        tgBtn.textContent = "✓ Sent!";
+        setTimeout(() => { tgBtn.textContent = "📲 Test TG"; tgBtn.disabled = false; }, 3000);
       } else {
-        alert(body.detail || "Could not send test message. Check bot credentials.");
-        tgBtn.textContent = "❌ Failed";
-      }
-    } catch (err) {
-      alert(err.message || "Network error sending test Telegram.");
-      tgBtn.textContent = "❌ Error";
-    } finally {
-      setTimeout(() => {
+        alert("Telegram Error: " + (json.detail || "Failed to send alert. Check credentials in .env"));
+        tgBtn.textContent = "📲 Test TG";
         tgBtn.disabled = false;
-        tgBtn.textContent = originalText;
-      }, 3500);
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
+      tgBtn.textContent = "📲 Test TG";
+      tgBtn.disabled = false;
     }
   });
 
-  // Expose global opener for tabbar and menu
-  window.cdOpenAccuracy = function () {
-    const tab = document.querySelector('.sidebar .app-tab[data-tab="accuracy"]');
-    if (tab) tab.click();
-    else {
-      document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-      overlay.classList.add("active");
+  // Card click actions: Open Paper Ticket or Analysis
+  results.addEventListener("click", (e) => {
+    const ticket = e.target.closest("[data-accuracy-ticket]");
+    if (ticket) {
+      window.cdOpenTicket?.(
+        ticket.dataset.accuracyTicket,
+        ticket.dataset.accuracySide === "SELL" ? "SELL" : "BUY",
+        {
+          stopLoss: Number(ticket.dataset.accuracyStop),
+          target: Number(ticket.dataset.accuracyTarget),
+        }
+      );
+      return;
     }
-    const isStale = !loadedAt || Date.now() - loadedAt > STALE_MS;
-    if (!data || isStale) runScan(false);
+    const analysis = e.target.closest("[data-accuracy-coin]");
+    if (analysis) {
+      window.cdOpenSheet?.(analysis.dataset.accuracyCoin);
+    }
+  });
+
+  const active = () => overlay.classList.contains("active") || overlay.classList.contains("is-active");
+  function ensureLoaded() {
+    if (active() && !scanning && (!data || Date.now() - loadedAt > STALE_MS)) {
+      load();
+    }
+  }
+
+  // Auto-refresh every 60s when tab is visible
+  setInterval(() => {
+    if (active() && !document.hidden && !scanning && Date.now() - loadedAt >= 60000) {
+      load(true);
+    }
+  }, 5000);
+
+  let wasActive = active();
+  new MutationObserver(() => {
+    const now = active();
+    if (now && !wasActive) ensureLoaded();
+    wasActive = now;
+  }).observe(overlay, { attributes: true, attributeFilter: ["class"] });
+
+  window.cdOpenAccuracy = function () {
+    document.querySelector('.sidebar .app-tab[data-tab="accuracy"]')?.click();
+    load();
   };
 
-  // Visibility / Auto-refresh loop
-  const observer = new MutationObserver(() => {
-    if (overlay.classList.contains("active")) {
-      const isStale = !loadedAt || Date.now() - loadedAt > STALE_MS;
-      if (!data || isStale) runScan(false);
-    }
-  });
-  observer.observe(overlay, { attributes: true, attributeFilter: ["class"] });
-
-  setInterval(() => {
-    if (overlay.classList.contains("active") && !scanning && Date.now() - loadedAt > STALE_MS) {
-      runScan(false);
-    }
-  }, 30000);
-
+  ensureLoaded();
 })();

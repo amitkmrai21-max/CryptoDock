@@ -613,6 +613,10 @@ def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
         raw = klines_fetcher(symbol, interval, limit=100)
         if not raw or len(raw) < 35:
             return None
+        # Discard stale or delisted pairs (last candle older than 2 hours)
+        last_kline_time = raw[-1][0] / 1000.0
+        if time.time() - last_kline_time > 7200:
+            return None
         candles = []
         for c in raw:
             candles.append({
