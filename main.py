@@ -4886,8 +4886,8 @@ def _send_accuracy_telegram(text: str) -> bool:
     if now < _accuracy_tg_blocked_until:
         return False
     _load_env()
-    token = os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    token = os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or "9154595444:AAF-hmRRbzib8kj2R4AabnxR4cXF6CkIga4"
+    chat_id = os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or "8391540111"
     if not token or not chat_id:
         return False
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -5071,8 +5071,8 @@ def test_accuracy_telegram(authorization: str = Header(None)):
     if _session_email(authorization) != owner_mail:
         raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
     _load_env()
-    token = os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-    chat_id = os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    token = os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or "9154595444:AAF-hmRRbzib8kj2R4AabnxR4cXF6CkIga4"
+    chat_id = os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or "8391540111"
     if not token or not chat_id:
         raise HTTPException(status_code=400, detail="Telegram bot credentials are not configured in .env (TELEGRAM_ACCURACY_BOT_TOKEN / TELEGRAM_ACCURACY_CHAT_ID)")
     msg = (
