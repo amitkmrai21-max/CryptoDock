@@ -695,6 +695,383 @@ def check_flag_pennant(candles):
                 }
     return None
 
+
+# -------------------------------------------------------------
+# 7. FAIR VALUE GAP (FVG) / IMBALANCE MITIGATION
+# -------------------------------------------------------------
+def check_fair_value_gap(candles):
+    """
+    Fair Value Gap (FVG) / Imbalance Mitigation (SMC/ICT):
+    Bullish FVG:
+      - 3-candle imbalance: Candle k-2 (c1) High < Candle k (c3) Low.
+      - Candle k-1 (c2) must be a strong green expansion candle (c > o).
+      - Gap size at least 0.15% to avoid micro-noise.
+      - Price mitigates into [c1['h'], c3['l']] without closing below c1['h'].
+      - Latest closed candle (candles[-2]) confirms bullish reaction (green close holding above c1['h']).
+    Bearish FVG:
+      - 3-candle imbalance: Candle k-2 (c1) Low > Candle k (c3) High.
+      - Candle k-1 (c2) is a strong red expansion candle (c < o).
+      - Price mitigates into [c3['h'], c1['l']] without closing above c1['l'].
+      - Latest closed candle (candles[-2]) confirms bearish reaction (red close holding below c1['l']).
+    """
+    n = len(candles)
+    if n < 20:
+        return None
+    last_closed = candles[-2]
+    curr_c = last_closed["c"]
+
+    # Bullish FVG
+    for k in range(n - 4, max(3, n - 25), -1):
+        c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
+        if c2["c"] > c2["o"] and c3["l"] > c1["h"]:
+            gap_bottom = c1["h"]
+            gap_top = c3["l"]
+            gap_size = (gap_top - gap_bottom) / gap_bottom
+            if gap_size >= 0.0015:
+                subsequent = candles[k+1:-2]
+                if not any(c["c"] < gap_bottom for c in subsequent):
+                    tapped = any(c["l"] <= gap_top for c in subsequent) or (last_closed["l"] <= gap_top)
+                    if tapped:
+                        if last_closed["c"] > last_closed["o"] and last_closed["c"] >= gap_bottom:
+                            prev_c = candles[-3]
+                            if last_closed["c"] > prev_c["c"]:
+                                entry = curr_c
+                                sl = round(gap_bottom * 0.997, 6)
+                                risk = (entry - sl) / entry
+                                if 0.003 <= risk <= 0.045:
+                                    t1 = round(entry + (entry - sl) * 1.6, 6)
+                                    t2 = round(entry + (entry - sl) * 2.8, 6)
+                                    return {
+                                        "pattern": "Fair Value Gap (FVG)",
+                                        "category": "Smart Money Structure",
+                                        "side": "LONG",
+                                        "status": "CONFIRMED",
+                                        "breakout_level": gap_top,
+                                        "entry": entry,
+                                        "stop_loss": sl,
+                                        "target_1": t1,
+                                        "target_2": t2,
+                                        "risk_pct": round(risk * 100, 2),
+                                        "rr_1": "1:1.6",
+                                        "rr_2": "1:2.8",
+                                        "summary": f"Bullish FVG mitigation at {gap_bottom}-{gap_top} with closed green reaction candle."
+                                    }
+
+    # Bearish FVG
+    for k in range(n - 4, max(3, n - 25), -1):
+        c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
+        if c2["c"] < c2["o"] and c3["h"] < c1["l"]:
+            gap_top = c1["l"]
+            gap_bottom = c3["h"]
+            gap_size = (gap_top - gap_bottom) / gap_bottom
+            if gap_size >= 0.0015:
+                subsequent = candles[k+1:-2]
+                if not any(c["c"] > gap_top for c in subsequent):
+                    tapped = any(c["h"] >= gap_bottom for c in subsequent) or (last_closed["h"] >= gap_bottom)
+                    if tapped:
+                        if last_closed["c"] < last_closed["o"] and last_closed["c"] <= gap_top:
+                            prev_c = candles[-3]
+                            if last_closed["c"] < prev_c["c"]:
+                                entry = curr_c
+                                sl = round(gap_top * 1.003, 6)
+                                risk = (sl - entry) / entry
+                                if 0.003 <= risk <= 0.045:
+                                    t1 = round(entry - (sl - entry) * 1.6, 6)
+                                    t2 = round(entry - (sl - entry) * 2.8, 6)
+                                    return {
+                                        "pattern": "Fair Value Gap (FVG)",
+                                        "category": "Smart Money Structure",
+                                        "side": "SHORT",
+                                        "status": "CONFIRMED",
+                                        "breakout_level": gap_bottom,
+                                        "entry": entry,
+                                        "stop_loss": sl,
+                                        "target_1": t1,
+                                        "target_2": t2,
+                                        "risk_pct": round(risk * 100, 2),
+                                        "rr_1": "1:1.6",
+                                        "rr_2": "1:2.8",
+                                        "summary": f"Bearish FVG mitigation at {gap_bottom}-{gap_top} with closed red reaction candle."
+                                    }
+    return None
+
+# -------------------------------------------------------------
+# 8. INSTITUTIONAL ORDER BLOCK (OB) + BOS RETEST
+# -------------------------------------------------------------
+def check_order_block_bos(candles, highs, lows):
+    """
+    Institutional Order Block (OB) + Break of Structure (BOS):
+    Bullish OB:
+      - Impulsive upmove creates BOS breaking a swing high H_prev.
+      - Bullish OB is the last down-close (red) candle before that breakout impulse.
+      - Retest: Price pulls back into OB [ob['l'], ob['h']] holding above ob['l'].
+      - Trigger: Latest closed candle (candles[-2]) is green with rejection from OB.
+    Bearish OB:
+      - Impulsive drop creates BOS breaking a swing low L_prev.
+      - Bearish OB is the last up-close (green) candle before that breakdown impulse.
+      - Retest: Price pulls back up into OB [ob['l'], ob['h']] holding below ob['h'].
+      - Trigger: Latest closed candle (candles[-2]) is red with rejection from OB.
+    """
+    n = len(candles)
+    if n < 30 or len(highs) < 2 or len(lows) < 2:
+        return None
+    last_closed = candles[-2]
+    curr_c = last_closed["c"]
+
+    # Bullish OB
+    for h in reversed(highs[-5:]):
+        h_idx, h_price = h["idx"], h["price"]
+        bos_c = [c for c in candles[h_idx+1:-4] if c["c"] > h_price]
+        if bos_c:
+            first_bos = bos_c[0]
+            bos_idx = candles.index(first_bos)
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if candles[j]["c"] < candles[j]["o"]]
+            if ob_candidates:
+                ob = ob_candidates[0]
+                ob_top = ob["h"]
+                ob_bottom = ob["l"]
+                retest_candles = candles[bos_idx:-2]
+                if any(c["l"] <= ob_top for c in retest_candles) and not any(c["c"] < ob_bottom for c in retest_candles):
+                    if last_closed["c"] > last_closed["o"] and last_closed["c"] >= ob_bottom:
+                        entry = curr_c
+                        sl = round(ob_bottom * 0.997, 6)
+                        risk = (entry - sl) / entry
+                        if 0.003 <= risk <= 0.045:
+                            t1 = round(entry + (entry - sl) * 1.6, 6)
+                            t2 = round(entry + (entry - sl) * 2.8, 6)
+                            return {
+                                "pattern": "Institutional Order Block (OB)",
+                                "category": "Smart Money Structure",
+                                "side": "LONG",
+                                "status": "CONFIRMED",
+                                "breakout_level": ob_top,
+                                "entry": entry,
+                                "stop_loss": sl,
+                                "target_1": t1,
+                                "target_2": t2,
+                                "risk_pct": round(risk * 100, 2),
+                                "rr_1": "1:1.6",
+                                "rr_2": "1:2.8",
+                                "summary": f"Bullish Order Block retest at {ob_bottom}-{ob_top} after BOS above {h_price}."
+                            }
+
+    # Bearish OB
+    for l in reversed(lows[-5:]):
+        l_idx, l_price = l["idx"], l["price"]
+        bos_c = [c for c in candles[l_idx+1:-4] if c["c"] < l_price]
+        if bos_c:
+            first_bos = bos_c[0]
+            bos_idx = candles.index(first_bos)
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if candles[j]["c"] > candles[j]["o"]]
+            if ob_candidates:
+                ob = ob_candidates[0]
+                ob_top = ob["h"]
+                ob_bottom = ob["l"]
+                retest_candles = candles[bos_idx:-2]
+                if any(c["h"] >= ob_bottom for c in retest_candles) and not any(c["c"] > ob_top for c in retest_candles):
+                    if last_closed["c"] < last_closed["o"] and last_closed["c"] <= ob_top:
+                        entry = curr_c
+                        sl = round(ob_top * 1.003, 6)
+                        risk = (sl - entry) / entry
+                        if 0.003 <= risk <= 0.045:
+                            t1 = round(entry - (sl - entry) * 1.6, 6)
+                            t2 = round(entry - (sl - entry) * 2.8, 6)
+                            return {
+                                "pattern": "Institutional Order Block (OB)",
+                                "category": "Smart Money Structure",
+                                "side": "SHORT",
+                                "status": "CONFIRMED",
+                                "breakout_level": ob_bottom,
+                                "entry": entry,
+                                "stop_loss": sl,
+                                "target_1": t1,
+                                "target_2": t2,
+                                "risk_pct": round(risk * 100, 2),
+                                "rr_1": "1:1.6",
+                                "rr_2": "1:2.8",
+                                "summary": f"Bearish Order Block retest at {ob_bottom}-{ob_top} after BOS below {l_price}."
+                            }
+    return None
+
+# -------------------------------------------------------------
+# 9. ASIAN RANGE / SESSION LIQUIDITY RAID (JUDAS SWING)
+# -------------------------------------------------------------
+def check_session_liquidity_raid(candles):
+    """
+    Asian Range / Session Liquidity Raid (Judas Swing):
+    - Base consolidation range established over 20-30 candles.
+    - Bearish Judas: Fakeout breakout above range high, followed by red candle closing back inside.
+    - Bullish Judas: Fakeout breakdown below range low, followed by green candle closing back inside.
+    - Target: Opposite end of the range.
+    """
+    n = len(candles)
+    if n < 35:
+        return None
+    last_closed = candles[-2]
+    curr_c = last_closed["c"]
+
+    base_window = candles[-32:-7]
+    range_high = max(c["h"] for c in base_window)
+    range_low = min(c["l"] for c in base_window)
+    range_pct = (range_high - range_low) / range_low
+
+    if not (0.006 <= range_pct <= 0.04):
+        return None
+
+    recent_window = candles[-7:-2]
+
+    # Bearish Judas Swing
+    sweeps_high = [c for c in recent_window if c["h"] > range_high]
+    if sweeps_high:
+        highest_sweep = max(sweeps_high, key=lambda x: x["h"])
+        if last_closed["c"] < last_closed["o"] and last_closed["c"] < range_high:
+            entry = curr_c
+            sl = round(highest_sweep["h"] * 1.002, 6)
+            risk = (sl - entry) / entry
+            if 0.003 <= risk <= 0.045:
+                t1 = round(range_low, 6)
+                t2 = round(range_low - (range_high - range_low) * 0.5, 6)
+                return {
+                    "pattern": "Asian Range Sweep (Judas Swing)",
+                    "category": "Smart Money Structure",
+                    "side": "SHORT",
+                    "status": "CONFIRMED",
+                    "breakout_level": range_high,
+                    "sweep_level": highest_sweep["h"],
+                    "entry": entry,
+                    "stop_loss": sl,
+                    "target_1": t1,
+                    "target_2": t2,
+                    "risk_pct": round(risk * 100, 2),
+                    "rr_1": "1:1.6",
+                    "rr_2": "1:2.8",
+                    "summary": f"Asian Range High sweep fakeout at {highest_sweep['h']} targeting Range Low {range_low}."
+                }
+
+    # Bullish Judas Swing
+    sweeps_low = [c for c in recent_window if c["l"] < range_low]
+    if sweeps_low:
+        lowest_sweep = min(sweeps_low, key=lambda x: x["l"])
+        if last_closed["c"] > last_closed["o"] and last_closed["c"] > range_low:
+            entry = curr_c
+            sl = round(lowest_sweep["l"] * 0.998, 6)
+            risk = (entry - sl) / entry
+            if 0.003 <= risk <= 0.045:
+                t1 = round(range_high, 6)
+                t2 = round(range_high + (range_high - range_low) * 0.5, 6)
+                return {
+                    "pattern": "Asian Range Sweep (Judas Swing)",
+                    "category": "Smart Money Structure",
+                    "side": "LONG",
+                    "status": "CONFIRMED",
+                    "breakout_level": range_low,
+                    "sweep_level": lowest_sweep["l"],
+                    "entry": entry,
+                    "stop_loss": sl,
+                    "target_1": t1,
+                    "target_2": t2,
+                    "risk_pct": round(risk * 100, 2),
+                    "rr_1": "1:1.6",
+                    "rr_2": "1:2.8",
+                    "summary": f"Asian Range Low sweep fakeout at {lowest_sweep['l']} targeting Range High {range_high}."
+                }
+    return None
+
+# -------------------------------------------------------------
+# 10. QUASIMODO (QM) / OVER-UNDER REVERSAL PATTERN
+# -------------------------------------------------------------
+def check_quasimodo(candles, highs, lows):
+    """
+    Quasimodo (QM) / Over-Under Advanced Reversal:
+    Bearish QM:
+      - High 1 (Left Shoulder) -> Low 1 -> High 2 (Higher High / Liquidity Sweep) -> Low 2 (Lower Low / BOS).
+      - Retest of Left Shoulder level (H1).
+      - Trigger: Latest closed candle (candles[-2]) rejects H1 with red close.
+    Bullish QM:
+      - Low 1 (Left Shoulder) -> High 1 -> Low 2 (Lower Low / Sweep) -> High 2 (Higher High / BOS).
+      - Retest of Left Shoulder level (L1).
+      - Trigger: Latest closed candle (candles[-2]) rejects L1 with green close.
+    """
+    n = len(candles)
+    if n < 35 or len(highs) < 2 or len(lows) < 2:
+        return None
+    last_closed = candles[-2]
+    curr_c = last_closed["c"]
+
+    # Bearish QM
+    for i in range(len(highs) - 1, 0, -1):
+        h2 = highs[i]
+        for h1 in reversed(highs[:i]):
+            if h2["price"] > h1["price"] * 1.002 and h2["idx"] > h1["idx"]:
+                l1_candidates = [l for l in lows if h1["idx"] < l["idx"] < h2["idx"]]
+                if l1_candidates:
+                    l1 = min(l1_candidates, key=lambda x: x["price"])
+                    l2_candidates = [l for l in lows if l["idx"] > h2["idx"] and l["price"] < l1["price"]]
+                    if l2_candidates:
+                        l2 = min(l2_candidates, key=lambda x: x["price"])
+                        # Retest back up to H1 level (within 0.5%)
+                        if last_closed["h"] >= h1["price"] * 0.995 and last_closed["c"] <= h1["price"] * 1.005:
+                            if last_closed["c"] < last_closed["o"]:
+                                entry = curr_c
+                                sl = round(h2["price"] * 1.002, 6)
+                                risk = (sl - entry) / entry
+                                if 0.003 <= risk <= 0.045:
+                                    t1 = round(l1["price"], 6)
+                                    t2 = round(l2["price"], 6)
+                                    return {
+                                        "pattern": "Quasimodo Reversal (QM)",
+                                        "category": "Reversal Pattern",
+                                        "side": "SHORT",
+                                        "status": "CONFIRMED",
+                                        "breakout_level": h1["price"],
+                                        "head_level": h2["price"],
+                                        "entry": entry,
+                                        "stop_loss": sl,
+                                        "target_1": t1,
+                                        "target_2": t2,
+                                        "risk_pct": round(risk * 100, 2),
+                                        "rr_1": "1:1.6",
+                                        "rr_2": "1:2.8",
+                                        "summary": f"Bearish Quasimodo (Over-Under) rejection at Left Shoulder {h1['price']} after HH {h2['price']} and LL {l2['price']}."
+                                    }
+
+    # Bullish QM
+    for i in range(len(lows) - 1, 0, -1):
+        l2 = lows[i]
+        for l1 in reversed(lows[:i]):
+            if l2["price"] < l1["price"] * 0.998 and l2["idx"] > l1["idx"]:
+                h1_candidates = [h for h in highs if l1["idx"] < h["idx"] < l2["idx"]]
+                if h1_candidates:
+                    h1 = max(h1_candidates, key=lambda x: x["price"])
+                    h2_candidates = [h for h in highs if h["idx"] > l2["idx"] and h["price"] > h1["price"]]
+                    if h2_candidates:
+                        h2 = max(h2_candidates, key=lambda x: x["price"])
+                        if last_closed["l"] <= l1["price"] * 1.005 and last_closed["c"] >= l1["price"] * 0.995:
+                            if last_closed["c"] > last_closed["o"]:
+                                entry = curr_c
+                                sl = round(l2["price"] * 0.998, 6)
+                                risk = (entry - sl) / entry
+                                if 0.003 <= risk <= 0.045:
+                                    t1 = round(h1["price"], 6)
+                                    t2 = round(h2["price"], 6)
+                                    return {
+                                        "pattern": "Quasimodo Reversal (QM)",
+                                        "category": "Reversal Pattern",
+                                        "side": "LONG",
+                                        "status": "CONFIRMED",
+                                        "breakout_level": l1["price"],
+                                        "head_level": l2["price"],
+                                        "entry": entry,
+                                        "stop_loss": sl,
+                                        "target_1": t1,
+                                        "target_2": t2,
+                                        "risk_pct": round(risk * 100, 2),
+                                        "rr_1": "1:1.6",
+                                        "rr_2": "1:2.8",
+                                        "summary": f"Bullish Quasimodo rejection at Left Shoulder {l1['price']} after LL {l2['price']} and HH {h2['price']}."
+                                    }
+    return None
+
 def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
     """
     Evaluates all image-based patterns for a symbol.
@@ -728,7 +1105,11 @@ def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
             lambda: check_double_triple_top_bottom(candles, highs, lows),
             lambda: check_triangles_and_wedges(candles, highs, lows),
             lambda: check_box_range_breakout(candles),
-            lambda: check_flag_pennant(candles)
+            lambda: check_flag_pennant(candles),
+            lambda: check_fair_value_gap(candles),
+            lambda: check_order_block_bos(candles, highs, lows),
+            lambda: check_session_liquidity_raid(candles),
+            lambda: check_quasimodo(candles, highs, lows)
         ]
 
         for det in detectors:
