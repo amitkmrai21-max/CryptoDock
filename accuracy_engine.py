@@ -161,7 +161,13 @@ def check_liquidity_sweep_mss(candles, highs, lows):
             sc = sweep_h["candle"]
             upper_wick = sc["h"] - max(sc["o"], sc["c"])
             c_range = sc["h"] - sc["l"]
-            has_rejection = (c_range > 0 and upper_wick / c_range >= 0.30) or (sc["c"] < prev_h["price"] and c_range > 0 and upper_wick / c_range >= 0.20)
+            # Flexible Top Liquidity Sweep: Rejection wick (>=15%), candle closed back below prior top,
+            # or subsequent candle immediately closed back below prior top (absorbing liquidity)
+            has_rejection = (
+                (c_range > 0 and upper_wick / c_range >= 0.15) or
+                (sc["c"] < prev_h["price"]) or
+                (sweep_h["idx"] + 1 < n and candles[sweep_h["idx"] + 1]["c"] < prev_h["price"])
+            )
             
             if has_rejection and sweep_h["idx"] < n - 3:
                 after_lows = [l for l in lows if sweep_h["idx"] < l["idx"] <= n - 3]
@@ -200,7 +206,13 @@ def check_liquidity_sweep_mss(candles, highs, lows):
             sc = sweep_l["candle"]
             lower_wick = min(sc["o"], sc["c"]) - sc["l"]
             c_range = sc["h"] - sc["l"]
-            has_rejection = (c_range > 0 and lower_wick / c_range >= 0.30) or (sc["c"] > prev_l["price"] and c_range > 0 and lower_wick / c_range >= 0.20)
+            # Flexible Bottom Liquidity Sweep: Rejection wick (>=15%), candle closed back above prior bottom,
+            # or subsequent candle immediately closed back above prior bottom (absorbing liquidity)
+            has_rejection = (
+                (c_range > 0 and lower_wick / c_range >= 0.15) or
+                (sc["c"] > prev_l["price"]) or
+                (sweep_l["idx"] + 1 < n and candles[sweep_l["idx"] + 1]["c"] > prev_l["price"])
+            )
 
             if has_rejection and sweep_l["idx"] < n - 3:
                 after_highs = [h for h in highs if sweep_l["idx"] < h["idx"] <= n - 3]
