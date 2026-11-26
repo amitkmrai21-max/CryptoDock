@@ -36,24 +36,35 @@ def get_volume_profile(candles, lookback=20):
 
 def is_fresh_break(candles, level, side, min_vol_ratio=1.15):
     """
-    Strict professional Price Action breakout & retest confirmation:
-    1. Candle Color & Direction:
-       - SHORT: Trigger candle (candles[-2]) MUST be a closed RED candle (c < o). Green candles NEVER trigger SHORT.
-       - LONG: Trigger candle (candles[-2]) MUST be a closed GREEN candle (c > o). Red candles NEVER trigger LONG.
-    2. Volume Filter:
-       - Breakout/breakdown candle MUST have volume >= min_vol_ratio (default 1.15x of 20-period avg). Dead volume is rejected.
-    3. Fresh Breakout Scenarios:
-       - Direct Fresh Breakdown/Breakout: Previous closed candle had not broken level, current candle decisively closes across.
-       - Retest Confirmation: Price previously broke level, formed an opposite pullback candle (green for short, red for long),
-         and current closed candle strongly rejects that pullback and crosses beyond the pullback candle's extreme.
+    Strict professional Price Action breakout & retest confirmation (User Directives):
+    1. NO DIRECT BREAKOUTS (jaldi baazi nahi karna):
+       The first candle breaking the level NEVER triggers a signal directly.
+    2. RETEST & COLOR CONFIRMATION:
+       - LONG (Bullish Breakout above level):
+         * Price broke out above level.
+         * Price pulled back forming 1 to 3 candles, with at least one RED candle (pullback/retest).
+         * STRICT RULE: The pullback candle(s) MUST NOT close inside (below) the breakout line.
+           They must hold and close at or above the breakout line (close >= level).
+           If any pullback candle closes inside (< level), it is a failed breakout / trap -> REJECTED.
+         * TRIGGER: Latest closed candle (candles[-2]) MUST be a GREEN candle (c > o),
+           closing strictly above level, crossing and closing above the high of the red pullback candle,
+           with volume surge >= min_vol_ratio (default 1.15x).
+       - SHORT (Bearish Breakdown below level):
+         * Price broke down below level.
+         * Price pulled back forming 1 to 3 candles, with at least one GREEN candle (pullback/bounce).
+         * STRICT RULE: The pullback candle(s) MUST NOT close inside (above) the breakdown line.
+           They must hold and close at or below the breakdown line (close <= level).
+           If any pullback candle closes inside (> level), it is a failed breakdown / trap -> REJECTED.
+         * TRIGGER: Latest closed candle (candles[-2]) MUST be a RED candle (c < o),
+           closing strictly below level, crossing and closing below the low of the green pullback candle,
+           with volume surge >= min_vol_ratio (default 1.15x).
     """
-    if len(candles) < 5:
+    if len(candles) < 7:
         return False
 
     c2 = candles[-2]  # latest closed candle
-    c3 = candles[-3]  # candle prior to latest closed
 
-    # 1. Volume Profile Check (20-period lookback)
+    # 1. Volume Filter on trigger candle (20-period lookback)
     lookback = 20
     vols = [c["v"] for c in candles[-lookback-2:-2]] if len(candles) >= lookback + 2 else [c["v"] for c in candles[:-2]]
     avg_vol = sum(vols) / len(vols) if vols else 1.0
@@ -61,57 +72,61 @@ def is_fresh_break(candles, level, side, min_vol_ratio=1.15):
     if vol_ratio < min_vol_ratio:
         return False
 
-    if side == "SHORT":
-        # Trigger candle MUST be a RED candle
-        if c2["c"] >= c2["o"]:
+    eps = 1e-4
+
+    if side == "LONG":
+        # Trigger candle MUST be GREEN and close strictly above level
+        if c2["c"] <= c2["o"] or c2["c"] <= level:
             return False
-        # Must close strictly below the level
-        if c2["c"] >= level:
-            return False
 
-        # Scenario A: Direct Fresh Breakdown
-        if c3["c"] >= level * 0.9995 and c2["c"] <= level * 0.9985:
-            return True
+        # Look back 1 to 3 candles for the pullback (candles[-3], or [-4, -3], or [-5, -4, -3])
+        for pb_len in (1, 2, 3):
+            pb = [candles[-2 - j] for j in range(pb_len, 0, -1)]
+            has_red = any(c["c"] < c["o"] for c in pb)
+            if not has_red:
+                continue
 
-        # Scenario B: Retest Breakdown (c3 was a green pullback candle)
-        # Price bounced up toward neckline in c3 (green), and c2 is a RED rejection that closes below c3's low
-        if c3["c"] > c3["o"] and c3["h"] >= level * 0.992:
-            if c2["c"] < c3["l"] and c2["c"] < level:
-                return True
+            # CRITICAL: Pullback candles must NOT close inside (below) the breakout line
+            if any(c["c"] < level * (1 - eps) for c in pb):
+                continue
 
-        # Scenario C: 2-candle Retest consolidation (c4 was green, c3 paused, c2 broke down)
-        if len(candles) >= 6:
-            c4 = candles[-4]
-            if c4["c"] > c4["o"] and c4["h"] >= level * 0.992:
-                if c2["c"] < min(c3["l"], c4["l"]) and c2["c"] < level:
-                    return True
+            # Prior candle before pullback must have broken or tested above level
+            pre_idx = -2 - pb_len - 1
+            if abs(pre_idx) <= len(candles):
+                pre_c = candles[pre_idx]
+                if pre_c["c"] > level or pb[0]["h"] > level or pre_c["h"] > level:
+                    # c2 must cross and close above the high of the RED pullback candle(s)
+                    red_high = max(c["h"] for c in pb if c["c"] < c["o"])
+                    if c2["c"] > red_high and c2["c"] > level:
+                        return True
 
         return False
 
-    elif side == "LONG":
-        # Trigger candle MUST be a GREEN candle
-        if c2["c"] <= c2["o"]:
-            return False
-        # Must close strictly above the level
-        if c2["c"] <= level:
+    elif side == "SHORT":
+        # Trigger candle MUST be RED and close strictly below level
+        if c2["c"] >= c2["o"] or c2["c"] >= level:
             return False
 
-        # Scenario A: Direct Fresh Breakout
-        if c3["c"] <= level * 1.0005 and c2["c"] >= level * 1.0015:
-            return True
+        # Look back 1 to 3 candles for the pullback (candles[-3], or [-4, -3], or [-5, -4, -3])
+        for pb_len in (1, 2, 3):
+            pb = [candles[-2 - j] for j in range(pb_len, 0, -1)]
+            has_green = any(c["c"] > c["o"] for c in pb)
+            if not has_green:
+                continue
 
-        # Scenario B: Retest Breakout (c3 was a red dip/pullback candle)
-        # Price pulled back down toward broken resistance in c3 (red), and c2 is a GREEN continuation that closes above c3's high
-        if c3["c"] < c3["o"] and c3["l"] <= level * 1.008:
-            if c2["c"] > c3["h"] and c2["c"] > level:
-                return True
+            # CRITICAL: Pullback candles must NOT close inside (above) the breakdown line
+            if any(c["c"] > level * (1 + eps) for c in pb):
+                continue
 
-        # Scenario C: 2-candle Retest consolidation (c4 was red dip, c3 paused, c2 broke up)
-        if len(candles) >= 6:
-            c4 = candles[-4]
-            if c4["c"] < c4["o"] and c4["l"] <= level * 1.008:
-                if c2["c"] > max(c3["h"], c4["h"]) and c2["c"] > level:
-                    return True
+            # Prior candle before pullback must have broken or tested below level
+            pre_idx = -2 - pb_len - 1
+            if abs(pre_idx) <= len(candles):
+                pre_c = candles[pre_idx]
+                if pre_c["c"] < level or pb[0]["l"] < level or pre_c["l"] < level:
+                    # c2 must cross and close below the low of the GREEN pullback candle(s)
+                    green_low = min(c["l"] for c in pb if c["c"] > c["o"])
+                    if c2["c"] < green_low and c2["c"] < level:
+                        return True
 
         return False
 
@@ -146,7 +161,7 @@ def check_liquidity_sweep_mss(candles, highs, lows):
             sc = sweep_h["candle"]
             upper_wick = sc["h"] - max(sc["o"], sc["c"])
             c_range = sc["h"] - sc["l"]
-            has_rejection = (c_range > 0 and upper_wick / c_range >= 0.20) or (sc["c"] < prev_h["price"])
+            has_rejection = (c_range > 0 and upper_wick / c_range >= 0.30) or (sc["c"] < prev_h["price"] and c_range > 0 and upper_wick / c_range >= 0.20)
             
             if has_rejection and sweep_h["idx"] < n - 3:
                 after_lows = [l for l in lows if sweep_h["idx"] < l["idx"] <= n - 3]
@@ -185,7 +200,7 @@ def check_liquidity_sweep_mss(candles, highs, lows):
             sc = sweep_l["candle"]
             lower_wick = min(sc["o"], sc["c"]) - sc["l"]
             c_range = sc["h"] - sc["l"]
-            has_rejection = (c_range > 0 and lower_wick / c_range >= 0.20) or (sc["c"] > prev_l["price"])
+            has_rejection = (c_range > 0 and lower_wick / c_range >= 0.30) or (sc["c"] > prev_l["price"] and c_range > 0 and lower_wick / c_range >= 0.20)
 
             if has_rejection and sweep_l["idx"] < n - 3:
                 after_highs = [h for h in highs if sweep_l["idx"] < h["idx"] <= n - 3]
