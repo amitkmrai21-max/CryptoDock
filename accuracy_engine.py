@@ -699,35 +699,71 @@ def check_flag_pennant(candles):
 # -------------------------------------------------------------
 # 7. FAIR VALUE GAP (FVG) / IMBALANCE MITIGATION
 # -------------------------------------------------------------
+# =====================================================================
+# MODULAR SMC / ICT STRATEGIES (ISOLATED & CAN BE TOGGLED ON/OFF)
+# If user wants to disable these 4 strategies anytime without affecting
+# the 16 original classical chart patterns, set ENABLE_SMC_STRATEGIES = False.
+# =====================================================================
+ENABLE_SMC_STRATEGIES = True
+
+def _check_trigger_volume(candles, min_vol_ratio=1.15):
+    """
+    Ensures the trigger/reaction candle (candles[-2]) has institutional volume expansion.
+    Filters out false signals during low-volume sideways drift.
+    """
+    if len(candles) < 22:
+        return True, 1.0
+    trigger = candles[-2]
+    lookback = 20
+    vols = [c["v"] for c in candles[-lookback-2:-2]]
+    avg_vol = sum(vols) / len(vols) if vols else 1.0
+    if avg_vol <= 0:
+        return True, 1.0
+    ratio = trigger["v"] / avg_vol
+    return ratio >= min_vol_ratio, ratio
+
+def _is_decisive_candle(candle, min_body_ratio=0.35):
+    """
+    Ensures reaction candle has a real body and is not an indecisive doji.
+    """
+    rng = candle["h"] - candle["l"]
+    if rng <= 0:
+        return False
+    body = abs(candle["c"] - candle["o"])
+    return (body / rng) >= min_body_ratio
+
+# -------------------------------------------------------------
+# 7. FAIR VALUE GAP (FVG) / IMBALANCE MITIGATION (STRICT QUALITY)
+# -------------------------------------------------------------
 def check_fair_value_gap(candles):
     """
-    Fair Value Gap (FVG) / Imbalance Mitigation (SMC/ICT):
-    Bullish FVG:
-      - 3-candle imbalance: Candle k-2 (c1) High < Candle k (c3) Low.
-      - Candle k-1 (c2) must be a strong green expansion candle (c > o).
-      - Gap size at least 0.15% to avoid micro-noise.
-      - Price mitigates into [c1['h'], c3['l']] without closing below c1['h'].
-      - Latest closed candle (candles[-2]) confirms bullish reaction (green close holding above c1['h']).
-    Bearish FVG:
-      - 3-candle imbalance: Candle k-2 (c1) Low > Candle k (c3) High.
-      - Candle k-1 (c2) is a strong red expansion candle (c < o).
-      - Price mitigates into [c3['h'], c1['l']] without closing above c1['l'].
-      - Latest closed candle (candles[-2]) confirms bearish reaction (red close holding below c1['l']).
+    Fair Value Gap (FVG) with strict quality & volume confirmation:
+    - Imbalance gap size >= 0.35% (prevents micro-noise traps).
+    - Recent formation (within last 14 candles, not stale).
+    - Institutional Volume Surge >= 1.15x on confirmation candle.
+    - Decisive rejection candle closing firmly in trade direction.
     """
     n = len(candles)
-    if n < 20:
+    if n < 22:
         return None
     last_closed = candles[-2]
     curr_c = last_closed["c"]
 
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(last_closed, min_body_ratio=0.35):
+        return None
+
     # Bullish FVG
-    for k in range(n - 4, max(3, n - 25), -1):
+    for k in range(n - 4, max(3, n - 14), -1):
         c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
         if c2["c"] > c2["o"] and c3["l"] > c1["h"]:
             gap_bottom = c1["h"]
             gap_top = c3["l"]
             gap_size = (gap_top - gap_bottom) / gap_bottom
-            if gap_size >= 0.0015:
+            if gap_size >= 0.0035:  # High-quality gap >= 0.35%
                 subsequent = candles[k+1:-2]
                 if not any(c["c"] < gap_bottom for c in subsequent):
                     tapped = any(c["l"] <= gap_top for c in subsequent) or (last_closed["l"] <= gap_top)
@@ -754,17 +790,17 @@ def check_fair_value_gap(candles):
                                         "risk_pct": round(risk * 100, 2),
                                         "rr_1": "1:1.6",
                                         "rr_2": "1:2.8",
-                                        "summary": f"Bullish FVG mitigation at {gap_bottom}-{gap_top} with closed green reaction candle."
+                                        "summary": f"Bullish FVG mitigation at {gap_bottom}-{gap_top} with 1.15x volume confirmation."
                                     }
 
     # Bearish FVG
-    for k in range(n - 4, max(3, n - 25), -1):
+    for k in range(n - 4, max(3, n - 14), -1):
         c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
         if c2["c"] < c2["o"] and c3["h"] < c1["l"]:
             gap_top = c1["l"]
             gap_bottom = c3["h"]
             gap_size = (gap_top - gap_bottom) / gap_bottom
-            if gap_size >= 0.0015:
+            if gap_size >= 0.0035:  # High-quality gap >= 0.35%
                 subsequent = candles[k+1:-2]
                 if not any(c["c"] > gap_top for c in subsequent):
                     tapped = any(c["h"] >= gap_bottom for c in subsequent) or (last_closed["h"] >= gap_bottom)
@@ -791,26 +827,20 @@ def check_fair_value_gap(candles):
                                         "risk_pct": round(risk * 100, 2),
                                         "rr_1": "1:1.6",
                                         "rr_2": "1:2.8",
-                                        "summary": f"Bearish FVG mitigation at {gap_bottom}-{gap_top} with closed red reaction candle."
+                                        "summary": f"Bearish FVG mitigation at {gap_bottom}-{gap_top} with 1.15x volume confirmation."
                                     }
     return None
 
 # -------------------------------------------------------------
-# 8. INSTITUTIONAL ORDER BLOCK (OB) + BOS RETEST
+# 8. INSTITUTIONAL ORDER BLOCK (OB) + BOS RETEST (STRICT VOLUME)
 # -------------------------------------------------------------
 def check_order_block_bos(candles, highs, lows):
     """
-    Institutional Order Block (OB) + Break of Structure (BOS):
-    Bullish OB:
-      - Impulsive upmove creates BOS breaking a swing high H_prev.
-      - Bullish OB is the last down-close (red) candle before that breakout impulse.
-      - Retest: Price pulls back into OB [ob['l'], ob['h']] holding above ob['l'].
-      - Trigger: Latest closed candle (candles[-2]) is green with rejection from OB.
-    Bearish OB:
-      - Impulsive drop creates BOS breaking a swing low L_prev.
-      - Bearish OB is the last up-close (green) candle before that breakdown impulse.
-      - Retest: Price pulls back up into OB [ob['l'], ob['h']] holding below ob['h'].
-      - Trigger: Latest closed candle (candles[-2]) is red with rejection from OB.
+    Institutional Order Block (OB) + BOS Retest with volume confirmation:
+    - Impulsive break of swing high/low within recent 16 candles.
+    - OB is the origin candle before the impulse.
+    - Institutional Volume Surge >= 1.15x on rejection candle.
+    - Decisive rejection holding the OB zone without breaking structure.
     """
     n = len(candles)
     if n < 30 or len(highs) < 2 or len(lows) < 2:
@@ -818,14 +848,23 @@ def check_order_block_bos(candles, highs, lows):
     last_closed = candles[-2]
     curr_c = last_closed["c"]
 
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(last_closed, min_body_ratio=0.35):
+        return None
+
     # Bullish OB
-    for h in reversed(highs[-5:]):
+    for h in reversed(highs[-4:]):
         h_idx, h_price = h["idx"], h["price"]
-        bos_c = [c for c in candles[h_idx+1:-4] if c["c"] > h_price]
+        if h_idx < n - 18:
+            continue
+        bos_c = [c for c in candles[h_idx+1:-3] if c["c"] > h_price]
         if bos_c:
             first_bos = bos_c[0]
             bos_idx = candles.index(first_bos)
-            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if candles[j]["c"] < candles[j]["o"]]
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 5), -1) if candles[j]["c"] < candles[j]["o"]]
             if ob_candidates:
                 ob = ob_candidates[0]
                 ob_top = ob["h"]
@@ -852,17 +891,19 @@ def check_order_block_bos(candles, highs, lows):
                                 "risk_pct": round(risk * 100, 2),
                                 "rr_1": "1:1.6",
                                 "rr_2": "1:2.8",
-                                "summary": f"Bullish Order Block retest at {ob_bottom}-{ob_top} after BOS above {h_price}."
+                                "summary": f"Bullish Order Block retest at {ob_bottom}-{ob_top} with 1.15x volume surge."
                             }
 
     # Bearish OB
-    for l in reversed(lows[-5:]):
+    for l in reversed(lows[-4:]):
         l_idx, l_price = l["idx"], l["price"]
-        bos_c = [c for c in candles[l_idx+1:-4] if c["c"] < l_price]
+        if l_idx < n - 18:
+            continue
+        bos_c = [c for c in candles[l_idx+1:-3] if c["c"] < l_price]
         if bos_c:
             first_bos = bos_c[0]
             bos_idx = candles.index(first_bos)
-            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if candles[j]["c"] > candles[j]["o"]]
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 5), -1) if candles[j]["c"] > candles[j]["o"]]
             if ob_candidates:
                 ob = ob_candidates[0]
                 ob_top = ob["h"]
@@ -889,7 +930,7 @@ def check_order_block_bos(candles, highs, lows):
                                 "risk_pct": round(risk * 100, 2),
                                 "rr_1": "1:1.6",
                                 "rr_2": "1:2.8",
-                                "summary": f"Bearish Order Block retest at {ob_bottom}-{ob_top} after BOS below {l_price}."
+                                "summary": f"Bearish Order Block retest at {ob_bottom}-{ob_top} with 1.15x volume surge."
                             }
     return None
 
@@ -898,11 +939,10 @@ def check_order_block_bos(candles, highs, lows):
 # -------------------------------------------------------------
 def check_session_liquidity_raid(candles):
     """
-    Asian Range / Session Liquidity Raid (Judas Swing):
+    Asian Range / Session Liquidity Raid (Judas Swing) with volume confirmation:
     - Base consolidation range established over 20-30 candles.
-    - Bearish Judas: Fakeout breakout above range high, followed by red candle closing back inside.
-    - Bullish Judas: Fakeout breakdown below range low, followed by green candle closing back inside.
-    - Target: Opposite end of the range.
+    - Sweep of range high/low followed by firm rejection candle back inside range.
+    - Institutional Volume Surge >= 1.15x on confirmation candle.
     """
     n = len(candles)
     if n < 35:
@@ -910,12 +950,19 @@ def check_session_liquidity_raid(candles):
     last_closed = candles[-2]
     curr_c = last_closed["c"]
 
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(last_closed, min_body_ratio=0.35):
+        return None
+
     base_window = candles[-32:-7]
     range_high = max(c["h"] for c in base_window)
     range_low = min(c["l"] for c in base_window)
     range_pct = (range_high - range_low) / range_low
 
-    if not (0.006 <= range_pct <= 0.04):
+    if not (0.008 <= range_pct <= 0.04):
         return None
 
     recent_window = candles[-7:-2]
@@ -945,7 +992,7 @@ def check_session_liquidity_raid(candles):
                     "risk_pct": round(risk * 100, 2),
                     "rr_1": "1:1.6",
                     "rr_2": "1:2.8",
-                    "summary": f"Asian Range High sweep fakeout at {highest_sweep['h']} targeting Range Low {range_low}."
+                    "summary": f"Asian Range High sweep fakeout at {highest_sweep['h']} with 1.15x volume surge."
                 }
 
     # Bullish Judas Swing
@@ -973,30 +1020,32 @@ def check_session_liquidity_raid(candles):
                     "risk_pct": round(risk * 100, 2),
                     "rr_1": "1:1.6",
                     "rr_2": "1:2.8",
-                    "summary": f"Asian Range Low sweep fakeout at {lowest_sweep['l']} targeting Range High {range_high}."
+                    "summary": f"Asian Range Low sweep fakeout at {lowest_sweep['l']} with 1.15x volume surge."
                 }
     return None
 
 # -------------------------------------------------------------
-# 10. QUASIMODO (QM) / OVER-UNDER REVERSAL PATTERN
+# 10. QUASIMODO (QM) / OVER-UNDER REVERSAL PATTERN (STRICT VOLUME)
 # -------------------------------------------------------------
 def check_quasimodo(candles, highs, lows):
     """
-    Quasimodo (QM) / Over-Under Advanced Reversal:
-    Bearish QM:
-      - High 1 (Left Shoulder) -> Low 1 -> High 2 (Higher High / Liquidity Sweep) -> Low 2 (Lower Low / BOS).
-      - Retest of Left Shoulder level (H1).
-      - Trigger: Latest closed candle (candles[-2]) rejects H1 with red close.
-    Bullish QM:
-      - Low 1 (Left Shoulder) -> High 1 -> Low 2 (Lower Low / Sweep) -> High 2 (Higher High / BOS).
-      - Retest of Left Shoulder level (L1).
-      - Trigger: Latest closed candle (candles[-2]) rejects L1 with green close.
+    Quasimodo (QM) / Over-Under Advanced Reversal with volume confirmation:
+    - Retest of Left Shoulder level after Liquidity Sweep / BOS.
+    - Institutional Volume Surge >= 1.15x on rejection candle.
+    - Rejection candle with decisive body.
     """
     n = len(candles)
     if n < 35 or len(highs) < 2 or len(lows) < 2:
         return None
     last_closed = candles[-2]
     curr_c = last_closed["c"]
+
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(last_closed, min_body_ratio=0.35):
+        return None
 
     # Bearish QM
     for i in range(len(highs) - 1, 0, -1):
@@ -1032,7 +1081,7 @@ def check_quasimodo(candles, highs, lows):
                                         "risk_pct": round(risk * 100, 2),
                                         "rr_1": "1:1.6",
                                         "rr_2": "1:2.8",
-                                        "summary": f"Bearish Quasimodo (Over-Under) rejection at Left Shoulder {h1['price']} after HH {h2['price']} and LL {l2['price']}."
+                                        "summary": f"Bearish Quasimodo (Over-Under) rejection at Left Shoulder {h1['price']} with 1.15x volume."
                                     }
 
     # Bullish QM
@@ -1068,7 +1117,7 @@ def check_quasimodo(candles, highs, lows):
                                         "risk_pct": round(risk * 100, 2),
                                         "rr_1": "1:1.6",
                                         "rr_2": "1:2.8",
-                                        "summary": f"Bullish Quasimodo rejection at Left Shoulder {l1['price']} after LL {l2['price']} and HH {h2['price']}."
+                                        "summary": f"Bullish Quasimodo rejection at Left Shoulder {l1['price']} with 1.15x volume."
                                     }
     return None
 
@@ -1076,6 +1125,8 @@ def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
     """
     Evaluates all image-based patterns for a symbol.
     Strictly verifies closed candle confirmation.
+    Original 16 patterns execute first.
+    Optional SMC strategies execute only if ENABLE_SMC_STRATEGIES is True.
     """
     try:
         raw = klines_fetcher(symbol, interval, limit=100)
@@ -1099,6 +1150,7 @@ def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
         highs, lows = calculate_swings(candles, left=2, right=2)
         vol_ratio, avg_vol = get_volume_profile(candles, lookback=20)
 
+        # 1. Classical Chart Patterns & Sweeps (Always Active)
         detectors = [
             lambda: check_liquidity_sweep_mss(candles, highs, lows),
             lambda: check_head_and_shoulders(candles, highs, lows),
@@ -1106,11 +1158,16 @@ def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
             lambda: check_triangles_and_wedges(candles, highs, lows),
             lambda: check_box_range_breakout(candles),
             lambda: check_flag_pennant(candles),
-            lambda: check_fair_value_gap(candles),
-            lambda: check_order_block_bos(candles, highs, lows),
-            lambda: check_session_liquidity_raid(candles),
-            lambda: check_quasimodo(candles, highs, lows)
         ]
+
+        # 2. Modular SMC Strategies (Can be turned off independently)
+        if ENABLE_SMC_STRATEGIES:
+            detectors.extend([
+                lambda: check_fair_value_gap(candles),
+                lambda: check_order_block_bos(candles, highs, lows),
+                lambda: check_session_liquidity_raid(candles),
+                lambda: check_quasimodo(candles, highs, lows)
+            ])
 
         for det in detectors:
             result = det()
