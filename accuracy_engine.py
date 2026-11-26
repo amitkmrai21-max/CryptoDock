@@ -34,20 +34,88 @@ def get_volume_profile(candles, lookback=20):
     ratio = round(latest_closed_vol / avg_vol, 2) if avg_vol > 0 else 1.0
     return ratio, avg_vol
 
-def is_fresh_break(candles, level, side):
+def is_fresh_break(candles, level, side, min_vol_ratio=1.15):
     """
-    Guarantees closed candle breakout freshness:
-    Latest closed candle (candles[-2]) closed beyond level,
-    while previous closed candle (candles[-3]) had not broken through (or was at the level).
+    Strict professional Price Action breakout & retest confirmation:
+    1. Candle Color & Direction:
+       - SHORT: Trigger candle (candles[-2]) MUST be a closed RED candle (c < o). Green candles NEVER trigger SHORT.
+       - LONG: Trigger candle (candles[-2]) MUST be a closed GREEN candle (c > o). Red candles NEVER trigger LONG.
+    2. Volume Filter:
+       - Breakout/breakdown candle MUST have volume >= min_vol_ratio (default 1.15x of 20-period avg). Dead volume is rejected.
+    3. Fresh Breakout Scenarios:
+       - Direct Fresh Breakdown/Breakout: Previous closed candle had not broken level, current candle decisively closes across.
+       - Retest Confirmation: Price previously broke level, formed an opposite pullback candle (green for short, red for long),
+         and current closed candle strongly rejects that pullback and crosses beyond the pullback candle's extreme.
     """
-    if len(candles) < 4:
+    if len(candles) < 5:
         return False
-    c2 = candles[-2]["c"]
-    c3 = candles[-3]["c"]
+
+    c2 = candles[-2]  # latest closed candle
+    c3 = candles[-3]  # candle prior to latest closed
+
+    # 1. Volume Profile Check (20-period lookback)
+    lookback = 20
+    vols = [c["v"] for c in candles[-lookback-2:-2]] if len(candles) >= lookback + 2 else [c["v"] for c in candles[:-2]]
+    avg_vol = sum(vols) / len(vols) if vols else 1.0
+    vol_ratio = (c2["v"] / avg_vol) if avg_vol > 0 else 1.0
+    if vol_ratio < min_vol_ratio:
+        return False
+
     if side == "SHORT":
-        return (c2 < level) and (c3 >= level * 0.9975)
-    else:
-        return (c2 > level) and (c3 <= level * 1.0025)
+        # Trigger candle MUST be a RED candle
+        if c2["c"] >= c2["o"]:
+            return False
+        # Must close strictly below the level
+        if c2["c"] >= level:
+            return False
+
+        # Scenario A: Direct Fresh Breakdown
+        if c3["c"] >= level * 0.9995 and c2["c"] <= level * 0.9985:
+            return True
+
+        # Scenario B: Retest Breakdown (c3 was a green pullback candle)
+        # Price bounced up toward neckline in c3 (green), and c2 is a RED rejection that closes below c3's low
+        if c3["c"] > c3["o"] and c3["h"] >= level * 0.992:
+            if c2["c"] < c3["l"] and c2["c"] < level:
+                return True
+
+        # Scenario C: 2-candle Retest consolidation (c4 was green, c3 paused, c2 broke down)
+        if len(candles) >= 6:
+            c4 = candles[-4]
+            if c4["c"] > c4["o"] and c4["h"] >= level * 0.992:
+                if c2["c"] < min(c3["l"], c4["l"]) and c2["c"] < level:
+                    return True
+
+        return False
+
+    elif side == "LONG":
+        # Trigger candle MUST be a GREEN candle
+        if c2["c"] <= c2["o"]:
+            return False
+        # Must close strictly above the level
+        if c2["c"] <= level:
+            return False
+
+        # Scenario A: Direct Fresh Breakout
+        if c3["c"] <= level * 1.0005 and c2["c"] >= level * 1.0015:
+            return True
+
+        # Scenario B: Retest Breakout (c3 was a red dip/pullback candle)
+        # Price pulled back down toward broken resistance in c3 (red), and c2 is a GREEN continuation that closes above c3's high
+        if c3["c"] < c3["o"] and c3["l"] <= level * 1.008:
+            if c2["c"] > c3["h"] and c2["c"] > level:
+                return True
+
+        # Scenario C: 2-candle Retest consolidation (c4 was red dip, c3 paused, c2 broke up)
+        if len(candles) >= 6:
+            c4 = candles[-4]
+            if c4["c"] < c4["o"] and c4["l"] <= level * 1.008:
+                if c2["c"] > max(c3["h"], c4["h"]) and c2["c"] > level:
+                    return True
+
+        return False
+
+    return False
 
 def check_liquidity_sweep_mss(candles, highs, lows):
     """
@@ -232,10 +300,13 @@ def check_double_triple_top_bottom(candles, highs, lows):
             top_max = max(p1["price"], p2["price"], p3["price"])
             top_min = min(p1["price"], p2["price"], p3["price"])
             if (top_max - top_min) / top_min <= 0.018:
-                troughs = [l for l in lows if p1["idx"] < l["idx"] < p3["idx"]]
-                if troughs:
-                    neckline = min(t["price"] for t in troughs)
-                    if curr_c < neckline and is_fresh_break(candles, neckline, "SHORT"):
+                # Distinct troughs between p1 & p2 and between p2 & p3
+                t1 = [l for l in lows if p1["idx"] < l["idx"] < p2["idx"]]
+                t2 = [l for l in lows if p2["idx"] < l["idx"] < p3["idx"]]
+                if t1 and t2:
+                    neckline = min(min(t["price"] for t in t1), min(t["price"] for t in t2))
+                    h = top_max - neckline
+                    if (h / top_max >= 0.005) and curr_c < neckline and is_fresh_break(candles, neckline, "SHORT"):
                         entry = curr_c
                         sl = round(top_max * 1.002, 6)
                         risk = (sl - entry) / entry
@@ -264,10 +335,13 @@ def check_double_triple_top_bottom(candles, highs, lows):
             bot_max = max(t1["price"], t2["price"], t3["price"])
             bot_min = min(t1["price"], t2["price"], t3["price"])
             if (bot_max - bot_min) / bot_min <= 0.018:
-                peaks = [h for h in highs if t1["idx"] < h["idx"] < t3["idx"]]
-                if peaks:
-                    neckline = max(p["price"] for p in peaks)
-                    if curr_c > neckline and is_fresh_break(candles, neckline, "LONG"):
+                # Distinct peaks between t1 & t2 and between t2 & t3
+                pk1 = [h for h in highs if t1["idx"] < h["idx"] < t2["idx"]]
+                pk2 = [h for h in highs if t2["idx"] < h["idx"] < t3["idx"]]
+                if pk1 and pk2:
+                    neckline = max(max(p["price"] for p in pk1), max(p["price"] for p in pk2))
+                    h = neckline - bot_min
+                    if (h / bot_min >= 0.005) and curr_c > neckline and is_fresh_break(candles, neckline, "LONG"):
                         entry = curr_c
                         sl = round(bot_min * 0.998, 6)
                         risk = (entry - sl) / entry
@@ -299,7 +373,8 @@ def check_double_triple_top_bottom(candles, highs, lows):
                     inter_lows = [l for l in lows if p1["idx"] < l["idx"] < p2["idx"]]
                     if inter_lows:
                         trough = min(inter_lows, key=lambda x: x["price"])
-                        if curr_c < trough["price"] and is_fresh_break(candles, trough["price"], "SHORT"):
+                        h = max(p1["price"], p2["price"]) - trough["price"]
+                        if (h / max(p1["price"], p2["price"]) >= 0.005) and curr_c < trough["price"] and is_fresh_break(candles, trough["price"], "SHORT"):
                             entry = curr_c
                             sl = round(max(p1["price"], p2["price"]) * 1.002, 6)
                             risk = (sl - entry) / entry
@@ -331,7 +406,8 @@ def check_double_triple_top_bottom(candles, highs, lows):
                     inter_highs = [h for h in highs if t1["idx"] < h["idx"] < t2["idx"]]
                     if inter_highs:
                         peak = max(inter_highs, key=lambda x: x["price"])
-                        if curr_c > peak["price"] and is_fresh_break(candles, peak["price"], "LONG"):
+                        h = peak["price"] - min(t1["price"], t2["price"])
+                        if (h / min(t1["price"], t2["price"]) >= 0.005) and curr_c > peak["price"] and is_fresh_break(candles, peak["price"], "LONG"):
                             entry = curr_c
                             sl = round(min(t1["price"], t2["price"]) * 0.998, 6)
                             risk = (entry - sl) / entry
