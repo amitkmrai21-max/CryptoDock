@@ -4872,6 +4872,7 @@ ACCURACY_SYMBOLS = [
 
 _accuracy_lock = threading.Lock()
 _accuracy_cache = {
+    "5m": {"data": None, "timestamp": 0.0},
     "15m": {"data": None, "timestamp": 0.0},
     "1h": {"data": None, "timestamp": 0.0}
 }
@@ -4972,7 +4973,7 @@ def _format_accuracy_alert(item: dict) -> str:
 
 def _accuracy_run_scan(interval="15m", wait_if_running=False):
     global _accuracy_scanning, _accuracy_cache, _accuracy_alerted
-    if interval not in ("15m", "1h"):
+    if interval not in ("5m", "15m", "1h"):
         interval = "15m"
 
     with _accuracy_lock:
@@ -5050,7 +5051,12 @@ def _accuracy_scanner_loop():
     time.sleep(6)  # allow app startup to settle
     while True:
         try:
-            _accuracy_run_scan(interval="15m")
+            for tf in ("5m", "15m", "1h"):
+                try:
+                    _accuracy_run_scan(interval=tf)
+                except Exception as e:
+                    print(f"[Accuracy] {tf} scan error: {e}")
+                time.sleep(1)
         except Exception as e:
             print(f"[Accuracy] Loop error: {e}")
         time.sleep(60)
@@ -5069,7 +5075,7 @@ def get_accuracy_results(refresh: int = 0, interval: str = "15m", authorization:
     owner_mail = "amitkmrai21@gmail.com"
     if _session_email(authorization) != owner_mail:
         raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
-    if interval not in ("15m", "1h"):
+    if interval not in ("5m", "15m", "1h"):
         interval = "15m"
 
     now = time.time()

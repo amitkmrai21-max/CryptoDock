@@ -32,7 +32,7 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   let filterTab = "all"; // "all" | "confirmed" | "sweep" | "reversal" | "continuation" | "box"
-  let currentTimeframe = "15m"; // "15m" | "1h"
+  let currentTimeframe = "15m"; // "5m" | "15m" | "1h"
   let data = null, error = "", scanning = false, loadedAt = 0;
   const STALE_MS = 60000;
 
@@ -263,7 +263,7 @@
     render();
   });
 
-  // Timeframe selector (15m / 1h)
+  // Timeframe selector (5m / 15m / 1h)
   document.querySelectorAll("#cdAccuracy [data-accuracy-tf]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const tf = btn.dataset.accuracyTf;
