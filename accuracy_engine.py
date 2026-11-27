@@ -120,6 +120,96 @@ def is_fresh_break(candles, level, side, min_vol_ratio=1.15):
         return True
     return False
 
+def finalize_setup(setup):
+    """
+    Validates setup targets and stop loss:
+    1. For LONG: sl < entry < target_1 < target_2
+    2. For SHORT: sl > entry > target_1 > target_2
+    3. Recomputes T1 and T2 dynamically if they fell behind entry or inverted.
+    4. Ensures risk-to-reward ratio is strictly positive and aligned with side.
+    """
+    if not setup:
+        return None
+    side = setup.get("side")
+    entry = setup.get("entry")
+    sl = setup.get("stop_loss")
+    if entry is None or sl is None:
+        return None
+
+    risk_dist = abs(entry - sl)
+    if risk_dist <= 0:
+        return None
+
+    if side == "LONG":
+        if sl >= entry:
+            return None
+        t1 = setup.get("target_1")
+        t2 = setup.get("target_2")
+        if t1 is None or t1 <= entry:
+            t1 = round(entry + risk_dist * 1.6, 8)
+        if t2 is None or t2 <= t1:
+            t2 = round(entry + risk_dist * 2.8, 8)
+        setup["target_1"] = t1
+        setup["target_2"] = t2
+        if not (sl < entry < t1 < t2):
+            return None
+
+    elif side == "SHORT":
+        if sl <= entry:
+            return None
+        t1 = setup.get("target_1")
+        t2 = setup.get("target_2")
+        if t1 is None or t1 >= entry:
+            t1 = round(entry - risk_dist * 1.6, 8)
+        if t2 is None or t2 >= t1:
+            t2 = round(entry - risk_dist * 2.8, 8)
+        setup["target_1"] = t1
+        setup["target_2"] = t2
+        if not (sl > entry > t1 > t2):
+            return None
+    else:
+        return None
+
+    return setup
+
+
+def get_btc_trend(klines_fetcher, interval="15m"):
+    """
+    Computes BTC market trend from BTCUSDT closed candles.
+    Uses EMA20, EMA50 and price action alignment on closed candles.
+    Returns: 'BULLISH', 'BEARISH', or 'NEUTRAL'
+    """
+    try:
+        raw = klines_fetcher("BTCUSDT", interval, limit=100)
+        if not raw or len(raw) < 55:
+            return "NEUTRAL"
+        closes = [float(k[4]) for k in raw]
+
+        def calc_ema(series, period):
+            k = 2 / (period + 1)
+            res = [series[0]]
+            for p in series[1:]:
+                res.append(p * k + res[-1] * (1 - k))
+            return res
+
+        ema20 = calc_ema(closes, 20)
+        ema50 = calc_ema(closes, 50)
+
+        # Index -2 is latest closed candle (index -1 is still forming)
+        c = closes[-2]
+        e20 = ema20[-2]
+        e50 = ema50[-2]
+
+        if c > e20 and e20 > e50:
+            return "BULLISH"
+        elif c < e20 and e20 < e50:
+            return "BEARISH"
+        else:
+            return "NEUTRAL"
+    except Exception:
+        return "NEUTRAL"
+
+
 def check_liquidity_sweep_mss(candles, highs, lows):
     """
     BTC Liquidity Sweep + Market Structure Shift:
@@ -248,7 +338,8 @@ def check_head_and_shoulders(candles, highs, lows):
                     troughs = [l for l in lows if s1["idx"] < l["idx"] < s2["idx"]]
                     if len(troughs) >= 2:
                         neckline = sum(t["price"] for t in troughs) / len(troughs)
-                        if curr_c < neckline and is_fresh_break(candles, neckline, "SHORT"):
+                        prior_breaks = [c for c in candles[s2["idx"]:n - 5] if c["c"] < neckline]
+                        if not prior_breaks and curr_c < neckline and is_fresh_break(candles, neckline, "SHORT"):
                             entry = curr_c
                             sl = round(s2["price"] * 1.002, 6)
                             risk = (sl - entry) / entry
@@ -280,7 +371,8 @@ def check_head_and_shoulders(candles, highs, lows):
                     peaks = [h for h in highs if s1["idx"] < h["idx"] < s2["idx"]]
                     if len(peaks) >= 2:
                         neckline = sum(p["price"] for p in peaks) / len(peaks)
-                        if curr_c > neckline and is_fresh_break(candles, neckline, "LONG"):
+                        prior_breaks = [c for c in candles[s2["idx"]:n - 5] if c["c"] > neckline]
+                        if not prior_breaks and curr_c > neckline and is_fresh_break(candles, neckline, "LONG"):
                             entry = curr_c
                             sl = round(s2["price"] * 0.998, 6)
                             risk = (entry - sl) / entry
@@ -321,7 +413,8 @@ def check_double_triple_top_bottom(candles, highs, lows):
                 if t1 and t2:
                     neckline = min(min(t["price"] for t in t1), min(t["price"] for t in t2))
                     h = top_max - neckline
-                    if (h / top_max >= 0.005) and curr_c < neckline and is_fresh_break(candles, neckline, "SHORT"):
+                    prior_breaks = [c for c in candles[p3["idx"]:n - 5] if c["c"] < neckline]
+                    if not prior_breaks and (h / top_max >= 0.005) and curr_c < neckline and is_fresh_break(candles, neckline, "SHORT"):
                         entry = curr_c
                         sl = round(top_max * 1.002, 6)
                         risk = (sl - entry) / entry
@@ -356,7 +449,8 @@ def check_double_triple_top_bottom(candles, highs, lows):
                 if pk1 and pk2:
                     neckline = max(max(p["price"] for p in pk1), max(p["price"] for p in pk2))
                     h = neckline - bot_min
-                    if (h / bot_min >= 0.005) and curr_c > neckline and is_fresh_break(candles, neckline, "LONG"):
+                    prior_breaks = [c for c in candles[t3["idx"]:n - 5] if c["c"] > neckline]
+                    if not prior_breaks and (h / bot_min >= 0.005) and curr_c > neckline and is_fresh_break(candles, neckline, "LONG"):
                         entry = curr_c
                         sl = round(bot_min * 0.998, 6)
                         risk = (entry - sl) / entry
@@ -389,7 +483,8 @@ def check_double_triple_top_bottom(candles, highs, lows):
                     if inter_lows:
                         trough = min(inter_lows, key=lambda x: x["price"])
                         h = max(p1["price"], p2["price"]) - trough["price"]
-                        if (h / max(p1["price"], p2["price"]) >= 0.005) and curr_c < trough["price"] and is_fresh_break(candles, trough["price"], "SHORT"):
+                        prior_breaks = [c for c in candles[p2["idx"]:n - 5] if c["c"] < trough["price"]]
+                        if not prior_breaks and (h / max(p1["price"], p2["price"]) >= 0.005) and curr_c < trough["price"] and is_fresh_break(candles, trough["price"], "SHORT"):
                             entry = curr_c
                             sl = round(max(p1["price"], p2["price"]) * 1.002, 6)
                             risk = (sl - entry) / entry
@@ -422,7 +517,8 @@ def check_double_triple_top_bottom(candles, highs, lows):
                     if inter_highs:
                         peak = max(inter_highs, key=lambda x: x["price"])
                         h = peak["price"] - min(t1["price"], t2["price"])
-                        if (h / min(t1["price"], t2["price"]) >= 0.005) and curr_c > peak["price"] and is_fresh_break(candles, peak["price"], "LONG"):
+                        prior_breaks = [c for c in candles[t2["idx"]:n - 5] if c["c"] > peak["price"]]
+                        if not prior_breaks and (h / min(t1["price"], t2["price"]) >= 0.005) and curr_c > peak["price"] and is_fresh_break(candles, peak["price"], "LONG"):
                             entry = curr_c
                             sl = round(min(t1["price"], t2["price"]) * 0.998, 6)
                             risk = (entry - sl) / entry
@@ -696,10 +792,14 @@ def check_flag_pennant(candles):
     return None
 
 
-def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
+def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m", btc_trend=None):
     """
     Evaluates all 16 classical chart patterns and sweeps for a symbol.
     Strictly verifies closed candle confirmation with breakout retest rules.
+    Filters altcoin signals against BTC market trend:
+      - BTC Bullish -> Blocks SHORT, Allows LONG
+      - BTC Bearish -> Blocks LONG, Allows SHORT
+      - BTC Neutral -> Allows both
     """
     try:
         raw = klines_fetcher(symbol, interval, limit=100)
@@ -736,8 +836,23 @@ def analyze_symbol_accuracy(symbol, klines_fetcher, interval="15m"):
         for det in detectors:
             result = det()
             if result:
+                # Target sanity & risk/reward validation
+                result = finalize_setup(result)
+                if not result:
+                    continue
+
+                # BTC Market Trend Filter (Applied to all altcoins, not BTC itself)
+                if symbol != "BTCUSDT" and btc_trend:
+                    if btc_trend == "BULLISH" and result["side"] == "SHORT":
+                        # Block counter-trend SHORT when BTC is Bullish
+                        return None
+                    elif btc_trend == "BEARISH" and result["side"] == "LONG":
+                        # Block counter-trend LONG when BTC is Bearish
+                        return None
+
                 result["symbol"] = symbol
                 result["interval"] = interval
+                result["btc_trend"] = btc_trend or "NEUTRAL"
                 result["volume_surge"] = vol_ratio
                 result["current_price"] = candles[-1]["c"]
                 result["candle_close_time"] = candles[-2]["t"]

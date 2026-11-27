@@ -4919,6 +4919,21 @@ def _send_accuracy_telegram(text: str) -> bool:
         return False
 
 
+def _format_accuracy_price(val: float) -> str:
+    if val is None or not isinstance(val, (int, float)):
+        return "--"
+    if val >= 1000:
+        return f"{val:,.2f}"
+    elif val >= 1:
+        return f"{val:,.4f}"
+    elif val >= 0.01:
+        return f"{val:,.5f}"
+    elif val >= 0.0001:
+        return f"{val:,.6f}"
+    else:
+        return f"{val:,.8f}"
+
+
 def _format_accuracy_alert(item: dict) -> str:
     sym = item["symbol"].replace("USDT", "/USDT")
     side = item["side"]
@@ -4935,16 +4950,20 @@ def _format_accuracy_alert(item: dict) -> str:
     vol = item.get("volume_surge", 1.0)
     summary = item.get("summary", "")
     tf = item.get("interval", "15m")
-    
+    btc_trend = item.get("btc_trend", "NEUTRAL")
+
+    btc_line = f"🌐 <b>BTC Market Trend:</b> {btc_trend.capitalize()} (Direction Aligned)\n" if sym != "BTC/USDT" else "🌐 <b>Market Leader:</b> BTC Setup\n"
+
     return (
         f"📐 <b>CryptoDock Accuracy Alert · {sym} ({tf})</b>\n\n"
         f"⚡ <b>{side_emoji}</b> — {pattern}\n"
         f"🏷 <i>Category: {cat}</i>\n"
+        f"{btc_line}"
         f"✅ <b>Closed Candle Breakout Confirmed</b>\n\n"
-        f"💵 <b>Entry:</b> ${entry:,.4f}\n"
-        f"🛑 <b>Stop Loss:</b> ${sl:,.4f} (Risk: {risk}%)\n"
-        f"🎯 <b>Target 1:</b> ${t1:,.4f} ({rr1} R:R)\n"
-        f"🚀 <b>Target 2:</b> ${t2:,.4f} ({rr2} R:R)\n"
+        f"💵 <b>Entry:</b> ${_format_accuracy_price(entry)}\n"
+        f"🛑 <b>Stop Loss:</b> ${_format_accuracy_price(sl)} (Risk: {risk}%)\n"
+        f"🎯 <b>Target 1:</b> ${_format_accuracy_price(t1)} ({rr1} R:R)\n"
+        f"🚀 <b>Target 2:</b> ${_format_accuracy_price(t2)} ({rr2} R:R)\n"
         f"📊 <b>Volume Surge:</b> {vol}x\n\n"
         f"📝 <i>{summary}</i>\n\n"
         f"⚠️ <i>Manual execution only. Educational pattern recognition.</i>"
@@ -4976,8 +4995,11 @@ def _accuracy_run_scan(interval="15m", wait_if_running=False):
         def fetcher(sym, tf, limit=100):
             return get_klines(sym, tf, limit)
 
+        # 1. Compute BTC market trend once per scan
+        btc_trend = accuracy_engine.get_btc_trend(fetcher, interval=interval)
+
         def worker(sym):
-            return accuracy_engine.analyze_symbol_accuracy(sym, fetcher, interval=interval)
+            return accuracy_engine.analyze_symbol_accuracy(sym, fetcher, interval=interval, btc_trend=btc_trend)
 
         with ThreadPoolExecutor(max_workers=16) as pool:
             raw_results = list(pool.map(worker, ACCURACY_SYMBOLS))
@@ -4990,6 +5012,7 @@ def _accuracy_run_scan(interval="15m", wait_if_running=False):
             "ok": True,
             "scanned": len(ACCURACY_SYMBOLS),
             "interval": interval,
+            "btc_trend": btc_trend,
             "setups": valid,
             "updated_at": int(time.time()),
         }

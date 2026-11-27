@@ -12,7 +12,7 @@
   const money = (v) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return "--";
-    const digits = n >= 1000 ? 2 : n >= 10 ? 3 : n >= 1 ? 4 : n >= 0.01 ? 5 : 7;
+    const digits = n >= 1000 ? 2 : n >= 1 ? 4 : n >= 0.01 ? 5 : n >= 0.0001 ? 6 : 8;
     return "$" + n.toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: Math.min(2, digits) });
   };
   const pct = (v, signed = false) => {
@@ -110,6 +110,7 @@
 
         <div class="cd-fr-tags">
           <span class="cd-fr-pill">${bull ? "🟢" : "🔴"} ${dir} · ${esc(s.pattern)}</span>
+          ${s.btc_trend ? `<span class="cd-fr-tag" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-weight:600;">🌐 BTC: ${esc(s.btc_trend)}</span>` : ""}
           <span class="cd-fr-tag cd-tag-purple">⚡ Closed Candle Breakout</span>
           <span class="cd-fr-tag cd-tag-amber">🔥 ${vol}x Vol</span>
           <span class="cd-fr-tag" style="margin-left:auto;">🕒 ${esc(timeText)}</span>
@@ -189,7 +190,8 @@
     const confirmedCount = allSetups.filter((s) => s.status === "CONFIRMED").length;
     const scanned = data?.scanned || 50;
 
-    meta.textContent = `${confirmedCount} Confirmed Breakout${confirmedCount === 1 ? "" : "s"} · ${allSetups.length} Total Setup${allSetups.length === 1 ? "" : "s"} · Scanned ${scanned} liquid coins (${currentTimeframe})`;
+    const btcContext = data?.btc_trend ? ` · 🌐 BTC: ${esc(data.btc_trend)}` : "";
+    meta.textContent = `${confirmedCount} Confirmed Breakout${confirmedCount === 1 ? "" : "s"} · ${allSetups.length} Total Setup${allSetups.length === 1 ? "" : "s"} · Scanned ${scanned} liquid coins (${currentTimeframe})${btcContext}`;
 
     if (!filtered.length) {
       const msg = filterTab === "confirmed"
