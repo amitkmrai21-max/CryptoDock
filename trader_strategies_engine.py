@@ -20,6 +20,26 @@ Specifically implements the trading frameworks of:
 import math
 import time
 
+
+def format_price(val):
+    if val is None:
+        return "--"
+    try:
+        val = float(val)
+    except (ValueError, TypeError):
+        return str(val)
+    if val >= 1000:
+        return f"{val:,.2f}"
+    elif val >= 1:
+        return f"{val:,.4f}"
+    elif val >= 0.01:
+        return f"{val:,.5f}"
+    elif val >= 0.0001:
+        return f"{val:,.6f}"
+    else:
+        return f"{val:,.8f}"
+
+
 def calculate_swings(candles, left=2, right=2):
     n = len(candles)
     highs, lows = [], []
@@ -218,8 +238,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                             "target_2": t2,
                             "rr_1": f"1:{rr1}",
                             "rr_2": "1:3.0",
-                            "level_swept": f"PWH: ${pwh:,.2f}",
-                            "summary": f"Gautam Jha Setup: Swept Previous Week High (${pwh:,.2f}) institutional liquidity. Breakout buyers trapped, decisive closed rejection back inside."
+                            "level_swept": f"PWH: ${format_price(pwh)}",
+                            "summary": f"Gautam Jha Setup: Swept Previous Week High (${format_price(pwh)}) institutional liquidity. Breakout buyers trapped, decisive closed rejection back inside."
                         }
 
         # Check PWL Sweep (Major Weekly Bull Trap)
@@ -246,8 +266,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                             "target_2": t2,
                             "rr_1": f"1:{rr1}",
                             "rr_2": "1:3.0",
-                            "level_swept": f"PWL: ${pwl:,.2f}",
-                            "summary": f"Gautam Jha Setup: Swept Previous Week Low (${pwl:,.2f}) institutional liquidity. Breakdown sellers trapped, decisive closed rejection back inside."
+                            "level_swept": f"PWL: ${format_price(pwl)}",
+                            "summary": f"Gautam Jha Setup: Swept Previous Week Low (${format_price(pwl)}) institutional liquidity. Breakdown sellers trapped, decisive closed rejection back inside."
                         }
 
         # Check Bearish Trap (Fakeout above PDH)
@@ -274,8 +294,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                             "target_2": t2,
                             "rr_1": f"1:{rr1}",
                             "rr_2": "1:2.8",
-                            "level_swept": f"PDH: ${pdh:,.2f}",
-                            "summary": f"Gautam Jha Setup: Pierced above Previous Day High (${pdh:,.2f}), trapped breakout buyers, closed back inside with operator rejection ('Ek kadam peeche')."
+                            "level_swept": f"PDH: ${format_price(pdh)}",
+                            "summary": f"Gautam Jha Setup: Pierced above Previous Day High (${format_price(pdh)}), trapped breakout buyers, closed back inside with operator rejection ('Ek kadam peeche')."
                         }
         
         # Check Bullish Trap (Fake breakdown below PDL)
@@ -302,8 +322,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                             "target_2": t2,
                             "rr_1": f"1:{rr1}",
                             "rr_2": "1:2.8",
-                            "level_swept": f"PDL: ${pdl:,.2f}",
-                            "summary": f"Gautam Jha Setup: Pierced below Previous Day Low (${pdl:,.2f}), trapped breakdown sellers, closed back inside with operator rejection ('Ek kadam peeche')."
+                            "level_swept": f"PDL: ${format_price(pdl)}",
+                            "summary": f"Gautam Jha Setup: Pierced below Previous Day Low (${format_price(pdl)}), trapped breakdown sellers, closed back inside with operator rejection ('Ek kadam peeche')."
                         }
 
     # -------------------------------------------------------------
@@ -334,8 +354,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                         "target_2": t2,
                         "rr_1": "1:1.8",
                         "rr_2": "1:2.8",
-                        "level_swept": f"EQH Pool: ${eq_high:,.2f}",
-                        "summary": f"Gautam Jha Setup: Retail double top liquidity swept at ${eq_high:,.2f}. Stop hunt triggered and followed by closed rejection back inside range."
+                        "level_swept": f"EQH Pool: ${format_price(eq_high)}",
+                        "summary": f"Gautam Jha Setup: Retail double top liquidity swept at ${format_price(eq_high)}. Stop hunt triggered and followed by closed rejection back inside range."
                     }
 
     if eq_low:
@@ -361,8 +381,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                         "target_2": t2,
                         "rr_1": "1:1.8",
                         "rr_2": "1:2.8",
-                        "level_swept": f"EQL Pool: ${eq_low:,.2f}",
-                        "summary": f"Gautam Jha Setup: Retail double bottom liquidity swept at ${eq_low:,.2f}. Stop hunt triggered and followed by closed rejection back inside range."
+                        "level_swept": f"EQL Pool: ${format_price(eq_low)}",
+                        "summary": f"Gautam Jha Setup: Retail double bottom liquidity swept at ${format_price(eq_low)}. Stop hunt triggered and followed by closed rejection back inside range."
                     }
 
     # -------------------------------------------------------------
@@ -410,8 +430,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                                     "target_2": t2,
                                     "rr_1": f"1:{rr1}",
                                     "rr_2": "1:2.8",
-                                    "level_swept": f"Panic Point: ${panic_point:,.2f}",
-                                    "summary": f"Gautam Jha PPT: Uptrend retraced into Panic Point (${panic_point:,.2f}). Retail stops flushed, opposite high intact ('Other SL not hit'), operator green candle closed above level."
+                                    "level_swept": f"Panic Point: ${format_price(panic_point)}",
+                                    "summary": f"Gautam Jha PPT: Uptrend retraced into Panic Point (${format_price(panic_point)}). Retail stops flushed, opposite high intact ('Other SL not hit'), operator green candle closed above level."
                                 }
 
     # BEARISH PPT (Downtrend Continuation)
@@ -451,8 +471,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                                     "target_2": t2,
                                     "rr_1": f"1:{rr1}",
                                     "rr_2": "1:2.8",
-                                    "level_swept": f"Panic Point: ${panic_point:,.2f}",
-                                    "summary": f"Gautam Jha PPT: Downtrend rallied into Panic Point (${panic_point:,.2f}). Retail breakout buyers trapped, opposite low intact ('Other SL not hit'), operator red candle closed below level."
+                                    "level_swept": f"Panic Point: ${format_price(panic_point)}",
+                                    "summary": f"Gautam Jha PPT: Downtrend rallied into Panic Point (${format_price(panic_point)}). Retail breakout buyers trapped, opposite low intact ('Other SL not hit'), operator red candle closed below level."
                                 }
 
     # -------------------------------------------------------------
@@ -482,8 +502,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                             "target_2": t2,
                             "rr_1": "1:1.7",
                             "rr_2": "1:2.6",
-                            "level_swept": f"Swing High: ${last_swing_h:,.2f}",
-                            "summary": f"Gautam Jha Setup: Liquidity sweep above major swing high (${last_swing_h:,.2f}) with false breakout trap and candle close back below resistance."
+                            "level_swept": f"Swing High: ${format_price(last_swing_h)}",
+                            "summary": f"Gautam Jha Setup: Liquidity sweep above major swing high (${format_price(last_swing_h)}) with false breakout trap and candle close back below resistance."
                         }
 
     if lows:
@@ -510,8 +530,8 @@ def check_gautam_jha_traps(candles, daily_candles):
                             "target_2": t2,
                             "rr_1": "1:1.7",
                             "rr_2": "1:2.6",
-                            "level_swept": f"Swing Low: ${last_swing_l:,.2f}",
-                            "summary": f"Gautam Jha Setup: Liquidity sweep below major swing low (${last_swing_l:,.2f}) with false breakdown trap and candle close back above support."
+                            "level_swept": f"Swing Low: ${format_price(last_swing_l)}",
+                            "summary": f"Gautam Jha Setup: Liquidity sweep below major swing low (${format_price(last_swing_l)}) with false breakdown trap and candle close back above support."
                         }
     return None
 
@@ -589,8 +609,8 @@ def check_booming_bulls_setups(candles):
                                         "target_2": t2,
                                         "rr_1": f"1:{rr1}",
                                         "rr_2": "1:2.6",
-                                        "level_swept": f"VWAP: ${curr_vwap:,.2f} · Fib 50-61.8%",
-                                        "summary": f"Booming Bulls Setup: Uptrend above VWAP (${curr_vwap:,.2f}). Tested 50%-61.8% Golden Fib retracement with bullish candlestick rejection & Stoch RSI momentum."
+                                        "level_swept": f"VWAP: ${format_price(curr_vwap)} · Fib 50-61.8%",
+                                        "summary": f"Booming Bulls Setup: Uptrend above VWAP (${format_price(curr_vwap)}). Tested 50%-61.8% Golden Fib retracement with bullish candlestick rejection & Stoch RSI momentum."
                                     }
 
     # 2. Bearish Trend Continuation
@@ -639,8 +659,8 @@ def check_booming_bulls_setups(candles):
                                         "target_2": t2,
                                         "rr_1": f"1:{rr1}",
                                         "rr_2": "1:2.6",
-                                        "level_swept": f"VWAP: ${curr_vwap:,.2f} · Fib 50-61.8%",
-                                        "summary": f"Booming Bulls Setup: Downtrend below VWAP (${curr_vwap:,.2f}). Tested 50%-61.8% Golden Fib retracement with bearish candlestick rejection & Stoch RSI momentum."
+                                        "level_swept": f"VWAP: ${format_price(curr_vwap)} · Fib 50-61.8%",
+                                        "summary": f"Booming Bulls Setup: Downtrend below VWAP (${format_price(curr_vwap)}). Tested 50%-61.8% Golden Fib retracement with bearish candlestick rejection & Stoch RSI momentum."
                                     }
     return None
 
@@ -686,6 +706,8 @@ def analyze_symbol_traders(symbol, klines_fetcher, interval="15m"):
             setup["current_price"] = candles[-1]["c"]
             setup["candle_close_time"] = candles[-2]["t"]
             setup["scanned_at"] = int(time.time())
+            if "risk_pct" not in setup and "entry" in setup and "stop_loss" in setup and setup["entry"] > 0:
+                setup["risk_pct"] = round((abs(setup["entry"] - setup["stop_loss"]) / setup["entry"]) * 100, 2)
             return setup
             
         return None

@@ -5145,8 +5145,8 @@ def _send_trader_telegram(text: str) -> bool:
     if now < _trader_tg_blocked_until:
         return False
     _load_env()
-    token = os.getenv("TELEGRAM_TRADER_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or "9154595444:AAF-hmRRbzib8kj2R4AabnxR4cXF6CkIga4"
-    chat_id = os.getenv("TELEGRAM_TRADER_CHAT_ID", "").strip() or os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or "8391540111"
+    token = os.getenv("TELEGRAM_TRADER_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip()
+    chat_id = os.getenv("TELEGRAM_TRADER_CHAT_ID", "").strip() or os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip()
     if not token or not chat_id:
         return False
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -5174,32 +5174,43 @@ def _send_trader_telegram(text: str) -> bool:
 
 def _format_trader_alert(item: dict) -> str:
     sym = item.get("symbol", "UNKNOWN")
+    base = sym.replace("USDT", "")
     side = item.get("side", "BUY")
     strategy = item.get("strategy", "Trader Strategy")
     setup = item.get("setup_name", "Setup")
     cat = item.get("category", "Confluence")
-    side_emoji = f"🟢 LONG ({strategy})" if side == "LONG" else f"🔴 SHORT ({strategy})"
+    is_long = side == "LONG"
+    side_emoji = "🟢 BUY (LONG)" if is_long else "🔴 SELL (SHORT)"
     entry = item.get("entry", 0.0)
     sl = item.get("stop_loss", 0.0)
     t1 = item.get("target_1", 0.0)
     t2 = item.get("target_2", 0.0)
+    risk_pct = item.get("risk_pct", 0.0)
     rr1 = item.get("rr_1", "1:1.8")
-    rr2 = item.get("rr_2", "1:2.6")
+    rr2 = item.get("rr_2", "1:2.8")
     vol = item.get("volume_surge", 1.0)
     lvl = item.get("level_swept", "")
     summary = item.get("summary", "")
     tf = item.get("interval", "15m")
 
+    strat_badge = "🎯 Gautam Jha Trap" if strategy == "Gautam Jha" else "⚡ Booming Bulls Trend"
+    confirmation_line = (
+        "✅ <b>Operator Rejection Confirmed ('Ek Kadam Peeche')</b>"
+        if strategy == "Gautam Jha"
+        else "✅ <b>Closed Candle Confluence Confirmed</b>"
+    )
+
     lvl_line = f"📍 <b>Key Level:</b> {lvl}\n" if lvl else ""
+    risk_str = f" (Risk: {risk_pct}%)" if risk_pct else ""
 
     return (
-        f"🏆 <b>CryptoDock Trader Setups Alert · {sym} ({tf})</b>\n\n"
+        f"🏆 <b>CryptoDock Trader Setups Alert · #{base}/USDT ({tf})</b>\n\n"
         f"⚡ <b>{side_emoji}</b> — {setup}\n"
-        f"🏷 <i>Strategy: {strategy} · {cat}</i>\n"
+        f"🏷 <i>{strat_badge} · {cat}</i>\n"
         f"{lvl_line}"
-        f"✅ <b>Closed Candle Confirmed</b>\n\n"
+        f"{confirmation_line}\n\n"
         f"💵 <b>Entry:</b> ${_format_accuracy_price(entry)}\n"
-        f"🛑 <b>Stop Loss:</b> ${_format_accuracy_price(sl)}\n"
+        f"🛑 <b>Stop Loss:</b> ${_format_accuracy_price(sl)}{risk_str}\n"
         f"🎯 <b>Target 1:</b> ${_format_accuracy_price(t1)} ({rr1} R:R)\n"
         f"🚀 <b>Target 2:</b> ${_format_accuracy_price(t2)} ({rr2} R:R)\n"
         f"📊 <b>Volume Surge:</b> {vol}x\n\n"

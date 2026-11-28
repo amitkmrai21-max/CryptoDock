@@ -88,6 +88,7 @@
     const timeText = ago(s.candle_close_time || s.scanned_at);
     const vol = s.volume_surge || 1.0;
     const isGautam = s.strategy === "Gautam Jha";
+    const riskText = s.risk_pct ? ` · ${s.risk_pct}%` : "";
 
     return `
       <article class="cd-fr-card ${bull ? "is-bull" : "is-bear"}" data-base="${esc(base)}">
@@ -115,29 +116,29 @@
 
         <div class="cd-fr-levels">
           <div>
-            <span>Entry (Closed)</span>
-            <b style="color:#fff">${money(s.entry)}</b>
-            <em class="${bull ? "cd-up" : "cd-down"}">Confirmed</em>
+            <span>Closed Entry</span>
+            <b style="color:var(--text, #fff)">${money(s.entry)}</b>
+            <em class="${bull ? "cd-up" : "cd-down"}">Triggered</em>
           </div>
           <div>
-            <span>Stop Loss</span>
+            <span>Stop${esc(riskText)}</span>
             <b class="cd-down">${money(s.stop_loss)}</b>
             <em class="cd-down">Invalidation</em>
           </div>
           <div>
-            <span>Target 1 (${esc(s.rr_1 || "1:1.6")})</span>
+            <span>T1 · ${esc(s.rr_1 || "1:1.8")}</span>
             <b class="cd-up">${money(s.target_1)}</b>
-            <em class="cd-up">Primary</em>
+            <em class="cd-up">T2: ${money(s.target_2)}</em>
           </div>
           <div>
-            <span>Target 2 (${esc(s.rr_2 || "1:2.6")})</span>
+            <span>T2 · ${esc(s.rr_2 || "1:2.8")}</span>
             <b class="cd-up">${money(s.target_2)}</b>
             <em class="cd-up">Extension</em>
           </div>
         </div>
 
         <div class="cd-fr-summary">
-          <p><strong>Rationale:</strong> ${esc(s.summary || "")}</p>
+          <p><strong>Rationale:</strong> ${esc(s.summary || "")} · <em>T2 (${esc(s.rr_2 || "1:2.8")}): ${money(s.target_2)}</em></p>
         </div>
 
         <div class="cd-fr-actions">
