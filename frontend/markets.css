@@ -3759,3 +3759,259 @@ body[data-theme="light"] .cd-ico { background: color-mix(in srgb, var(--ic) 13%,
 #cdAccuracy #cdAccuracyRefresh {
   margin-left: auto !important;
 }
+
+
+/* ==========================================================================
+   Trader Setups (Gautam Jha & Booming Bulls) Card Styles (CryptoDock Native)
+   ========================================================================== */
+#cdTraderSetups .cd-focus-results {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+#cdTraderSetups .cd-fr-card {
+  --c: var(--green, #10b981);
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 6%, var(--surface-soft, #171325)), var(--surface-soft, #171325));
+  border: 1px solid color-mix(in srgb, var(--c) 42%, transparent);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--c) 12%, transparent);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+#cdTraderSetups .cd-fr-card.is-bear {
+  --c: var(--red, #ef4444);
+}
+#cdTraderSetups .cd-fr-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+#cdTraderSetups .cd-fr-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface, #1e1b2e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  font-size: 14px;
+  font-weight: 700;
+}
+#cdTraderSetups .cd-fr-id strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+#cdTraderSetups .cd-fr-id strong span {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 400;
+}
+#cdTraderSetups .cd-fr-id small {
+  display: block;
+  margin-top: 2px;
+  font-size: 9.5px;
+  color: var(--text-muted, #94a3b8);
+}
+#cdTraderSetups .cd-fr-px {
+  text-align: right;
+}
+#cdTraderSetups .cd-fr-px b {
+  font-size: 14px;
+  display: block;
+  color: #fff;
+}
+#cdTraderSetups .cd-fr-px small {
+  font-size: 10px;
+  font-weight: 700;
+  display: block;
+  margin-top: 2px;
+}
+#cdTraderSetups .cd-fr-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+#cdTraderSetups .cd-fr-pill {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--c) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 50%, transparent);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+#cdTraderSetups .cd-fr-tag {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 99px;
+  background: var(--surface, #1e1b2e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  color: var(--text-muted, #94a3b8);
+}
+#cdTraderSetups .cd-fr-tag.cd-tag-purple {
+  background: rgba(168, 85, 247, 0.15) !important;
+  color: #c084fc !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+#cdTraderSetups .cd-fr-tag.cd-tag-amber {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+#cdTraderSetups .cd-fr-levels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  width: 100%;
+  box-sizing: border-box;
+}
+#cdTraderSetups .cd-fr-levels > div {
+  padding: 6px 3px;
+  border-radius: 8px;
+  background: var(--surface, #1e1b2e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  text-align: center;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+#cdTraderSetups .cd-fr-levels span {
+  display: block;
+  font-size: 7.5px;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+#cdTraderSetups .cd-fr-levels b {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+  color: #fff;
+}
+#cdTraderSetups .cd-fr-levels em {
+  display: block;
+  font-size: 8px;
+  font-style: normal;
+  margin-top: 1px;
+}
+#cdTraderSetups .cd-fr-summary {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface, #1e1b2e);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+}
+#cdTraderSetups .cd-fr-summary p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.4;
+}
+#cdTraderSetups .cd-fr-summary strong {
+  color: #fff;
+}
+#cdTraderSetups .cd-fr-summary em {
+  color: #38bdf8;
+  font-style: normal;
+}
+#cdTraderSetups .cd-fr-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+#cdTraderSetups .cd-fr-ticket {
+  padding: 9px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+#cdTraderSetups .cd-fr-ticket.is-buy {
+  background: linear-gradient(180deg, #34d399, #10b981);
+  color: #052e1a;
+}
+#cdTraderSetups .cd-fr-ticket.is-sell {
+  background: linear-gradient(180deg, #f87171, #ef4444);
+  color: #3b0a0a;
+}
+#cdTraderSetups .cd-fr-analysis {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  background: var(--surface, #1e1b2e);
+  color: var(--text, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+#cdTraderSetups .cd-fr-note {
+  font-size: 9.5px;
+  color: var(--text-muted, #94a3b8);
+  text-align: center;
+  line-height: 1.4;
+  margin-top: 10px;
+}
+#cdTraderSetups .cd-focus-empty {
+  text-align: center;
+  padding: 30px 16px;
+  border-radius: 14px;
+  background: var(--surface-soft, #171325);
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.1));
+}
+#cdTraderSetups .cd-focus-empty strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: #fff;
+}
+#cdTraderSetups .cd-focus-empty p {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Accuracy Header Controls Layout */
+#cdTraderSetups .cd-accuracy-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 6px;
+}
+#cdTraderSetups .cd-accuracy-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+#cdTraderSetups #cdTraderSetupsRefresh {
+  margin-left: auto !important;
+}

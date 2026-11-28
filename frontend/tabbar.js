@@ -56,9 +56,36 @@
     } catch (_) { return false; }
   }
 
+  
+  async function unlockTraderSetupsForOwner() {
+    const supabase = window.marketDockSupabase;
+    if (!supabase?.auth) return false;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) {
+        const tab = document.querySelector('.sidebar .app-tab[data-tab="tradersetups"]');
+        tab?.setAttribute("hidden", ""); tab?.setAttribute("aria-hidden", "true");
+        return false;
+      }
+      const response = await fetch("/api/owner/trader-setups/access", {
+        headers: { Authorization: `Bearer ${token}` }, cache: "no-store"
+      });
+      if (!response.ok) {
+        const tab = document.querySelector('.sidebar .app-tab[data-tab="tradersetups"]');
+        tab?.setAttribute("hidden", ""); tab?.setAttribute("aria-hidden", "true");
+        return false;
+      }
+      document.querySelector('.sidebar .app-tab[data-tab="tradersetups"]')?.removeAttribute("hidden");
+      document.querySelector('.sidebar .app-tab[data-tab="tradersetups"]')?.removeAttribute("aria-hidden");
+      return true;
+    } catch (_) { return false; }
+  }
+
   function checkOwnerTabs() {
     unlockSmartMtfForOwner();
     unlockAccuracyForOwner();
+    unlockTraderSetupsForOwner();
   }
 
   // Desktop uses the sidebar; mobile uses More. The backend verifies the owner either way.
@@ -96,7 +123,7 @@
   // Every other sidebar page (and Settings) as a tile in the More sheet.
   async function buildMore() {
     const tiles = [...document.querySelectorAll(".sidebar .app-tab[data-tab]")]
-      .filter((b) => !b.hidden && !MAIN_PAGES.includes(b.dataset.tab) && b.dataset.tab !== "smartmtf" && b.dataset.tab !== "accuracy")
+      .filter((b) => !b.hidden && !MAIN_PAGES.includes(b.dataset.tab) && b.dataset.tab !== "smartmtf" && b.dataset.tab !== "accuracy" && b.dataset.tab !== "tradersetups")
       .map((b) => `<button type="button" class="cd-more-tile" data-more="${b.dataset.tab}">
           <span class="cd-more-icon">${b.querySelector(".nav-icon")?.innerHTML || ""}</span>
           <span>${label(b)}</span>
@@ -121,6 +148,7 @@
 
     const isSmartMtfOwner = await unlockSmartMtfForOwner();
     const isAccuracyOwner = await unlockAccuracyForOwner();
+    const isTraderSetupsOwner = await unlockTraderSetupsForOwner();
     if (sheet.hidden) return;
 
     const settingsTile = grid.querySelector("[data-more-settings]");
@@ -138,6 +166,13 @@
       if (settingsTile) settingsTile.insertAdjacentHTML("beforebegin", accuracyTile);
       else grid.insertAdjacentHTML("beforeend", accuracyTile);
     }
+    if (isTraderSetupsOwner && !grid.querySelector("[data-more-trader-setups]")) {
+      const traderTile = `<button type="button" class="cd-more-tile cd-more-trader-setups" data-more-trader-setups="1">
+        <span class="cd-more-icon">🏆</span><span>Trader Setups</span></button>`;
+      if (settingsTile) settingsTile.insertAdjacentHTML("beforebegin", traderTile);
+      else grid.insertAdjacentHTML("beforeend", traderTile);
+    }
+
   }
 
   const openMore = () => { sheet.hidden = false; buildMore(); };
@@ -160,6 +195,7 @@
     closeMore();
     if (tile.dataset.moreSmartMtf) { window.cdOpenSmartMtf?.(); }
     else if (tile.dataset.moreAccuracy) { window.cdOpenAccuracy?.(); }
+    else if (tile.dataset.moreTraderSetups) { window.cdOpenTraderSetups?.(); }
     else if (tile.dataset.moreUpgrade) { if (typeof window.cdOpenProStatus === "function") window.cdOpenProStatus(); }
     else if (tile.dataset.moreSettings) document.getElementById("topSettingsMenuButton")?.click();
     else if (tile.dataset.extLink) window.open(tile.dataset.extLink, "_blank", "noopener");

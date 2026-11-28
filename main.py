@@ -5119,3 +5119,227 @@ def test_accuracy_telegram(authorization: str = Header(None)):
 
 # Start background 60s accuracy scanner thread
 threading.Thread(target=_accuracy_scanner_loop, name="accuracy-scanner", daemon=True).start()
+
+# ==============================================================================
+# TRADER SETUPS ENGINE & SCANNER (OWNER ONLY)
+# Gautam Jha (Liquidity Traps) & Booming Bulls (VWAP Golden Fib)
+# ==============================================================================
+import trader_strategies_engine
+
+TRADER_SETUPS_SYMBOLS = ACCURACY_SYMBOLS
+
+_trader_lock = threading.Lock()
+_trader_cache = {
+    "5m": {"data": None, "timestamp": 0.0},
+    "15m": {"data": None, "timestamp": 0.0},
+    "1h": {"data": None, "timestamp": 0.0}
+}
+_trader_alerted = {}  # (symbol, interval) -> float timestamp
+_trader_scanning = False
+_trader_tg_blocked_until = 0
+
+
+def _send_trader_telegram(text: str) -> bool:
+    global _trader_tg_blocked_until
+    now = time.time()
+    if now < _trader_tg_blocked_until:
+        return False
+    _load_env()
+    token = os.getenv("TELEGRAM_TRADER_BOT_TOKEN", "").strip() or os.getenv("TELEGRAM_ACCURACY_BOT_TOKEN", "").strip() or "9154595444:AAF-hmRRbzib8kj2R4AabnxR4cXF6CkIga4"
+    chat_id = os.getenv("TELEGRAM_TRADER_CHAT_ID", "").strip() or os.getenv("TELEGRAM_ACCURACY_CHAT_ID", "").strip() or "8391540111"
+    if not token or not chat_id:
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "CryptoDockTraderSetups/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except urllib.error.HTTPError as e:
+        if e.code == 429:
+            _trader_tg_blocked_until = now + 60
+        return False
+    except Exception:
+        return False
+
+
+def _format_trader_alert(item: dict) -> str:
+    sym = item.get("symbol", "UNKNOWN")
+    side = item.get("side", "BUY")
+    strategy = item.get("strategy", "Trader Strategy")
+    setup = item.get("setup_name", "Setup")
+    cat = item.get("category", "Confluence")
+    side_emoji = f"🟢 LONG ({strategy})" if side == "LONG" else f"🔴 SHORT ({strategy})"
+    entry = item.get("entry", 0.0)
+    sl = item.get("stop_loss", 0.0)
+    t1 = item.get("target_1", 0.0)
+    t2 = item.get("target_2", 0.0)
+    rr1 = item.get("rr_1", "1:1.8")
+    rr2 = item.get("rr_2", "1:2.6")
+    vol = item.get("volume_surge", 1.0)
+    lvl = item.get("level_swept", "")
+    summary = item.get("summary", "")
+    tf = item.get("interval", "15m")
+
+    lvl_line = f"📍 <b>Key Level:</b> {lvl}\n" if lvl else ""
+
+    return (
+        f"🏆 <b>CryptoDock Trader Setups Alert · {sym} ({tf})</b>\n\n"
+        f"⚡ <b>{side_emoji}</b> — {setup}\n"
+        f"🏷 <i>Strategy: {strategy} · {cat}</i>\n"
+        f"{lvl_line}"
+        f"✅ <b>Closed Candle Confirmed</b>\n\n"
+        f"💵 <b>Entry:</b> ${_format_accuracy_price(entry)}\n"
+        f"🛑 <b>Stop Loss:</b> ${_format_accuracy_price(sl)}\n"
+        f"🎯 <b>Target 1:</b> ${_format_accuracy_price(t1)} ({rr1} R:R)\n"
+        f"🚀 <b>Target 2:</b> ${_format_accuracy_price(t2)} ({rr2} R:R)\n"
+        f"📊 <b>Volume Surge:</b> {vol}x\n\n"
+        f"📝 <i>{summary}</i>\n\n"
+        f"⚠️ <i>Manual execution only. Educational confluence setup.</i>"
+    )
+
+
+def _trader_setups_run_scan(interval="15m", wait_if_running=False):
+    global _trader_scanning, _trader_cache, _trader_alerted
+    if interval not in ("5m", "15m", "1h"):
+        interval = "15m"
+
+    with _trader_lock:
+        if _trader_scanning:
+            if not wait_if_running:
+                return
+        else:
+            _trader_scanning = True
+
+    if not _trader_scanning and wait_if_running:
+        t_end = time.time() + 15
+        while time.time() < t_end:
+            time.sleep(0.2)
+            with _trader_lock:
+                if not _trader_scanning:
+                    return
+        return
+
+    try:
+        def fetcher(sym, tf, limit=120):
+            return get_klines(sym, tf, limit)
+
+        def worker(sym):
+            return trader_strategies_engine.analyze_symbol_traders(sym, fetcher, interval=interval)
+
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            raw_results = list(pool.map(worker, TRADER_SETUPS_SYMBOLS))
+
+        valid = [r for r in raw_results if r]
+        valid.sort(key=lambda x: (1 if x.get("status") == "CONFIRMED" else 0, x.get("volume_surge", 0)), reverse=True)
+
+        payload = {
+            "ok": True,
+            "scanned": len(TRADER_SETUPS_SYMBOLS),
+            "interval": interval,
+            "setups": valid,
+            "updated_at": int(time.time()),
+        }
+
+        with _trader_lock:
+            _trader_cache[interval] = {"data": payload, "timestamp": time.time()}
+
+        now = time.time()
+        alert_key_base = f"init_traders_{interval}"
+        if alert_key_base not in _trader_alerted:
+            _trader_alerted[alert_key_base] = now
+            for item in valid:
+                _trader_alerted[(item["symbol"], interval)] = now
+        else:
+            for item in valid:
+                sym = item["symbol"]
+                key = (sym, interval)
+                last_time = _trader_alerted.get(key, 0)
+                if now - last_time > 4 * 3600:
+                    msg = _format_trader_alert(item)
+                    if _send_trader_telegram(msg):
+                        _trader_alerted[key] = now
+                        time.sleep(1.2)
+    except Exception as e:
+        print(f"[TraderSetups] Scan error: {e}")
+    finally:
+        with _trader_lock:
+            _trader_scanning = False
+
+
+def _trader_setups_scanner_loop():
+    time.sleep(10)  # allow app startup to settle
+    while True:
+        try:
+            for tf in ("5m", "15m", "1h"):
+                try:
+                    _trader_setups_run_scan(interval=tf)
+                except Exception as e:
+                    print(f"[TraderSetups] {tf} scan error: {e}")
+                time.sleep(2)
+        except Exception as e:
+            print(f"[TraderSetups] Loop error: {e}")
+        time.sleep(60)
+
+
+@app.get("/api/owner/trader-setups/access")
+def trader_setups_access(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    return {"ok": True, "owner": True}
+
+
+@app.get("/api/owner/trader-setups")
+def get_trader_setups_results(refresh: int = 0, interval: str = "15m", authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    if interval not in ("5m", "15m", "1h"):
+        interval = "15m"
+
+    now = time.time()
+    tf_cache = _trader_cache.get(interval, {})
+    cached = tf_cache.get("data")
+    ts = tf_cache.get("timestamp", 0)
+
+    if refresh or not cached or (now - ts > 65):
+        _trader_setups_run_scan(interval=interval, wait_if_running=True)
+
+    return _trader_cache.get(interval, {}).get("data") or {
+        "ok": True,
+        "scanned": 0,
+        "interval": interval,
+        "setups": []
+    }
+
+
+@app.get("/api/owner/telegram-trader-setups/test")
+def test_trader_telegram(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    if _session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    msg = (
+        "🏆 <b>CryptoDock Trader Setups Scanner Live</b>\n\n"
+        "✅ Connected successfully!\n"
+        "⚡ Scanning top Binance pairs every 60s.\n"
+        "🎯 Frameworks: Gautam Jha (Liquidity Traps / PDH-PDL) & Booming Bulls (VWAP & Golden Fib Retracement).\n"
+        "🎯 Signals trigger strictly on closed candle confirmations."
+    )
+    ok = _send_trader_telegram(msg)
+    if not ok:
+        raise HTTPException(status_code=502, detail="Failed to send Telegram message. Check bot credentials and ensure /start has been initiated in chat.")
+    return {"ok": True, "sent": True}
+
+
+threading.Thread(target=_trader_setups_scanner_loop, name="trader-setups-scanner", daemon=True).start()
+

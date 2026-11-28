@@ -197,6 +197,11 @@
           Accuracy
         </button>
 
+<button class="nav-button app-tab" type="button" data-tab="tradersetups" hidden aria-hidden="true">
+          <span class="nav-icon">🏆</span>
+          Trader Setups
+        </button>
+
         <!-- The old BTC-only Virtual Trading page is replaced by Positions/Orders. -->
         <button class="nav-button app-tab" type="button" data-tab="virtual-trading" hidden>
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M7 7h11l-3-3M17 17H6l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
@@ -1354,6 +1359,37 @@
       </div>
     </section>
 
+<section class="tab-panel" data-panel="tradersetups" id="cdTraderSetups">
+      <div class="cd-dash cd-fr-page">
+        <div class="cd-fr-top cd-accuracy-header" style="justify-content: space-between; width: 100%; gap: 8px;">
+          <div class="cd-accuracy-title" style="flex: 1; min-width: 0;">
+            <strong>Trader Setups</strong>
+            <small style="display: block; margin-top: 2px; font-size: 9.5px; letter-spacing: .12em; color: var(--text-muted, var(--muted));">GAUTAM JHA (LIQUIDITY TRAP) · BOOMING BULLS (VWAP &amp; GOLDEN FIB)</small>
+          </div>
+          <div class="cd-accuracy-actions" style="display: flex; gap: 8px; align-items: center; width: 100%; margin-top: 6px;">
+            <div class="cd-pills cd-pills-sm" id="cdTraderSetupsTfTabs" style="margin: 0; display: inline-flex; gap: 4px;">
+              <button type="button" class="cd-pill" data-trader-tf="5m" style="padding: 4px 8px; font-size: 11px;">5m</button>
+              <button type="button" class="cd-pill is-active" data-trader-tf="15m" style="padding: 4px 8px; font-size: 11px;">15m</button>
+              <button type="button" class="cd-pill" data-trader-tf="1h" style="padding: 4px 8px; font-size: 11px;">1h</button>
+            </div>
+            <button id="cdTraderSetupsTgTest" class="cd-pill" type="button" style="font-size: 11px; padding: 5px 10px; margin: 0; cursor: pointer; white-space: nowrap;">📲 Test TG</button>
+            <button id="cdTraderSetupsRefresh" class="cd-fr-iconbtn" type="button" aria-label="Refresh" style="display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; min-width:34px; min-height:34px; border-radius:50%; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.06); color:var(--text-muted, #94a3b8); cursor:pointer; padding:0; outline:none; -webkit-tap-highlight-color:transparent; margin-left:auto;"><svg class="cd-fr-spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+          </div>
+        </div>
+        <div class="cd-fr-bar" style="overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px;">
+          <div class="cd-pills" id="cdTraderSetupsTabs" style="display: inline-flex; gap: 6px;">
+            <button type="button" class="cd-pill is-active" data-trader-filter="all">🏆 All Setups</button>
+            <button type="button" class="cd-pill" data-trader-filter="gautam">🎯 Gautam Jha (Traps)</button>
+            <button type="button" class="cd-pill" data-trader-filter="booming">⚡ Booming Bulls (VWAP &amp; Fib)</button>
+            <button type="button" class="cd-pill" data-trader-filter="long">🟢 Longs Only</button>
+            <button type="button" class="cd-pill" data-trader-filter="short">🔴 Shorts Only</button>
+          </div>
+        </div>
+        <p id="cdTraderSetupsMeta" class="cd-fr-meta">Scanning institutional liquidity traps and VWAP Golden Fib pullbacks…</p>
+        <div id="cdTraderSetupsResults" class="cd-focus-results" aria-live="polite"></div>
+      </div>
+    </section>
+
     <section class="disclaimer-card">
      <p id="disclaimerText">
         Educational only. Not financial advice.
@@ -2293,6 +2329,7 @@
   </script>
   <script src="/frontend/smart-mtf.js?v=20261124-smtf-fresh"></script>
   <script src="/frontend/accuracy.js?v=20261127-accuracy-v5"></script>
+  <script src="/frontend/trader-setups.js?v=20261128-traders-v1"></script>
   <script src="/frontend/settings.js?v=20261121-delta-tpmode-v1"></script>
 </body>
 </html>
